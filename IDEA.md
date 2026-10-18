@@ -115,8 +115,8 @@ The playbook gets the platform constraints right: DRM, no overlays, Matter only 
 
 | # | Test | Pass means | If it fails |
 |---|---|---|---|
-| 1 | Compose-for-TV app runs on Android TV emulator; D-pad focus works | Shell app with a focusable grid | Fall back to the `hello-world-fire-tv` sample as base |
-| 2 | Media3 plays MP4 + **2 side-loaded WebVTT + 1 extra audio track** and switches them | Track switching from code | Pre-mux audio tracks into MP4 with ffmpeg (simpler, same UX) |
+| 1 ✅ | Compose-for-TV app runs on Android TV emulator; D-pad focus works | Shell app with a focusable grid | **Passed 2026-10-18** (`docs/screens/day1-home-*`) |
+| 2 ✅ | Media3 plays MP4 + **2 side-loaded WebVTT + 1 extra audio track** and switches them | Track switching from code | **Passed 2026-10-18**: MergingMediaSource (video + separate dub file) gives 2 audio groups; 3 side-loaded VTT; D-pad chips switch them; Tamil and Devanagari render; subtitles drawn in Compose from `onCues` (`docs/screens/day1-player-*`) |
 | 3 | Transcribe on a 60-s Tamil/Hindi clip with language ID | Correct language + usable transcript | Pass the language code explicitly (family sets it at upload) |
 | 4 | Bedrock call (Claude) from Lambda in your region | JSON with translation + notes | Try another region / model access request |
 | 5 | Phone ↔ TV over API GW WebSocket via QR | Phone upload makes the TV refresh in < 2 s | Polling every 3 s (invisible in demo) |

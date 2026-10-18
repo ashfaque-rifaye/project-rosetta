@@ -52,3 +52,23 @@ Severity: **Blocker** · **Major** · **Minor** · **Papercut**
 - **Severity:** Major
 - **Workaround:** `-gpu swiftshader_indirect`. That got past rendering, then hit host memory limits (see the note below; not an Amazon issue).
 - **Suggestion:** Document the recommended `-gpu` flag for TV AVDs on Windows laptops with hybrid GPUs.
+
+### F-006: tv-material 1.0 "stable" still gates FilterChip behind an experimental opt-in
+- **Tool:** `androidx.tv:tv-material:1.0.0` (Compose for TV)
+- **Task:** Language chips in the player (D-pad selectable).
+- **Actual:** Compile error "This tv-material API is experimental" for `FilterChip`, with no hint in the Fire TV Compose docs.
+- **Severity:** Papercut
+- **Workaround:** `@file:OptIn(ExperimentalTvMaterial3Api::class)`
+- **Suggestion:** Fire TV's Compose-for-TV guide could list which tv-material components are still experimental.
+
+### F-007: Media3 `SubtitleView` doesn't move an already-visible cue when its bottom padding changes
+- **Tool:** `androidx.media3:media3-ui:1.8.0`, which Fire TV docs recommend for playback
+- **Task:** Lift subtitles above an on-screen control bar while the bar is visible.
+- **Expected:** `setBottomPaddingFraction()` repositions the current cue.
+- **Actual:** The cue stays put until the next cue arrives, so it overlaps the bar.
+- **Severity:** Minor
+- **Workaround:** Hide `SubtitleView` and render cues ourselves in Compose from `Player.Listener.onCues`. This turned out better anyway, since it lets us make individual words focusable for Rosetta Notes.
+- **Suggestion:** A Fire TV sample showing Compose-rendered captions with D-pad interaction.
+
+### Note: host memory (not an Amazon issue)
+The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) and the emulator could not run together, so we switched to `kotlin.compiler.execution.strategy=in-process`, a 1.25 GB guest, and stopped idle daemons. Recorded here so the numbers in this log make sense.

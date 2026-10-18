@@ -45,7 +45,10 @@ import app.rosetta.tv.data.Shelf
 import app.rosetta.tv.ui.theme.RosettaColors
 
 @Composable
-fun HomeScreen(shelves: List<Shelf> = SampleCatalog.shelves) {
+fun HomeScreen(
+    shelves: List<Shelf> = SampleCatalog.shelves,
+    onPlay: (Episode) -> Unit = {},
+) {
     var focused by remember { mutableStateOf(shelves.first().episodes.first()) }
     val firstCard = remember { FocusRequester() }
 
@@ -68,6 +71,7 @@ fun HomeScreen(shelves: List<Shelf> = SampleCatalog.shelves) {
                     ShelfRow(
                         shelf = shelf,
                         onFocus = { focused = it },
+                        onPlay = onPlay,
                         firstCardModifier = if (shelfIndex == 0) Modifier.focusRequester(firstCard) else Modifier,
                     )
                 }
@@ -143,6 +147,7 @@ private fun LanguageChip(language: String) {
 private fun ShelfRow(
     shelf: Shelf,
     onFocus: (Episode) -> Unit,
+    onPlay: (Episode) -> Unit,
     firstCardModifier: Modifier,
 ) {
     Column {
@@ -160,6 +165,7 @@ private fun ShelfRow(
                 EpisodeCard(
                     episode = episode,
                     onFocus = onFocus,
+                    onPlay = onPlay,
                     modifier = if (index == 0) firstCardModifier else Modifier,
                 )
             }
@@ -168,10 +174,15 @@ private fun ShelfRow(
 }
 
 @Composable
-private fun EpisodeCard(episode: Episode, onFocus: (Episode) -> Unit, modifier: Modifier = Modifier) {
+private fun EpisodeCard(
+    episode: Episode,
+    onFocus: (Episode) -> Unit,
+    onPlay: (Episode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val shape = RoundedCornerShape(12.dp)
     Card(
-        onClick = { /* Player lands in feasibility test 2. */ },
+        onClick = { onPlay(episode) },
         modifier = modifier
             .size(width = 240.dp, height = 135.dp)
             .onFocusChanged { if (it.isFocused) onFocus(episode) },
