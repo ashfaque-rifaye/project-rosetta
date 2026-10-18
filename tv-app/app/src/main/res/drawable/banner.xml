@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 launcher banner required by Fire TV / Android TV. Placeholder until real art. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="320dp" android:height="180dp" />
+            <gradient
+                android:angle="315"
+                android:endColor="#FF1B1035"
+                android:startColor="#FFE07A3F" />
+        </shape>
+    </item>
+</layer-list>

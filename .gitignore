@@ -1,0 +1,27 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+hs_err_pid*.log
+replay_pid*.log
+
+# Node / CDK
+node_modules/
+cdk.out/
+
+# Secrets
+.env
+*.pem
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
