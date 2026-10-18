@@ -117,8 +117,8 @@ The playbook gets the platform constraints right: DRM, no overlays, Matter only 
 |---|---|---|---|
 | 1 ✅ | Compose-for-TV app runs on Android TV emulator; D-pad focus works | Shell app with a focusable grid | **Passed 2026-10-18** (`docs/screens/day1-home-*`) |
 | 2 ✅ | Media3 plays MP4 + **2 side-loaded WebVTT + 1 extra audio track** and switches them | Track switching from code | **Passed 2026-10-18**: MergingMediaSource (video + separate dub file) gives 2 audio groups; 3 side-loaded VTT; D-pad chips switch them; Tamil and Devanagari render; subtitles drawn in Compose from `onCues` (`docs/screens/day1-player-*`) |
-| 3 | Transcribe on a 60-s Tamil/Hindi clip with language ID | Correct language + usable transcript | Pass the language code explicitly (family sets it at upload) |
-| 4 | Bedrock call (Claude) from Lambda in your region | JSON with translation + notes | Try another region / model access request |
+| 3 ✅ | Transcribe on a 60-s Tamil/Hindi clip with language ID | Correct language + usable transcript | **Passed 2026-10-19** on Polly Hindi (hi-IN, score 1.00, 18 s, VTT output). Still needs one real elder recording. See `docs/FEASIBILITY.md` |
+| 4 ⚠️ | Bedrock call (Claude) from Lambda in your region | JSON with translation + notes | **Pipeline passed on Nova Pro; Claude blocked by account billing (`INVALID_PAYMENT_INSTRUMENT`).** Nova's Tamil has meaning errors, so Claude is required. See `docs/FEASIBILITY.md` |
 | 5 | Phone ↔ TV over API GW WebSocket via QR | Phone upload makes the TV refresh in < 2 s | Polling every 3 s (invisible in demo) |
 | 6 | Polly en-IN neural dub of 60 s synced by segment timestamps | Dub roughly lip-time aligned | Subtitles-only plus a dub "narration" mode |
 

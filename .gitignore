@@ -25,3 +25,7 @@ cdk.out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Spike outputs (audio, transcripts, generated subtitles)
+pipeline/spikes/out/
+__pycache__/

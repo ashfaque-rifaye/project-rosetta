@@ -70,5 +70,23 @@ Severity: **Blocker** · **Major** · **Minor** · **Papercut**
 - **Workaround:** Hide `SubtitleView` and render cues ourselves in Compose from `Player.Listener.onCues`. This turned out better anyway, since it lets us make individual words focusable for Rosetta Notes.
 - **Suggestion:** A Fire TV sample showing Compose-rendered captions with D-pad interaction.
 
+### F-008: Bedrock Claude access flips from working to `INVALID_PAYMENT_INSTRUMENT` with no console signal
+- **Tool:** Amazon Bedrock (Converse API), Anthropic models via AWS Marketplace, us-east-1
+- **Task:** Call Claude for translation (feasibility test 4).
+- **Steps:** `list_foundation_models` / `list_inference_profiles` show 15 Claude models as ACTIVE. Probed each with a 5-token Converse call.
+- **Expected:** Either the listed models are invocable, or the listing says which ones aren't.
+- **Actual:** The listing shows everything as ACTIVE. Invocation fails three different ways: "not available for this account" (5.x family), `INVALID_PAYMENT_INSTRUMENT` (Sonnet/Haiku 4.x), and Opus 4.5/4.6 **succeeded once, then failed with `INVALID_PAYMENT_INSTRUMENT` ~3 minutes later** on the real request.
+- **Severity:** Major. It blocks the core feature, and the intermittent success makes it look like a code bug.
+- **Workaround:** Validated the pipeline on Amazon Nova Pro (first-party, no Marketplace). Fix the payment method to unlock Claude.
+- **Suggestion:** Return per-model *invocability* (entitlement + Marketplace status) from `ListFoundationModels`, and fail consistently rather than allowing a first call through.
+
+### F-009: Polly has no neural voice for Tamil or Malayalam (Transcribe supports both)
+- **Tool:** Amazon Polly
+- **Task:** Dub family stories *into* a grandparent's language (e.g. English reply → Tamil).
+- **Actual:** Transcribe batch understands ta-IN, ml-IN, te-IN, kn-IN and others, but Polly speaks only hi-IN and en-IN among Indian languages.
+- **Severity:** Major for our use case (the reply loop to Tamil grandparents is subtitles-only).
+- **Workaround:** Tamil replies are delivered as subtitles; Hindi gets a voice.
+- **Suggestion:** Tamil, Malayalam, Telugu, Bengali neural voices. That's hundreds of millions of speakers, many of them Fire TV customers in India.
+
 ### Note: host memory (not an Amazon issue)
 The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) and the emulator could not run together, so we switched to `kotlin.compiler.execution.strategy=in-process`, a 1.25 GB guest, and stopped idle daemons. Recorded here so the numbers in this log make sense.
