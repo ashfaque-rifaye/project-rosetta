@@ -15,6 +15,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        // Empty = bundled demo household. Set after `cdk deploy` (see infra/README.md).
+        buildConfigField("String", "ROSETTA_API_URL", "\"${project.findProperty("rosettaApiUrl") ?: ""}\"")
+        buildConfigField("String", "ROSETTA_WEB_URL", "\"${project.findProperty("rosettaWebUrl") ?: ""}\"")
     }
 
     buildTypes {
@@ -31,6 +35,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -56,4 +61,7 @@ dependencies {
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+
+    implementation(libs.zxing.core)
+    implementation(libs.okhttp)
 }
