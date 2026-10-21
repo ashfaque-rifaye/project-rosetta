@@ -88,5 +88,23 @@ Severity: **Blocker** · **Major** · **Minor** · **Papercut**
 - **Workaround:** Tamil replies are delivered as subtitles; Hindi gets a voice.
 - **Suggestion:** Tamil, Malayalam, Telugu, Bengali neural voices. That's hundreds of millions of speakers, many of them Fire TV customers in India.
 
+### F-010: App process replaced by background dexopt right after install, so D-pad input landed on the launcher
+- **Tool:** Android TV emulator (API 30) / Fire OS app install path
+- **Task:** Install the debug APK, launch it, and drive the flow with `adb shell input keyevent`.
+- **Actual:** About 30 s after install, the system ran `dexopt` on the new APK and restarted the app process. Our scripted
+  key presses then went to the TV launcher (Settings opened). No crash or log line in our app explained it.
+- **Severity:** Minor (it cost a test cycle and looked like a crash)
+- **Workaround:** `adb shell cmd package compile -m speed -f <pkg>` right after install, then launch.
+- **Suggestion:** Mention this in the Fire TV "test with adb" docs, especially for automated demo recording.
+
+### F-011: Bedrock vision bounding-box convention isn't stated next to the Converse image docs
+- **Tool:** Amazon Bedrock, Amazon Nova Pro (Converse with image input)
+- **Task:** Get grounded boxes for objects to draw on the TV.
+- **Actual:** The Nova grounding convention (integers on a 0–1000 grid, `[x1, y1, x2, y2]`) is in the Nova user guide but
+  not in the Converse API image examples, so the first schema guessed pixels.
+- **Severity:** Papercut
+- **Workaround:** State the 0–1000 convention in the tool schema description and normalize in code.
+- **Suggestion:** A "grounding" example on the Converse API page for each vision model.
+
 ### Note: host memory (not an Amazon issue)
 The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) and the emulator could not run together, so we switched to `kotlin.compiler.execution.strategy=in-process`, a 1.25 GB guest, and stopped idle daemons. Recorded here so the numbers in this log make sense.
