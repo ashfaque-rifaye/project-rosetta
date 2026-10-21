@@ -31,3 +31,7 @@ input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px sol
 .muted { color: var(--mist); font-size: 14px; }
 .row { display: flex; gap: 10px; }
 .flag { color: var(--ember); font-weight: 700; }
+
+.emotes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 10px; }
+.emotes button { font-size: 28px; padding: 10px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; transition: transform .15s; }
+.emotes button.pop { transform: scale(1.3); }

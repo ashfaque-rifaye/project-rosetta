@@ -23,6 +23,15 @@ interface RosettaRepository {
 
     fun equip(kidId: String, itemId: String?)
 
+    /** Kick off this week's Mess Boss raid (the Scout agent sizes the boss from a photo of the space). */
+    fun startRaid()
+
+    /** A phone sent a hype emote. */
+    fun emote(kidId: String, emoji: String)
+
+    /** Developer hook (remote MENU on the raid screen): one verified put-away hits the boss. */
+    fun devRaidHit()
+
     /**
      * Developer hook (remote MENU key): stands in for the kid's phone when no phone is connected,
      * using the bundled reference photos. Not part of the user-facing UI.

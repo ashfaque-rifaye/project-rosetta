@@ -28,7 +28,7 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
     override fun openQuest(questId: String) = update(questId) {
         if (it.stage != QuestStage.Ready) it else it.copy(
             stage = QuestStage.AwaitingBefore,
-            keeperLine = "Snap the room with your phone, ${kid(it).name}. Let's see who got lost today.",
+            keeperLine = "Snap your room, ${kid(it).name} 📸 Let's find the Lost Things.",
             log = it.log + ev(Agent.QuestMaster, "Quest opened on the TV · waiting for ${kid(it).name}'s phone"),
         )
     }
@@ -46,7 +46,7 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
     private fun before(id: String) {
         update(id) {
             it.copy(
-                stage = QuestStage.Scanning, beforePhoto = Household0.BEFORE, keeperLine = "Looking closely…",
+                stage = QuestStage.Scanning, beforePhoto = Household0.BEFORE, keeperLine = "Looking… 👀",
                 log = it.log + ev(Agent.QuestMaster, "Photo received from phone · routing to Scout", tool = "scout_room"),
             )
         }
@@ -58,7 +58,7 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
             delay(600)
             update(id) {
                 it.copy(
-                    keeperLine = "Five Lost Things in here, ${kid(it).name}. They miss their homes. Can you help them back?",
+                    keeperLine = "5 Lost Things spotted! Bring them home, ${kid(it).name} 🏠",
                     log = it.log + ev(Agent.Keeper, "Spoke to ${kid(it).name}", tool = "keeper_says"),
                 )
             }
@@ -70,7 +70,7 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
             it.copy(
                 stage = QuestStage.Verifying,
                 afterPhoto = if (final) Household0.AFTER_DONE else Household0.AFTER_PARTIAL,
-                keeperLine = "Checking on everyone…",
+                keeperLine = "Checking… ⚖️",
                 log = it.log + ev(Agent.QuestMaster, "New photo · routing to Judge", tool = "check_after"),
             )
         }
@@ -83,7 +83,7 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
                 delay(600)
                 update(id) {
                     it.copy(
-                        keeperLine = "Four are home! The jacket is still lost on the chair. Its hook by the window is waiting.",
+                        keeperLine = "4 home! Only the jacket left. Hook it by the window 🧥",
                         log = it.log + ev(Agent.Keeper, "Named what's left, kindly", tool = "keeper_says"),
                     )
                 }
@@ -94,7 +94,7 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
                 delay(400)
                 update(id) {
                     it.copy(
-                        keeperLine = "Every Lost Thing is home. The Family Stone is waiting for your glyph.",
+                        keeperLine = "ALL HOME. Absolute legend 🏆 Claim your glyph!",
                         log = it.log + ev(Agent.Keeper, "Celebrated", tool = "keeper_says"),
                     )
                 }
@@ -186,6 +186,40 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
         }
     }
 
+    override fun startRaid() {
+        state.update { if (it.raid != null) it else it.copy(raid = Raid(Household0.bosses.first())) }
+    }
+
+    override fun emote(kidId: String, emoji: String) {
+        state.update { it.copy(emotes = (it.emotes + Emote(System.nanoTime(), kidId, emoji, System.currentTimeMillis())).takeLast(12)) }
+    }
+
+    private var raidHits = 0
+    override fun devRaidHit() {
+        val h = state.value
+        val raid = h.raid ?: return
+        if (raid.defeated) return
+        val things = listOf("sock", "teddy", "bricks", "sneakers", "books", "dino", "jacket", "mug")
+        val kid = h.kids[raidHits % h.kids.size]
+        val crit = raidHits % 4 == 3
+        val base = 60 + (raidHits * 17) % 40
+        val combo = raid.combo + 1
+        val dmg = ((if (crit) base * 2 else base) * (1f + 0.1f * (combo - 1).coerceAtMost(5))).toInt()
+        raidHits++
+        val next = raid.copy(hits = raid.hits + Hit(kid.id, things[raidHits % things.size], dmg, crit, System.currentTimeMillis()))
+        state.update { it.copy(raid = next) }
+        if (next.defeated) state.update { hh ->
+            // Raid loot: everyone on the team gets it (co-op, not competitive).
+            hh.copy(kids = hh.kids.map { k ->
+                var xp = k.xp + 150; var lvl = k.level
+                while (xp >= 100 + (lvl - 1) * 50) { xp -= 100 + (lvl - 1) * 50; lvl++ }
+                k.copy(coins = k.coins + 200, xp = xp, level = lvl)
+            })
+        }
+        // Siblings cheer from their phones now and then.
+        if (raidHits % 3 == 0) emote(h.kids[(raidHits + 1) % h.kids.size].id, listOf("🔥", "💀", "🫶", "⚡", "🏆")[raidHits % 5])
+    }
+
     private fun kid(q: Quest) = state.value.kid(q.kidId)
     private fun ev(a: Agent, msg: String, conf: Float? = null, tool: String? = null) = AgentEvent(a, msg, System.currentTimeMillis() - t0, conf, tool)
     private fun log(id: String, a: Agent, msg: String, conf: Float? = null, tool: String? = null) =
@@ -212,6 +246,62 @@ object Household0 {
     fun item(a: String) = "rosetta/shop/$a.webp"
     fun stamp(a: String) = "rosetta/stamps/$a.webp"
     fun baseAvatar(kidId: String) = kidId
+
+    val bosses = listOf(
+        Boss("kraken", "The Sock Kraken", "Eight arms. Zero matching socks.", "kraken", "Playroom", 1200),
+        Boss("golem", "The Laundry Golem", "Built from every shirt you dropped this week.", "golem", "Laundry corner", 1500),
+        Boss("tornado", "The Toy Tornado", "Spins faster every time a toy is left out.", "tornado", "Living room", 1800),
+    )
+    fun boss(a: String) = "rosetta/bosses/$a.webp"
+    const val ARENA = "rosetta/bosses/arena.webp"
+
+    /** Where each rescued Lost Thing lives once it moves into the house (room-relative spot, 0..1 of the art). */
+    val residence = mapOf(
+        "sock" to NormRect(0.300f, 0.455f, 0.335f, 0.515f),
+        "dino" to NormRect(0.445f, 0.455f, 0.480f, 0.515f),
+        "bricks" to NormRect(0.540f, 0.455f, 0.575f, 0.515f),
+        "books" to NormRect(0.395f, 0.455f, 0.430f, 0.515f),
+        "sneakers" to NormRect(0.655f, 0.455f, 0.690f, 0.515f),
+        "teddy" to NormRect(0.600f, 0.755f, 0.640f, 0.815f),
+        "jacket" to NormRect(0.680f, 0.755f, 0.715f, 0.815f),
+        "mug" to NormRect(0.330f, 0.755f, 0.365f, 0.815f),
+    )
+    val residentLines = mapOf(
+        "sock" to "still looking for my twin 👀", "dino" to "RAWR (politely)", "bricks" to "we stick together 🧱",
+        "books" to "zzz… on the shelf finally", "sneakers" to "race you to the door", "teddy" to "best seat in the house 🫶",
+        "jacket" to "hook life is good", "mug" to "kitchen gang 🍵",
+    )
+
+    private fun growth(seed: Int, improving: Boolean): Growth {
+        val days = (0 until 28).map { d ->
+            val trend = if (improving) d / 27f else 0.5f
+            val weekend = d % 7 >= 5
+            val quests = ((if (weekend) 2 else 1) + (trend * 2).toInt()).coerceAtMost(4)
+            val minutes = (34 - (trend * 18).toInt() + (d * seed) % 6)
+            val self = (quests * (0.2f + trend * 0.6f)).toInt()
+            DayStat(listOf("M", "T", "W", "T", "F", "S", "S")[d % 7], if ((d * seed) % 9 == 4) 0 else quests, minutes, self)
+        }
+        return Growth(days, emptyMap(), emptyList())
+    }
+
+    fun seedGrowth() = mapOf(
+        "arjun" to growth(5, true).copy(
+            skills = mapOf("Tidy" to 0.86f, "Care" to 0.55f, "Kitchen" to 0.62f, "Self-start" to 0.71f, "Streaks" to 0.8f),
+            insights = listOf(
+                "Arjun now tidies his room in about 19 min, down from 34 a month ago.",
+                "He starts 7 of 10 quests on his own. Last month it was 3.",
+                "Kitchen quests lag behind. Try pairing one with Meera on Saturday.",
+            ),
+        ),
+        "meera" to growth(7, true).copy(
+            skills = mapOf("Tidy" to 0.64f, "Care" to 0.9f, "Kitchen" to 0.58f, "Self-start" to 0.52f, "Streaks" to 0.6f),
+            insights = listOf(
+                "Meera loves care quests: plants and her teddy are her streak keepers.",
+                "Her bedroom quests run long after 7 PM. Earlier slots finish twice as fast.",
+                "Self-starts are climbing: 5 this week, up from 2.",
+            ),
+        ),
+    )
 
     fun stampFor(q: Quest) = when (q.roomId) {
         "balcony" -> "s_garden"
@@ -278,6 +368,8 @@ object Household0 {
             ShopItem("popcorn", "Popcorn machine", "popcorn", 200, ItemKind.Decor, spot = NormRect(0.66f, 0.68f, 0.72f, 0.80f)),
         ),
         decor = setOf("lemon"),
+        raid = Raid(bosses.first()),
+        growth = seedGrowth(),
         today = listOf(DayEvent("4:10 PM", "meera", "Shoe Parade · 2 Lost Things home", "s_parcel")),
         pairingCode = "R4KX",
         live = false,

@@ -31,6 +31,9 @@ object Rosetta {
     val Rose = Color(0xFFFF6FA3)
     val Paper = Color(0xFFF7EEDC)
     val Ink = Color(0xFF1B2440)
+
+    /** Per-kid data series, validated (dataviz validator, dark surface #0F1830): band, chroma, CVD, contrast all pass. */
+    val KidSeries = listOf(Color(0xFF749A10), Color(0xFF3D97D1), Color(0xFFE0477F), Color(0xFFA257DD))
 }
 
 private val scheme = darkColorScheme(

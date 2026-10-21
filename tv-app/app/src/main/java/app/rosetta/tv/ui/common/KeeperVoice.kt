@@ -23,7 +23,9 @@ class KeeperVoice(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    fun speak(line: String) {
+    fun speak(raw: String) {
+        // Emojis are for the eyes; strip them (and symbol pictographs) before speaking.
+        val line = raw.replace(Regex("""[\p{So}\p{Cn}\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE0F}]"""), "").replace(Regex("""\s+"""), " ").trim()
         if (line.isBlank()) return
         if (!ready) { pending = line; return }
         tts.speak(line, TextToSpeech.QUEUE_FLUSH, null, line.hashCode().toString())

@@ -28,6 +28,13 @@
     <input id="photo" type="file" accept="image/*" capture="environment" hidden>
     <p class="muted" id="status"></p>
     <img id="preview" class="preview" hidden alt="">
+    <div class="card">
+      <div class="eyebrow">Hype the family</div>
+      <div class="emotes">
+        <button data-e="🔥">🔥</button><button data-e="💀">💀</button><button data-e="🫶">🫶</button>
+        <button data-e="⚡">⚡</button><button data-e="🏆">🏆</button><button data-e="😭">😭</button>
+      </div>
+    </div>
     <div class="card" id="thingsCard" hidden>
       <div class="eyebrow">Lost Things</div>
       <div id="things"></div>
@@ -52,6 +59,7 @@ async function refresh() {
     if (!q) { $("title").textContent = h.name; $("sub").textContent = "Pick a quest on the TV to start."; $("quest").hidden = true; return; }
     questId = q.id;
     const kid = h.kids.find((k) => k.id === q.kidId);
+    myKid = kid.id;
     $("title").textContent = q.title;
     $("sub").textContent = `${kid.name}'s quest`;
     $("quest").hidden = false;
@@ -77,6 +85,11 @@ $("photo").addEventListener("change", async (ev) => {
   busy = false; ev.target.value = "";
 });
 
+let myKid = null;
+document.querySelectorAll(".emotes button").forEach((b) => b.onclick = async () => {
+  b.classList.add("pop"); setTimeout(() => b.classList.remove("pop"), 300);
+  try { await post(`/household/${CODE}/emote`, { kidId: myKid || "arjun", emoji: b.dataset.e }); } catch (e) {}
+});
 $("joinBtn").onclick = () => { const c = $("code").value.trim().toUpperCase(); if (c) location.search = "?code=" + c; };
 
 if (!CODE) { $("join").hidden = false; } else { refresh(); setInterval(refresh, 1500); }

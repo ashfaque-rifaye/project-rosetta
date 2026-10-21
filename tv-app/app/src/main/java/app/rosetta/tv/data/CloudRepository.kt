@@ -51,6 +51,10 @@ class CloudRepository(
     override fun buy(kidId: String, itemId: String) = local.buy(kidId, itemId)
     override fun equip(kidId: String, itemId: String?) = local.equip(kidId, itemId)
     override fun devPhoneUpload(questId: String) = Unit // the real phone drives live mode
+    override fun startRaid() = local.startRaid()
+    override fun emote(kidId: String, emoji: String) = local.emote(kidId, emoji)
+    override fun devRaidHit() = local.devRaidHit()
+    private val seenEmotes = mutableSetOf<String>()
 
     private fun post(path: String) {
         scope.launch(Dispatchers.IO) {
@@ -65,7 +69,12 @@ class CloudRepository(
             check(it.isSuccessful) { "HTTP ${it.code}" }
             it.body!!.string()
         }
-        val quests = JSONObject(body).getJSONArray("quests")
+        val json = JSONObject(body)
+        json.optJSONArray("emotes")?.objects()?.forEach { e ->
+            val id = e.optString("id")
+            if (id.isNotBlank() && seenEmotes.add(id)) local.emote(e.getString("kidId"), e.getString("emoji"))
+        }
+        val quests = json.getJSONArray("quests")
         for (i in 0 until quests.length()) local.applyRemoteQuest(parseQuest(quests.getJSONObject(i)))
     }
 

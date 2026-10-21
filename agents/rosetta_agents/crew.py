@@ -53,17 +53,32 @@ class _Ctx:
 _ctx: _Ctx | None = None
 
 
+def _log(agent: str, message: str, confidence: float | None = None, tool_name: str | None = None) -> None:
+    """Append one Mission Control step (agent names match the TV's Agent enum)."""
+    import time
+    q = _ctx.q
+    entry = {"agent": agent, "message": message[:120], "atMs": int(time.time() * 1000) % 3_600_000}
+    if confidence is not None:
+        entry["confidence"] = round(confidence, 2)
+    if tool_name:
+        entry["tool"] = tool_name
+    q["log"] = (q.get("log", []) + [entry])[-30:]
+
+
 @tool
 def scout_room() -> str:
     """Scout + Coach: look at the quest's BEFORE photo, find the Lost Things (out-of-place items), and put them
     on the TV with where each belongs. Returns a short summary, or 'NOT_A_ROOM' if the photo isn't a room."""
     q = _ctx.q
+    _log("QuestMaster", "Photo received from phone · routing to Scout", tool_name="scout_room")
     found = vision.scout(store.photo_bytes(q["beforeKey"]), _ctx.kid["age"])
     if not found["is_room"] or not found["things"]:
         q["stage"] = "AwaitingBefore"
         _ctx.save()
         return "NOT_A_ROOM" if not found["is_room"] else "NOTHING_FOUND"
     q.update(stage="Found", things=found["things"], confidence=1.0)
+    _log("Scout", f"{len(found['things'])} out-of-place objects found")
+    _log("Coach", "Homes assigned · " + ", ".join(f"{t['id']}→{t['home']}" for t in found["things"])[:100], tool_name="plan_homes")
     _ctx.save()
     return "found: " + ", ".join(f"{t['name']} (home: {t['home']})" for t in found["things"])
 
@@ -73,6 +88,7 @@ def check_after() -> str:
     """Judge: compare the BEFORE and the latest AFTER photo item by item. Marks returned items on the TV.
     Returns 'WRONG_ROOM', 'NO_CHANGE', or a summary with the confidence and what is still lost."""
     q = _ctx.q
+    _log("QuestMaster", "New photo · routing to Judge", tool_name="check_after")
     verdict = vision.judge(store.photo_bytes(q["beforeKey"]), store.photo_bytes(q["afterKey"]), q["things"])
     if not verdict["same_room"]:
         q["stage"] = "Found"
@@ -87,6 +103,7 @@ def check_after() -> str:
     q["confidence"] = verdict["confidence"]
     left = [t["name"] for t in q["things"] if not t["returned"]]
     q["stage"] = "Partial" if left else "Done"
+    _log("Judge", f"{len(q['things']) - len(left)} of {len(q['things'])} home", confidence=verdict["confidence"])
     _ctx.save()
     return f"confidence={verdict['confidence']:.2f}; still lost: {', '.join(left) if left else 'none'}"
 
@@ -98,6 +115,7 @@ def ask_parent(reason: str) -> str:
     q = _ctx.q
     q["needsParent"] = True
     q["parentReason"] = reason
+    _log("Router", f"Sent to a parent: {reason}", tool_name="ask_parent")
     _ctx.save()
     return "parent asked"
 
@@ -123,6 +141,7 @@ def keeper_says(situation: str) -> str:
     happened (what was found, what is still lost, or that the photo needs retaking)."""
     line = vision.keeper(_ctx.kid["name"], _ctx.kid["age"], situation)
     _ctx.q["keeperLine"] = line
+    _log("Keeper", "Spoke to " + _ctx.kid["name"], tool_name="keeper_says")
     _ctx.save()
     return line
 

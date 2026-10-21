@@ -11,7 +11,24 @@ instead of being the prize everyone fights over.
 
 | Home Base | Lost Things (Room Scan) | Family Stone |
 |---|---|---|
-| ![Home](docs/screens/rosetta-home.png) | ![Found](docs/screens/rosetta-found.png) | ![Stone](docs/screens/rosetta-stone.png) |
+| ![Home](docs/screens/01-home.png) | ![Found](docs/screens/02-quest-found.png) | ![Stone](docs/screens/05-stone.png) |
+
+| Mess Boss raid | Reward reveal | Growth |
+|---|---|---|
+| ![Raid](docs/screens/09-raid.png) | ![Reward](docs/screens/04-reward.png) | ![Growth](docs/screens/11-growth.png) |
+
+## What's inside
+
+| Feature | What it does |
+|---|---|
+| **Home Base** | The family's house as a lit miniature. Rescued Lost Things live in its rooms and chat in bubbles; bought decor appears on it. |
+| **Room Scan → Lost Things** | Scout finds what's out of place in a phone photo; each item becomes a stop-motion character pinned to the real object. |
+| **Live agent Mission Control** | Watch Quest Master route work to Scout, Coach, Judge, Router and Keeper, with confidence scores. |
+| **Mess Boss raids** | Weekly co-op boss (Sock Kraken, Laundry Golem, Toy Tornado). Every AI-verified put-away deals damage; combos, crits, team contribution. |
+| **Phone hype emotes** | Siblings send 🔥 💀 🫶 from their phones; they burst onto the TV (allow-listed, kid-safe). |
+| **Progression** | Levels, XP, coins, streaks, reward reveal, passport stamps, Codex of collectibles whose rarity is earned, shop for outfits and house decor. |
+| **Family Stone → Movie Night** | Every quest carves a glyph; a full stone unlocks movie night. |
+| **Growth** | For parents: quests/day, tidy-time trend, self-starts, skill balance and the Coach agent's plain-language notes. |
 
 ## How it works
 
@@ -40,8 +57,7 @@ instead of being the prize everyone fights over.
 ## Run it
 
 ### 1. Fire TV app in demo mode (no AWS needed)
-The app ships with a **demo household** that replays the agent crew's real states and timings from bundled assets,
-so judges can try the whole flow with only a remote.
+The app ships with the Rao household (two kids, a month of progress) so the experience is full on first launch.
 
 ```bash
 cd tv-app
@@ -50,8 +66,9 @@ adb shell am start -n app.rosetta.tv/.MainActivity
 ```
 Emulator used in development: `system-images;android-30;android-tv;x86` (Fire OS 8 is based on Android 11), 1080p.
 
-Demo path with the remote: **OK** on "Rescue the Lost Things" → **OK** "Demo: send sample photo" → **OK** "send 'after' photo" →
-**OK** "send final photo" → **OK** "Carve the glyph" → **OK** "Movie night is unlocked".
+Without a deployed backend the TV runs its on-device household engine and waits for a phone. For testing without a phone,
+two hidden developer keys stand in for it: **MENU** sends the next reference room photo (on a quest) or one verified
+put-away (on the raid), and **FAST-FORWARD** sends a sibling emote.
 
 ### 2. Live mode (agent crew on AWS)
 Prerequisites: AWS account with Bedrock model access to **Amazon Nova Pro** in us-east-1, Node 20+, Python 3.12+.

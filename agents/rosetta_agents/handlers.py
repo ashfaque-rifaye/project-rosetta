@@ -8,12 +8,16 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 import urllib.parse
 
 from . import crew, store
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
+
+# Kid-safe, fixed set: phones can only send these.
+ALLOWED_EMOTES = {"🔥", "💀", "🫶", "⚡", "🏆", "😭"}
 
 KEEPER_OPEN = "Snap the room with your phone, {name}. Let's see who got lost today."
 
@@ -70,6 +74,17 @@ def api(event, _context):
             h["quests"].append(q)
             store.save(h)
             return _resp(200, q)
+
+        m = re.fullmatch(r"/household/(\w+)/emote", path)
+        if m and method == "POST":  # a phone sends a hype emote to the TV
+            h = store.load(m[1])
+            emoji = str(body.get("emoji", ""))[:8]
+            if emoji not in ALLOWED_EMOTES:
+                return _resp(400, {"error": "emote not allowed"})
+            em = {"id": f"e{int(time.time() * 1000)}", "kidId": body.get("kidId", ""), "emoji": emoji, "atMs": int(time.time() * 1000)}
+            h["emotes"] = (h.get("emotes", []) + [em])[-20:]
+            store.save(h)
+            return _resp(200, em)
 
         m = re.fullmatch(r"/household/(\w+)/upload", path)
         if m and method == "POST":  # kid's phone asks where to put the next photo

@@ -134,6 +134,12 @@ data class Household(
     /** Decor bought for the house, shown on the miniature. */
     val decor: Set<String>,
     val today: List<DayEvent>,
+    /** This week's Mess Boss raid (co-op), if one is running. */
+    val raid: Raid? = null,
+    /** Hype emotes sent from family phones; the TV bursts the newest ones. */
+    val emotes: List<Emote> = emptyList(),
+    /** 4-week habit history per kid, for the Growth tracker. */
+    val growth: Map<String, Growth> = emptyMap(),
     val pairingCode: String,
     /** False until the cloud agent crew is connected; the TV then runs its on-device household engine. */
     val live: Boolean,
@@ -158,3 +164,58 @@ data class QuestReward(
     val stamp: Stamp?,
     val codexUpgrades: List<CodexEntry>,
 )
+
+
+/* ----------------------------- Mess Boss raids ----------------------------- */
+
+/** A weekly co-op boss the AI spawns from a big messy space; every item put away deals damage. */
+data class Boss(
+    val id: String,
+    val name: String,
+    val tagline: String,
+    val asset: String,
+    val roomName: String,
+    val maxHp: Int,
+)
+
+/** One verified put-away: Judge confirmed [thing] went home, dealing [damage] to the boss. */
+data class Hit(val kidId: String, val thing: String, val damage: Int, val crit: Boolean, val atMs: Long)
+
+data class Raid(val boss: Boss, val hits: List<Hit> = emptyList(), val endsAt: String = "Sun 7 PM") {
+    val dealt get() = hits.sumOf { it.damage }
+    val hp get() = (boss.maxHp - dealt).coerceAtLeast(0)
+    val defeated get() = hp == 0
+    /** Consecutive hits within 20 s build a combo multiplier. */
+    val combo get(): Int {
+        var c = 0
+        for (i in hits.indices.reversed()) { if (i == hits.lastIndex || hits[i + 1].atMs - hits[i].atMs < 20_000) c++ else break }
+        return c
+    }
+    fun dealtBy(kidId: String) = hits.filter { it.kidId == kidId }.sumOf { it.damage }
+}
+
+/** A hype emote sent from a phone (🔥 💀 🫶 …) that bursts onto the TV. */
+data class Emote(val id: Long, val kidId: String, val emoji: String, val atMs: Long)
+
+/* ----------------------------- Growth tracker ----------------------------- */
+
+data class DayStat(
+    val label: String,
+    /** Quests finished that day. */
+    val quests: Int,
+    /** Minutes from quest open to "all home" (lower = more fluent). */
+    val minutes: Int,
+    /** Quests the kid started without a parent prompt. */
+    val selfStarted: Int,
+)
+
+/** A kid's habit picture: 28 days of stats, skill balance (0..1) and the Coach agent's plain-language notes. */
+data class Growth(val days: List<DayStat>, val skills: Map<String, Float>, val insights: List<String>) {
+    val thisWeek get() = days.takeLast(7)
+    val lastWeek get() = days.dropLast(7).takeLast(7)
+    val questsThisWeek get() = thisWeek.sumOf { it.quests }
+    val questsLastWeek get() = lastWeek.sumOf { it.quests }
+    val avgMinutesThisWeek get() = thisWeek.filter { it.quests > 0 }.map { it.minutes }.average().takeIf { !it.isNaN() } ?: 0.0
+    val avgMinutesLastWeek get() = lastWeek.filter { it.quests > 0 }.map { it.minutes }.average().takeIf { !it.isNaN() } ?: 0.0
+    val selfStartRate get() = thisWeek.sumOf { it.selfStarted }.toFloat() / questsThisWeek.coerceAtLeast(1)
+}

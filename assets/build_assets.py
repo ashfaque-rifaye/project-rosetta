@@ -19,7 +19,7 @@ MAP = {
     "reference/room_after_done.webp": "production/room_after_done.webp",
     "ui/coin.webp": "ui/coin.webp",
 }
-for folder in ("things", "glyphs", "avatars", "shop", "stamps"):
+for folder in ("things", "glyphs", "avatars", "shop", "stamps", "bosses"):
     for f in sorted((SRC / folder).glob("*.webp")):
         MAP[f"{folder}/{f.name}"] = f"{folder}/{f.name}"
 

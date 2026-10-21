@@ -31,6 +31,18 @@ import app.rosetta.tv.ui.reward.RewardScreen
 import app.rosetta.tv.ui.stone.MovieNightScreen
 import app.rosetta.tv.ui.stone.StoneScreen
 import app.rosetta.tv.ui.theme.RosettaTheme
+import app.rosetta.tv.ui.raid.RaidScreen
+import app.rosetta.tv.ui.raid.EmoteLayer
+import app.rosetta.tv.ui.growth.GrowthScreen
+import android.view.KeyEvent as AndroidKeyEvent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 
 sealed interface Screen {
     data object Home : Screen
@@ -41,6 +53,8 @@ sealed interface Screen {
     data object Codex : Screen
     data object Passport : Screen
     data object Shop : Screen
+    data object Raid : Screen
+    data object Growth : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -62,6 +76,12 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) { repo.rewards.collect { pendingReward = it } }
                 BackHandler(enabled = screen != Screen.Home && screen !is Screen.Reward) { screen = Screen.Home }
 
+                Box(Modifier.fillMaxSize().onPreviewKeyEvent {
+                    // Hidden developer hook: fast-forward stands in for a sibling's phone sending an emote.
+                    if (it.type == KeyEventType.KeyDown && it.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
+                        repo.emote(household.kids.random().id, listOf("🔥", "💀", "🫶", "⚡", "🏆", "😭").random()); true
+                    } else false
+                }) {
                 AnimatedContent(
                     targetState = screen,
                     transitionSpec = { (fadeIn(tween(450)) + scaleIn(tween(450), initialScale = 0.98f)) togetherWith fadeOut(tween(300)) },
@@ -77,6 +97,8 @@ class MainActivity : ComponentActivity() {
                                     HomeTab.Passport -> Screen.Passport
                                     HomeTab.Shop -> Screen.Shop
                                     HomeTab.Stone -> Screen.Stone()
+                                    HomeTab.Growth -> Screen.Growth
+                                    HomeTab.Raid -> Screen.Raid
                                 }
                             },
                         )
@@ -108,7 +130,12 @@ class MainActivity : ComponentActivity() {
                         Screen.Codex -> CodexScreen(household)
                         Screen.Passport -> PassportScreen(household)
                         Screen.Shop -> ShopScreen(household, onBuy = repo::buy, onEquip = repo::equip)
+                        Screen.Raid -> RaidScreen(household, onDevHit = repo::devRaidHit, onDone = { screen = Screen.Home })
+                        Screen.Growth -> GrowthScreen(household)
                     }
+                }
+                // Phone hype emotes burst over every screen.
+                EmoteLayer(household)
                 }
             }
         }

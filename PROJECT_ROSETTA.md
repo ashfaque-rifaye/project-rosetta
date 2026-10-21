@@ -85,6 +85,12 @@ We searched app stores, Devpost/MLH/hackathon showcases, Product Hunt, news and 
 | Amazon Kids Parent Dashboard ([listing](https://apps.appfollow.io/ios/amazon-kids-parent-dashboard/6471528064?country=us)) | Fire TV/tablets | Limits, bedtime, "Learn First" | **Restrict-only**; no earn-time API |
 | Chore-chart apps (Chore Pad, MyChoreBoard, Chorsee, QuestSpark…) | iPhone/iPad | Charts, stars | **None run on Fire TV / Android TV** |
 
+### Added 2026-10-21 (raids, residents)
+| Project | Overlap | Difference |
+|---|---|---|
+| **Everies** (Gemini API Competition 2024, Best ARCore) / Talkify / Preferred Networks CHI'25 | Everyday objects get faces, personality, voice | Ours: objects are *tidying targets* verified by vision, then move into a shared TV house |
+| HabitHero, ChoreChomp, ChoreSplit | XP, co-op goals, AI photo checks | None has a **co-op boss raid whose HP falls with AI-verified put-aways** |
+
 ### Verdict
 - **Taken:** "AI looks at a mess and lists items" (Chorémon), "earn screen time with photo proof" (many), "snarky AI host" (Chorémon's Rascal).
 - **Not found anywhere:** a **TV-native, shared-screen** family experience; **before/after item-level verification with partial credit shown to the whole family**; a **co-op world** built by siblings together; an **AI-produced nightly recap show**; **confidence-routed parent autopilot**; **Amazon ecosystem** tie-ins (Fire TV + Fire tablet + Ring + Amazon Kids).

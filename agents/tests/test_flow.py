@@ -108,6 +108,18 @@ class QuestFlow(unittest.TestCase):
         self.assertEqual(self.q()["stage"], "Done")
         self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 9)
 
+    def test_emotes_are_allow_listed(self):
+        self.assertEqual(call("POST", "/household/R4KX/emote", {"kidId": "meera", "emoji": "🔥"})[0], 200)
+        self.assertEqual(call("POST", "/household/R4KX/emote", {"kidId": "meera", "emoji": "<script>"})[0], 400)
+        self.assertEqual(store.load("R4KX")["emotes"][-1]["emoji"], "🔥")
+
+    def test_crew_writes_mission_control_log(self):
+        call("POST", "/household/R4KX/quests/q_arjun_room/open")
+        upload("R4KX", "q_arjun_room", "before", 0, b"room")
+        agents = [e["agent"] for e in self.q()["log"]]
+        for a in ("QuestMaster", "Scout", "Coach", "Keeper"):
+            self.assertIn(a, agents)
+
     def test_parent_posts_quest(self):
         status, q = call("POST", "/household/R4KX/quests", {"kidId": "meera", "roomId": "living", "title": "Fold the blankets"})
         self.assertEqual(status, 200)
