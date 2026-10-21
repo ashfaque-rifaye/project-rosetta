@@ -25,6 +25,12 @@ object Rosetta {
     val Mist = Color(0xFFA9B4CC)
     val Moss = Color(0xFF9BE37A)
     val Waypoint = Color(0xFFFFD27A)
+    val Lime = Color(0xFFC6F432)
+    val Sky = Color(0xFF6BC6FF)
+    val Violet = Color(0xFFC77DFF)
+    val Rose = Color(0xFFFF6FA3)
+    val Paper = Color(0xFFF7EEDC)
+    val Ink = Color(0xFF1B2440)
 }
 
 private val scheme = darkColorScheme(

@@ -27,7 +27,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import app.rosetta.tv.data.DemoHousehold
+import app.rosetta.tv.data.Household0
 import app.rosetta.tv.data.Household
 import app.rosetta.tv.ui.common.AssetImage
 import app.rosetta.tv.ui.common.Eyebrow
@@ -41,7 +41,7 @@ fun MovieNightScreen(household: Household, onBack: () -> Unit) {
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     val picker = household.kids.last() // the kid who didn't carve the last glyph picks
     Box(Modifier.fillMaxSize()) {
-        AssetImage(DemoHousehold.MOVIE_NIGHT_ART, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        AssetImage(Household0.MOVIE_ART, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Rosetta.Night.copy(alpha = 0.92f), Rosetta.Night.copy(alpha = 0.1f)))))
         Column(Modifier.align(Alignment.CenterStart).padding(start = 56.dp).width(440.dp)) {
             Eyebrow("THE STONE IS COMPLETE")
@@ -53,35 +53,13 @@ fun MovieNightScreen(household: Household, onBack: () -> Unit) {
                 modifier = Modifier.padding(top = 12.dp, bottom = 26.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Choice("Pick a film", "Opens your streaming app", Modifier.focusRequester(first)) {
+                app.rosetta.tv.ui.kit.RosettaButton("Pick a film", {
                     val launch = context.packageManager.getLaunchIntentForPackage("com.amazon.avod")
                         ?: Intent(android.provider.Settings.ACTION_SETTINGS)
                     runCatching { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                }
-                Choice("Start a new stone", "Back to the house", Modifier, onBack)
+                }, Modifier.focusRequester(first), icon = "🍿", sub = "${picker.name} chooses tonight", tone = app.rosetta.tv.ui.kit.ButtonTone.Gold, big = true)
+                app.rosetta.tv.ui.kit.RosettaButton("Start a new stone", onBack, icon = "🗿", sub = "Back to the house", tone = app.rosetta.tv.ui.kit.ButtonTone.Glass, big = true)
             }
-        }
-    }
-}
-
-@Composable
-private fun Choice(title: String, sub: String, modifier: Modifier, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.width(236.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Rosetta.Panel.copy(alpha = 0.85f),
-            focusedContainerColor = Rosetta.Gold,
-            contentColor = Rosetta.Cream,
-            focusedContentColor = Rosetta.Night,
-        ),
-        border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.dp, Rosetta.Line))),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Text(sub, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

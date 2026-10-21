@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,21 +17,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
-import app.rosetta.tv.data.DemoRepository
+import app.rosetta.tv.data.QuestReward
 import app.rosetta.tv.data.RosettaRepository
+import app.rosetta.tv.ui.collection.CodexScreen
+import app.rosetta.tv.ui.collection.PassportScreen
+import app.rosetta.tv.ui.collection.ShopScreen
 import app.rosetta.tv.ui.common.KeeperVoice
 import app.rosetta.tv.ui.home.HomeScreen
+import app.rosetta.tv.ui.home.HomeTab
+import app.rosetta.tv.ui.kit.Sfx
 import app.rosetta.tv.ui.quest.QuestScreen
+import app.rosetta.tv.ui.reward.RewardScreen
 import app.rosetta.tv.ui.stone.MovieNightScreen
 import app.rosetta.tv.ui.stone.StoneScreen
 import app.rosetta.tv.ui.theme.RosettaTheme
 
-/** Where the TV is. Kept tiny on purpose: a TV app has few places and Back must always make sense. */
 sealed interface Screen {
     data object Home : Screen
     data class Quest(val id: String) : Screen
+    data class Reward(val reward: QuestReward) : Screen
     data class Stone(val carvedGlyphId: String? = null) : Screen
     data object MovieNight : Screen
+    data object Codex : Screen
+    data object Passport : Screen
+    data object Shop : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -40,44 +50,50 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         keeper = KeeperVoice(this)
+        Sfx.init(this)
         repo = RosettaConfig.repository(this, lifecycleScope)
 
         setContent {
             RosettaTheme {
                 val household by repo.household.collectAsState()
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+                var pendingReward by remember { mutableStateOf<QuestReward?>(null) }
 
-                BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
+                LaunchedEffect(Unit) { repo.rewards.collect { pendingReward = it } }
+                BackHandler(enabled = screen != Screen.Home && screen !is Screen.Reward) { screen = Screen.Home }
 
                 AnimatedContent(
                     targetState = screen,
-                    transitionSpec = { fadeIn(tween(500)) togetherWith fadeOut(tween(350)) },
+                    transitionSpec = { (fadeIn(tween(450)) + scaleIn(tween(450), initialScale = 0.98f)) togetherWith fadeOut(tween(300)) },
                     label = "screen",
                 ) { s ->
                     when (s) {
                         Screen.Home -> HomeScreen(
                             household = household,
                             onOpenQuest = { q -> repo.openQuest(q.id); screen = Screen.Quest(q.id) },
-                            onOpenStone = { screen = Screen.Stone() },
+                            onTab = { tab ->
+                                screen = when (tab) {
+                                    HomeTab.Codex -> Screen.Codex
+                                    HomeTab.Passport -> Screen.Passport
+                                    HomeTab.Shop -> Screen.Shop
+                                    HomeTab.Stone -> Screen.Stone()
+                                }
+                            },
                         )
-                        is Screen.Quest -> {
-                            // A finished quest leaves the board while this screen is still fading out,
-                            // so a missing quest just renders nothing (navigation already moved on).
-                            val quest = household.quests.firstOrNull { it.id == s.id }
-                            if (quest != null) {
-                                LaunchedEffect(quest.keeperLine) { keeper.speak(quest.keeperLine) }
-                                QuestScreen(
-                                    household = household,
-                                    quest = quest,
-                                    joinUrl = RosettaConfig.joinUrl(household.pairingCode),
-                                    onDemoBefore = { repo.demoSendBefore(quest.id) },
-                                    onDemoAfter = { repo.demoSendAfter(quest.id) },
-                                    onCarveGlyph = {
-                                        screen = Screen.Stone(carvedGlyphId = quest.glyphId)
-                                        repo.closeQuest(quest.id)
-                                    },
-                                )
-                            }
+                        is Screen.Quest -> household.quests.firstOrNull { it.id == s.id }?.let { quest ->
+                            LaunchedEffect(quest.keeperLine) { keeper.speak(quest.keeperLine) }
+                            QuestScreen(
+                                household = household,
+                                quest = quest,
+                                joinUrl = RosettaConfig.joinUrl(household.pairingCode),
+                                onClaim = { pendingReward?.takeIf { it.questId == quest.id }?.let { screen = Screen.Reward(it) } },
+                                onDevPhone = { repo.devPhoneUpload(quest.id) },
+                            )
+                        }
+                        is Screen.Reward -> RewardScreen(household, s.reward) {
+                            repo.closeQuest(s.reward.questId)
+                            pendingReward = null
+                            screen = Screen.Stone(carvedGlyphId = s.reward.glyph?.id)
                         }
                         is Screen.Stone -> {
                             LaunchedEffect(s.carvedGlyphId) {
@@ -86,22 +102,24 @@ class MainActivity : ComponentActivity() {
                                     else "A new glyph is carved into the Family Stone.",
                                 )
                             }
-                            StoneScreen(
-                                household = household,
-                                carvedGlyphId = s.carvedGlyphId,
-                                onMovieNight = { screen = Screen.MovieNight },
-                                onBack = { screen = Screen.Home },
-                            )
+                            StoneScreen(household, s.carvedGlyphId, onMovieNight = { screen = Screen.MovieNight }, onBack = { screen = Screen.Home })
                         }
                         Screen.MovieNight -> MovieNightScreen(household, onBack = { screen = Screen.Home })
+                        Screen.Codex -> CodexScreen(household)
+                        Screen.Passport -> PassportScreen(household)
+                        Screen.Shop -> ShopScreen(household, onBuy = repo::buy, onEquip = repo::equip)
                     }
                 }
             }
         }
     }
 
+    override fun onResume() { super.onResume(); Sfx.musicOn() }
+    override fun onPause() { Sfx.musicOff(); super.onPause() }
+
     override fun onDestroy() {
         keeper.shutdown()
+        Sfx.release()
         super.onDestroy()
     }
 }

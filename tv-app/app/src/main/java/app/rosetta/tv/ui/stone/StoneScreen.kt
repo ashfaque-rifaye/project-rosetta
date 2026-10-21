@@ -51,7 +51,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import app.rosetta.tv.data.DemoHousehold
+import app.rosetta.tv.data.Household0
 import app.rosetta.tv.data.Glyph
 import app.rosetta.tv.data.Household
 import app.rosetta.tv.data.NormRect
@@ -86,7 +86,7 @@ fun StoneScreen(
     BoxWithConstraints(Modifier.fillMaxSize().background(Rosetta.Night)) {
         val w = maxWidth.value
         val h = maxHeight.value
-        AssetImage(DemoHousehold.STONE_ART, Modifier.offset(x = STONE_SHIFT_DP.dp).fillMaxSize(), contentScale = ContentScale.FillBounds)
+        AssetImage(Household0.STONE_ART, Modifier.offset(x = STONE_SHIFT_DP.dp).fillMaxSize(), contentScale = ContentScale.FillBounds)
 
         // 3×3 glyph grid on the stone face.
         val cols = 3
@@ -146,42 +146,26 @@ fun StoneScreen(
             enter = fadeIn(tween(700)) + slideInVertically(tween(700)) { it / 3 },
             modifier = Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 40.dp),
         ) {
-            Surface(
-                onClick = onMovieNight,
-                modifier = Modifier.focusRequester(action).width(320.dp),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = Rosetta.Gold.copy(alpha = 0.2f),
-                    contentColor = Rosetta.Gold,
-                    focusedContainerColor = Rosetta.Gold,
-                    focusedContentColor = Rosetta.Night,
-                ),
-                border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.dp, Rosetta.Gold))),
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-            ) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("THE STONE IS COMPLETE", style = MaterialTheme.typography.labelLarge)
-                    Text("Movie night is unlocked →", style = MaterialTheme.typography.headlineSmall)
-                }
-            }
+            app.rosetta.tv.ui.kit.RosettaButton(
+                "Movie night is unlocked", onMovieNight, Modifier.focusRequester(action),
+                icon = "🍿", sub = "The Stone is complete", tone = app.rosetta.tv.ui.kit.ButtonTone.Gold, big = true,
+            )
         }
         if (!household.stoneComplete) {
-            Surface(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 40.dp).focusRequester(action),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-                colors = ClickableSurfaceDefaults.colors(containerColor = Rosetta.Panel, focusedContainerColor = Rosetta.Gold, focusedContentColor = Rosetta.Night),
-            ) { Text("Back to the house", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) }
+            app.rosetta.tv.ui.kit.RosettaButton(
+                "Back to the house", onBack, Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 40.dp).focusRequester(action),
+                icon = "🏠", tone = app.rosetta.tv.ui.kit.ButtonTone.Glass,
+            )
         }
     }
 }
 
 @Composable
 private fun GlyphSlot(glyph: Glyph, isNew: Boolean, index: Int, modifier: Modifier) {
-    val img = rememberImage(DemoHousehold.glyphArt(glyph.asset))
+    val img = rememberImage(Household0.glyph(glyph.asset))
     val carve = remember(glyph.id, isNew) { Animatable(if (isNew) 0f else 1f) }
     LaunchedEffect(glyph.id, isNew) {
-        if (isNew) { delay(700); carve.animateTo(1f, tween(1800, easing = FastOutSlowInEasing)) }
+        if (isNew) { delay(700); app.rosetta.tv.ui.kit.Sfx.play(app.rosetta.tv.ui.kit.Sfx.Carve); carve.animateTo(1f, tween(1800, easing = FastOutSlowInEasing)) }
     }
     val glow by rememberInfiniteTransition(label = "g").animateFloat(0.55f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "glow")
     val earnedNow = glyph.earned && carve.value >= 0.999f

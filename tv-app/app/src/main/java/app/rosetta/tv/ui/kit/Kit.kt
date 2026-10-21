@@ -1,0 +1,372 @@
+package app.rosetta.tv.ui.kit
+
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Surface
+import androidx.tv.material3.Text
+import app.rosetta.tv.ui.common.AssetImage
+import app.rosetta.tv.ui.theme.Rosetta
+
+/* ---------------------------------------------------------------------------------------------
+ * Rosetta UI kit. Game-lobby energy (casino/collectible references) on a night-museum palette.
+ * Everything focusable lifts, glows and plays a soft tick so the remote always feels responsive.
+ * ------------------------------------------------------------------------------------------- */
+
+enum class ButtonTone { Gold, Lime, Ember, Glass }
+
+private fun toneBrush(tone: ButtonTone) = when (tone) {
+    ButtonTone.Gold -> Brush.verticalGradient(listOf(Color(0xFFFFE29A), Color(0xFFF4C56A), Color(0xFFE09A3A)))
+    ButtonTone.Lime -> Brush.verticalGradient(listOf(Color(0xFFE6FF8A), Color(0xFFC6F432), Color(0xFF8CC21A)))
+    ButtonTone.Ember -> Brush.verticalGradient(listOf(Color(0xFFFFB27A), Color(0xFFFF8A4D), Color(0xFFE0582A)))
+    ButtonTone.Glass -> Brush.verticalGradient(listOf(Color(0x33FFFFFF), Color(0x14FFFFFF)))
+}
+
+private fun toneGlow(tone: ButtonTone) = when (tone) {
+    ButtonTone.Gold -> Rosetta.Gold
+    ButtonTone.Lime -> Color(0xFFC6F432)
+    ButtonTone.Ember -> Rosetta.Ember
+    ButtonTone.Glass -> Rosetta.Cream
+}
+
+/**
+ * Primary call-to-action: glossy gradient pill with a top highlight, an icon chip, an outer glow when
+ * focused, and a springy press. [sub] adds a small second line (e.g. "+12 XP").
+ */
+@Composable
+fun RosettaButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: String? = null,
+    sub: String? = null,
+    tone: ButtonTone = ButtonTone.Gold,
+    enabled: Boolean = true,
+    big: Boolean = false,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val glow by animateFloatAsState(if (focused && enabled) 1f else 0f, tween(220), label = "glow")
+    val shimmer by rememberInfiniteTransition(label = "shimmer").animateFloat(
+        -0.3f, 1.3f, infiniteRepeatable(tween(2400), RepeatMode.Restart), label = "x",
+    )
+    val glowColor = toneGlow(tone)
+    val dark = tone != ButtonTone.Glass
+    val content = if (dark) Rosetta.Night else Rosetta.Cream
+    Surface(
+        onClick = { if (enabled) { Sfx.play(Sfx.Select); onClick() } },
+        modifier = modifier
+            .onFocusChanged { if (it.isFocused && !focused) Sfx.play(Sfx.Move); focused = it.isFocused }
+            .drawBehind {
+                if (glow > 0f) {
+                    val spread = 18.dp.toPx() * glow
+                    drawRoundRect(
+                        brush = Brush.radialGradient(
+                            listOf(glowColor.copy(alpha = 0.55f * glow), Color.Transparent),
+                            center = center, radius = size.maxDimension * 0.75f,
+                        ),
+                        topLeft = Offset(-spread, -spread),
+                        size = Size(size.width + spread * 2, size.height + spread * 2),
+                        cornerRadius = CornerRadius(size.height),
+                    )
+                }
+            }
+            .graphicsLayer { alpha = if (enabled) 1f else 0.45f },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent, focusedContainerColor = Color.Transparent,
+            pressedContainerColor = Color.Transparent, contentColor = content, focusedContentColor = content,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f, pressedScale = 0.96f),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = if (dark) 0.35f else 0.18f)), shape = RoundedCornerShape(50)),
+            focusedBorder = Border(BorderStroke(2.dp, Color.White.copy(alpha = 0.9f)), shape = RoundedCornerShape(50)),
+        ),
+    ) {
+        Box(
+            Modifier
+                .background(toneBrush(tone), RoundedCornerShape(50))
+                .drawBehind {
+                    // Glossy top highlight + a moving sheen while focused.
+                    drawRoundRect(
+                        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.Transparent), endY = size.height * 0.55f),
+                        cornerRadius = CornerRadius(size.height),
+                    )
+                    if (focused) {
+                        val x = size.width * shimmer
+                        drawRect(
+                            Brush.linearGradient(
+                                listOf(Color.Transparent, Color.White.copy(alpha = 0.28f), Color.Transparent),
+                                start = Offset(x - 80f, 0f), end = Offset(x + 80f, size.height),
+                            ),
+                        )
+                    }
+                },
+        ) {
+            Row(
+                Modifier.padding(start = if (icon != null) 8.dp else 26.dp, end = 26.dp, top = if (big) 12.dp else 8.dp, bottom = if (big) 12.dp else 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (icon != null) {
+                    Box(
+                        Modifier.size(if (big) 44.dp else 36.dp).clip(CircleShape)
+                            .background(if (dark) Rosetta.Night.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(icon, fontSize = if (big) 22.sp else 18.sp) }
+                    Spacer(Modifier.width(12.dp))
+                }
+                Column {
+                    Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = if (big) 21.sp else 17.sp), color = content, maxLines = 1)
+                    if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium, color = content.copy(alpha = 0.75f), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/** Frosted panel used for every card-like surface. */
+@Composable
+fun Glass(modifier: Modifier = Modifier, radius: Dp = 22.dp, glow: Color? = null, content: @Composable BoxScope.() -> Unit) {
+    val shape = RoundedCornerShape(radius)
+    Box(
+        modifier
+            .then(if (glow != null) Modifier.shadow(24.dp, shape, ambientColor = glow, spotColor = glow) else Modifier)
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(Color(0xE61A2547), Color(0xE60E162E))))
+            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.04f))), shape),
+        content = content,
+    )
+}
+
+/** Focusable card with lift + gold edge glow (quests, codex cards, shop items). */
+@Composable
+fun FocusCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    radius: Dp = 22.dp,
+    accent: Color = Rosetta.Gold,
+    onFocus: () -> Unit = {},
+    content: @Composable BoxScope.() -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(radius)
+    Surface(
+        onClick = { Sfx.play(Sfx.Select); onClick() },
+        modifier = modifier.onFocusChanged {
+            if (it.isFocused && !focused) { Sfx.play(Sfx.Move); onFocus() }
+            focused = it.isFocused
+        },
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        glow = androidx.tv.material3.ClickableSurfaceDefaults.glow(
+            focusedGlow = androidx.tv.material3.Glow(elevationColor = accent.copy(alpha = 0.6f), elevation = 18.dp),
+        ),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)), shape = shape),
+            focusedBorder = Border(BorderStroke(3.dp, accent), shape = shape),
+        ),
+    ) {
+        Box(Modifier.background(Brush.verticalGradient(listOf(Color(0xF01A2547), Color(0xF00C1328)))), content = content)
+    }
+}
+
+/** Currency / stat chip: coins, XP, streak, glyphs. */
+@Composable
+fun StatChip(icon: String, value: String, modifier: Modifier = Modifier, tint: Color = Rosetta.Gold) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color(0xCC0B1226))
+            .border(1.dp, tint.copy(alpha = 0.45f), RoundedCornerShape(50))
+            .padding(start = 6.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(26.dp).clip(CircleShape).background(tint.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+            Text(icon, fontSize = 14.sp)
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = Rosetta.Cream)
+    }
+}
+
+/** Segmented "jackpot" meter with glowing fill (family goal). */
+@Composable
+fun GoalMeter(progress: Float, modifier: Modifier = Modifier, segments: Int = 9, fill: Color = Rosetta.Gold) {
+    val p by animateFloatAsState(progress.coerceIn(0f, 1f), spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessVeryLow), label = "p")
+    val pulse by rememberInfiniteTransition(label = "m").animateFloat(0.6f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "a")
+    Canvas(modifier.height(18.dp)) {
+        val gap = 5.dp.toPx()
+        val w = (size.width - gap * (segments - 1)) / segments
+        repeat(segments) { i ->
+            val x = i * (w + gap)
+            val filled = ((p * segments) - i).coerceIn(0f, 1f)
+            drawRoundRect(Color(0x33FFFFFF), Offset(x, 0f), Size(w, size.height), CornerRadius(size.height / 2))
+            if (filled > 0f) {
+                val last = filled < 1f || i == (p * segments).toInt() - 1
+                drawRoundRect(
+                    Brush.verticalGradient(listOf(Color(0xFFFFE9A8), fill, Color(0xFFD98E2E))),
+                    Offset(x, 0f), Size(w * filled, size.height), CornerRadius(size.height / 2),
+                    alpha = if (last) pulse else 1f,
+                )
+            }
+        }
+    }
+}
+
+/** Circular XP ring around an avatar. */
+@Composable
+fun AvatarRing(asset: String, progress: Float, size: Dp, modifier: Modifier = Modifier, ring: Color = Color(0xFFC6F432), level: Int? = null) {
+    val p by animateFloatAsState(progress, tween(900), label = "ring")
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val s = 4.dp.toPx()
+            drawArc(Color(0x33FFFFFF), 0f, 360f, false, style = Stroke(s), topLeft = Offset(s / 2, s / 2), size = Size(this.size.width - s, this.size.height - s))
+            drawArc(ring, -90f, 360f * p, false, style = Stroke(s, cap = StrokeCap.Round), topLeft = Offset(s / 2, s / 2), size = Size(this.size.width - s, this.size.height - s))
+        }
+        AssetImage(asset, Modifier.size(size - 12.dp).clip(CircleShape))
+        if (level != null) {
+            Text(
+                "$level",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                color = Rosetta.Night,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.BottomEnd).size(26.dp).clip(CircleShape).background(ring).padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+enum class Rarity(val label: String, val color: Color, val glow: Color) {
+    Common("COMMON", Color(0xFFA9B4CC), Color(0x66A9B4CC)),
+    Rare("RARE", Color(0xFF6BC6FF), Color(0x996BC6FF)),
+    Epic("EPIC", Color(0xFFC77DFF), Color(0x99C77DFF)),
+    Legendary("LEGENDARY", Color(0xFFF4C56A), Color(0xCCF4C56A)),
+}
+
+/** Collectible card frame with rarity colour, holo sheen and a ribbon. */
+@Composable
+fun RarityFrame(rarity: Rarity, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val sheen by rememberInfiniteTransition(label = "holo").animateFloat(0f, 1f, infiniteRepeatable(tween(3200), RepeatMode.Restart), label = "s")
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(rarity.color.copy(alpha = 0.35f), Color(0xFF0B1226))))
+            .border(2.dp, Brush.linearGradient(listOf(rarity.color, Color.White.copy(alpha = 0.7f), rarity.color)), shape)
+            .drawBehind {
+                if (rarity >= Rarity.Rare) {
+                    val x = size.width * (sheen * 2f - 0.5f)
+                    drawRect(
+                        Brush.linearGradient(
+                            listOf(Color.Transparent, Color.White.copy(alpha = 0.16f), rarity.color.copy(alpha = 0.18f), Color.Transparent),
+                            start = Offset(x - 120f, 0f), end = Offset(x + 120f, size.height),
+                        ),
+                    )
+                }
+            },
+        content = content,
+    )
+}
+
+@Composable
+fun RarityRibbon(rarity: Rarity, modifier: Modifier = Modifier) {
+    Text(
+        rarity.label,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, letterSpacing = 1.6.sp),
+        color = Rosetta.Night,
+        modifier = modifier.clip(RoundedCornerShape(50)).background(rarity.color).padding(horizontal = 10.dp, vertical = 3.dp),
+    )
+}
+
+/** Section heading with a thin gold rule, used above every rail. */
+@Composable
+fun RailHeader(title: String, modifier: Modifier = Modifier, trailing: String? = null) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(title.uppercase(), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Gold)
+        Spacer(Modifier.width(14.dp))
+        Box(Modifier.weight(1f).height(1.dp).background(Brush.horizontalGradient(listOf(Rosetta.Gold.copy(alpha = 0.5f), Color.Transparent))))
+        if (trailing != null) {
+            Spacer(Modifier.width(14.dp))
+            Text(trailing, style = MaterialTheme.typography.labelLarge, color = Rosetta.Mist)
+        }
+    }
+}
+
+/** Small rounded pill label. */
+@Composable
+fun Pill(text: String, color: Color = Rosetta.Gold, filled: Boolean = false, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+        color = if (filled) Rosetta.Night else color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (filled) color else color.copy(alpha = 0.14f))
+            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(50))
+            .padding(horizontal = 12.dp, vertical = 5.dp),
+    )
+}
+
+@Composable
+fun Gap(h: Dp) = Spacer(Modifier.height(h))
+
+@Composable
+fun RowScope.Fill() = Spacer(Modifier.weight(1f))
+
+@Composable
+fun HStack(gap: Dp = 12.dp, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) =
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(gap), verticalAlignment = Alignment.CenterVertically, content = content)
