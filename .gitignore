@@ -29,3 +29,7 @@ Thumbs.db
 # Spike outputs (audio, transcripts, generated subtitles)
 pipeline/spikes/out/
 __pycache__/
+
+# Build outputs
+agents/dist/
+infra/build/

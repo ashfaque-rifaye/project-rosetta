@@ -34,6 +34,17 @@ for dst, src in MAP.items():
     d.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(s, d)
 
-print(f"copied {len(MAP) - len(missing)} assets to {DST.relative_to(ROOT)}")
+# The phone pages show the same Lost Thing portraits (smaller copies).
+web_things = ROOT / "web" / "things"
+web_things.mkdir(parents=True, exist_ok=True)
+try:
+    from PIL import Image
+    for f in (SRC / "things").glob("*.webp"):
+        Image.open(f).convert("RGB").resize((256, 256)).save(web_things / f.name, "WEBP", quality=85)
+except ImportError:
+    for f in (SRC / "things").glob("*.webp"):
+        shutil.copyfile(f, web_things / f.name)
+
+print(f"copied {len(MAP) - len(missing)} assets to {DST.relative_to(ROOT)} (+ web/things)")
 if missing:
     print("missing:", *missing, sep="\n  ")

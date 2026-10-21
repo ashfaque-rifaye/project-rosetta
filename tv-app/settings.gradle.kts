@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "rosetta-tv"
 include(":app")
+include(":vision-overlay")

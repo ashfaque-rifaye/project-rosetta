@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
+    implementation(project(":vision-overlay"))
     implementation(libs.zxing.core)
     implementation(libs.okhttp)
 }

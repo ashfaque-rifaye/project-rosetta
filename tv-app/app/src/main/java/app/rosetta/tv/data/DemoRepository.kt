@@ -59,7 +59,7 @@ class DemoRepository(private val scope: CoroutineScope) : RosettaRepository {
                     q.copy(
                         stage = QuestStage.Partial,
                         things = q.things.map { t -> t.copy(returned = t.id != "jacket") },
-                        keeperLine = "Four are home! The jacket is still lost on the chair. Its hook is waiting by the door.",
+                        keeperLine = "Four are home! The jacket is still lost on the chair. Its hook by the window is waiting.",
                         confidence = 0.88f,
                     )
                 }

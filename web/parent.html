@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1020">
+  <title>Rosetta · Mission Control</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <div class="eyebrow">Rosetta · Parent</div>
+  <h1>Mission Control</h1>
+  <p class="lead" id="sub">Your household's quests and what the agent crew is doing.</p>
+
+  <section id="review"></section>
+
+  <h2>Quests on the TV</h2>
+  <section id="quests"></section>
+
+  <h2>Post a quest</h2>
+  <div class="card">
+    <select id="kid"></select>
+    <select id="room"></select>
+    <input id="qtitle" placeholder="e.g. Water the balcony plants" maxlength="60">
+    <button id="add">Put it on the TV</button>
+  </div>
+
+  <h2>Family Stone</h2>
+  <div class="card" id="stone"></div>
+
+  <button class="ghost" id="reset" style="margin-top:18px">Reset demo household</button>
+</main>
+<script src="config.js"></script>
+<script src="rosetta.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let filled = false;
+
+async function refresh() {
+  const h = await getHousehold();
+  $("sub").textContent = `${h.name} · join code ${h.code}`;
+  const unsure = h.quests.filter((q) => q.needsParent);
+  $("review").innerHTML = unsure.map((q) => `
+    <div class="card"><div class="flag">The Judge isn't sure</div>
+      <p>${q.title}: ${q.parentReason || ""}</p>
+      ${q.afterUrl ? `<img class="preview" src="${q.afterUrl}" alt="">` : ""}
+      <button onclick="approve('${q.id}')">Looks done, approve</button></div>`).join("");
+  $("quests").innerHTML = h.quests.map((q) => {
+    const kid = h.kids.find((k) => k.id === q.kidId);
+    return `<div class="card"><div class="eyebrow">${kid.name} · ${STAGE_TEXT[q.stage] || q.stage}</div>
+      <div>${q.title}</div>${q.keeperLine ? `<p class="keeper">“${q.keeperLine}”</p>` : ""}
+      ${crewHtml(q.stage)}${q.things.length ? `<div style="margin-top:8px">${thingsHtml(q.things)}</div>` : ""}</div>`;
+  }).join("");
+  const done = h.glyphs.filter((g) => g.earnedBy).length;
+  $("stone").innerHTML = `<div>${done} of ${h.glyphs.length} glyphs carved${done === h.glyphs.length ? " · <b>movie night unlocked</b>" : ""}</div>`;
+  if (!filled) {
+    $("kid").innerHTML = h.kids.map((k) => `<option value="${k.id}">${k.name}</option>`).join("");
+    $("room").innerHTML = h.rooms.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
+    filled = true;
+  }
+}
+
+async function approve(id) { await post(`/household/${CODE}/quests/${id}/approve`); refresh(); }
+$("add").onclick = async () => {
+  const title = $("qtitle").value.trim(); if (!title) return;
+  await post(`/household/${CODE}/quests`, { kidId: $("kid").value, roomId: $("room").value, title });
+  $("qtitle").value = ""; refresh();
+};
+$("reset").onclick = async () => { if (confirmReset()) { await post(`/household/${CODE}/reset`); refresh(); } };
+function confirmReset() { return $("reset").dataset.armed ? true : ($("reset").dataset.armed = "1", $("reset").textContent = "Tap again to reset", false); }
+
+if (!CODE) location.href = "kid.html"; else { refresh(); setInterval(refresh, 3000); }
+</script>
+</body>
+</html>

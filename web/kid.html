@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1020">
+  <title>Rosetta · Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <div class="eyebrow">Rosetta</div>
+  <h1 id="title">Join your TV</h1>
+  <p class="lead" id="sub">Type the code you see on the TV.</p>
+
+  <section id="join" class="card" hidden>
+    <input id="code" placeholder="e.g. R4KX" maxlength="6" autocapitalize="characters">
+    <button id="joinBtn">Join</button>
+  </section>
+
+  <section id="quest" hidden>
+    <div class="card">
+      <div class="eyebrow" id="stage"></div>
+      <p class="keeper" id="keeper"></p>
+      <div id="crew"></div>
+    </div>
+    <label class="btn" id="snapLabel" for="photo" style="display:block;text-align:center">📷 Snap the room</label>
+    <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+    <p class="muted" id="status"></p>
+    <img id="preview" class="preview" hidden alt="">
+    <div class="card" id="thingsCard" hidden>
+      <div class="eyebrow">Lost Things</div>
+      <div id="things"></div>
+    </div>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="rosetta.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let questId = null, busy = false;
+
+function activeQuest(h) {
+  const order = ["Scanning", "Verifying", "Partial", "Found", "AwaitingAfter", "AwaitingBefore", "Done"];
+  return h.quests.slice().sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage)).find((q) => order.includes(q.stage));
+}
+
+async function refresh() {
+  try {
+    const h = await getHousehold();
+    const q = activeQuest(h);
+    if (!q) { $("title").textContent = h.name; $("sub").textContent = "Pick a quest on the TV to start."; $("quest").hidden = true; return; }
+    questId = q.id;
+    const kid = h.kids.find((k) => k.id === q.kidId);
+    $("title").textContent = q.title;
+    $("sub").textContent = `${kid.name}'s quest`;
+    $("quest").hidden = false;
+    $("stage").textContent = STAGE_TEXT[q.stage] || q.stage;
+    $("keeper").textContent = q.keeperLine ? `“${q.keeperLine}”` : "";
+    $("crew").innerHTML = crewHtml(q.stage);
+    const working = q.stage === "Scanning" || q.stage === "Verifying";
+    $("snapLabel").style.opacity = working || q.stage === "Done" ? 0.4 : 1;
+    $("snapLabel").textContent = q.stage === "AwaitingBefore" || q.stage === "Ready" ? "📷 Snap the room" : "📷 Snap again";
+    $("thingsCard").hidden = !q.things.length;
+    $("things").innerHTML = thingsHtml(q.things);
+  } catch (e) { $("status").textContent = "Can't reach the TV yet… " + e.message; }
+}
+
+$("photo").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  if (!file || !questId || busy) return;
+  busy = true;
+  $("preview").src = URL.createObjectURL(file); $("preview").hidden = false;
+  $("status").textContent = "Sending to the TV…";
+  try { const phase = await uploadPhoto(questId, file); $("status").textContent = phase === "before" ? "Sent! Look at the TV." : "Sent! The Judge is checking."; }
+  catch (e) { $("status").textContent = "Upload failed: " + e.message; }
+  busy = false; ev.target.value = "";
+});
+
+$("joinBtn").onclick = () => { const c = $("code").value.trim().toUpperCase(); if (c) location.search = "?code=" + c; };
+
+if (!CODE) { $("join").hidden = false; } else { refresh(); setInterval(refresh, 1500); }
+</script>
+</body>
+</html>

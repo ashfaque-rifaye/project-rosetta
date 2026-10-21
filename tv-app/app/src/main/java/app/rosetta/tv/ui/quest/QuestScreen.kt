@@ -67,6 +67,9 @@ import app.rosetta.tv.ui.common.Eyebrow
 import app.rosetta.tv.ui.common.QrCode
 import app.rosetta.tv.ui.common.rememberImage
 import app.rosetta.tv.ui.theme.Rosetta
+import dev.rosetta.visionoverlay.Detection
+import dev.rosetta.visionoverlay.VisionOverlay
+import dev.rosetta.visionoverlay.VisionOverlayStyle
 import kotlinx.coroutines.delay
 
 private val PhotoW = 588.dp
@@ -109,8 +112,15 @@ fun QuestScreen(
                     }
                     if (quest.stage == QuestStage.Scanning || quest.stage == QuestStage.Verifying) ScanSweep()
                     if (quest.stage in listOf(QuestStage.Found, QuestStage.AwaitingAfter, QuestStage.Partial)) {
-                        quest.things.forEachIndexed { i, t ->
-                            if (!t.returned) LostThingMarker(t, i, pulsing = quest.stage == QuestStage.Partial)
+                        // Open-source component (tv-app/vision-overlay): boxes on the real objects, Lost Things perched above.
+                        VisionOverlay(
+                            detections = quest.things.map { Detection(it.id, it.box.l, it.box.t, it.box.r, it.box.b, resolved = it.returned) },
+                            modifier = Modifier.fillMaxSize(),
+                            pulseUnresolved = quest.stage == QuestStage.Partial,
+                            style = VisionOverlayStyle(outline = Rosetta.Gold, fill = Rosetta.Gold.copy(alpha = 0.08f)),
+                        ) { d ->
+                            val thing = quest.things.first { it.id == d.id }
+                            AssetImage(DemoHousehold.thingArt(thing.character), Modifier.fillMaxSize())
                         }
                     }
                     if (quest.stage == QuestStage.Done) {
@@ -187,43 +197,6 @@ private fun ScanSweep() {
             .background(Brush.verticalGradient(listOf(Color.Transparent, Rosetta.Gold.copy(alpha = 0.35f), Color.Transparent))),
     )
 }
-
-/** Outline on the real object + the object's Lost Thing character perched above it. */
-@Composable
-private fun LostThingMarker(thing: LostThing, index: Int, pulsing: Boolean) {
-    val appear = remember(thing.id) { Animatable(0f) }
-    LaunchedEffect(thing.id) {
-        delay(index * 220L)
-        appear.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
-    }
-    val pulse by rememberInfiniteTransition(label = "p").animateFloat(
-        1f, if (pulsing) 1.12f else 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "s",
-    )
-    val box = thing.box
-    val x = PhotoW * box.l
-    val y = PhotoH * box.t
-    val w = PhotoW * (box.r - box.l)
-    val h = PhotoH * (box.b - box.t)
-    Box(
-        Modifier
-            .offset(x - 4.dp, y - 4.dp)
-            .size(w + 8.dp, h + 8.dp)
-            .graphicsLayer { alpha = appear.value; scaleX = pulse; scaleY = pulse }
-            .border(BorderStroke(2.dp, Rosetta.Gold), RoundedCornerShape(12.dp))
-            .background(Rosetta.Gold.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
-    )
-    val bubble = 54.dp
-    Box(
-        Modifier
-            .offset(x + w / 2 - bubble / 2, (y - bubble - 6.dp).coerceAtLeast(4.dp))
-            .size(bubble)
-            .graphicsLayer { scaleX = appear.value * pulse; scaleY = appear.value * pulse }
-            .clip(CircleShape)
-            .border(2.dp, Rosetta.Gold, CircleShape),
-    ) { AssetImage(DemoHousehold.thingArt(thing.character), Modifier.fillMaxSize()) }
-}
-
-private fun Dp.coerceAtLeast(min: Dp) = if (this < min) min else this
 
 @Composable
 private fun ThingRow(thing: LostThing) {
