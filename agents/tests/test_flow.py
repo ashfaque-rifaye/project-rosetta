@@ -35,11 +35,19 @@ def _install_fakes():
                 "confidence": 0.4 if after == b"after-unsure" else 0.9}
 
     vision.scout, vision.judge = scout, judge
+    from rosetta_agents import notify
+    notify._push = lambda sub, ev: SENT.append(("push", ev["kind"])) or True
+    notify._email = lambda to, ev: SENT.append(("email", ev["kind"])) or True
+    notify._sms = lambda to, ev: SENT.append(("sms", ev["kind"])) or True
     vision.keeper = lambda name, age, situation: f"[{name}] {situation[:40]}"
 
 
-def call(method, path, body=None):
-    ev = {"requestContext": {"http": {"method": method}}, "rawPath": path, "body": json.dumps(body) if body else None}
+SENT = []
+
+
+def call(method, path, body=None, pin=None):
+    ev = {"requestContext": {"http": {"method": method}}, "rawPath": path, "body": json.dumps(body) if body else None,
+          "headers": {"x-parent-pin": pin} if pin else {}}
     r = handlers.api(ev, None)
     return r["statusCode"], json.loads(r["body"])
 
@@ -53,8 +61,10 @@ def upload(code, qid, phase, n, data):
 class QuestFlow(unittest.TestCase):
     def setUp(self):
         _install_fakes()
-        DB.clear(); PHOTOS.clear()
+        DB.clear(); PHOTOS.clear(); SENT.clear()
         store.seed("R4KX")
+        for parent in ("mom", "dad"):  # each parent's phone has installed the app and allowed notifications
+            call("POST", f"/household/R4KX/parents/{parent}", {"subscription": {"endpoint": f"https://push.example/{parent}", "keys": {}}}, pin="2468")
 
     def q(self):
         return store.quest(store.load("R4KX"), "q_arjun_room")
@@ -104,7 +114,9 @@ class QuestFlow(unittest.TestCase):
         upload("R4KX", "q_arjun_room", "after", 1, b"after-unsure")
         self.assertTrue(self.q()["needsParent"])
         self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 8)
-        call("POST", "/household/R4KX/quests/q_arjun_room/approve")
+        self.assertEqual(call("POST", "/household/R4KX/quests/q_arjun_room/approve")[0], 403)  # kids can't approve
+        self.assertIn(("push", "needs_approval"), SENT)
+        call("POST", "/household/R4KX/quests/q_arjun_room/approve", pin="2468")
         self.assertEqual(self.q()["stage"], "Done")
         self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 9)
 
@@ -120,8 +132,35 @@ class QuestFlow(unittest.TestCase):
         for a in ("QuestMaster", "Scout", "Coach", "Keeper"):
             self.assertIn(a, agents)
 
+    def test_quest_done_alerts_parents_and_lands_in_feed(self):
+        call("POST", "/household/R4KX/quests/q_arjun_room/open")
+        upload("R4KX", "q_arjun_room", "before", 0, b"room")
+        upload("R4KX", "q_arjun_room", "after", 1, b"after-done")
+        h = store.load("R4KX")
+        self.assertEqual(h["feed"][-1]["kind"], "quest_done")
+        self.assertEqual(SENT.count(("push", "quest_done")), 2)  # mom + dad
+        self.assertEqual(len(h["history"]), 1)
+
+    def test_messages_and_done_check(self):
+        self.assertEqual(call("POST", "/household/R4KX/message", {"from": "mom", "text": "So proud!"})[0], 403)
+        self.assertEqual(call("POST", "/household/R4KX/message", {"from": "mom", "text": "So proud!"}, pin="2468")[0], 200)
+        self.assertEqual(call("POST", "/household/R4KX/message", {"from": "arjun", "text": "free text"})[0], 400)
+        self.assertEqual(call("POST", "/household/R4KX/message", {"from": "arjun", "text": "Great job! 🏆"})[0], 200)
+        call("POST", "/household/R4KX/done-check", {"kidId": "meera"})
+        self.assertIn(("push", "done_check"), SENT)
+        self.assertNotIn(("sms", "done_check"), SENT)  # sms is off by default
+
+    def test_parent_settings_and_sms_only_when_urgent(self):
+        call("POST", "/household/R4KX/parents/mom", {"phone": "+15550100", "alerts": {"push": False, "email": False, "sms": True}}, pin="2468")
+        call("POST", "/household/R4KX/done-check", {"kidId": "arjun"})
+        self.assertIn(("sms", "done_check"), SENT)
+        _, view = call("GET", "/household/R4KX")
+        self.assertNotIn("parentPin", view)
+        self.assertNotIn("phone", view["parents"][0])
+
     def test_parent_posts_quest(self):
-        status, q = call("POST", "/household/R4KX/quests", {"kidId": "meera", "roomId": "living", "title": "Fold the blankets"})
+        self.assertEqual(call("POST", "/household/R4KX/quests", {"kidId": "meera", "title": "x"})[0], 403)
+        status, q = call("POST", "/household/R4KX/quests", {"kidId": "meera", "roomId": "living", "title": "Fold the blankets"}, pin="2468")
         self.assertEqual(status, 200)
         self.assertIn(q["id"], [x["id"] for x in store.load("R4KX")["quests"]])
 

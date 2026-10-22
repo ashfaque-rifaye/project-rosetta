@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import time
 
 import boto3
@@ -58,6 +59,9 @@ def presign_put(key: str) -> str:
 def public_view(h: dict) -> dict:
     """What the TV and phones receive: photo keys swapped for short-lived URLs."""
     v = copy.deepcopy(h)
+    v.pop("parentPin", None)  # never sent to devices
+    for p in v.get("parents", []):
+        p.pop("push", None); p.pop("email", None); p.pop("phone", None)
     for q in v["quests"]:
         if q.get("beforeKey"):
             q["beforeUrl"] = presign_get(q.pop("beforeKey"))
@@ -92,6 +96,13 @@ def seed(code: str = "R4KX") -> dict:
             {"id": "q_kitchen", "kidId": "arjun", "roomId": "kitchen", "title": "Kitchen crew: clear the table", "glyphId": "next_crew"},
         ],
         "glyphs": [{"id": i, "name": n, "asset": a, "earnedBy": e} for i, n, a, e in glyphs],
+        # Parent PIN gates approvals, settings and parent messages; change it from Mission Control in a real home.
+        "parentPin": os.environ.get("ROSETTA_PARENT_PIN", "2468"),
+        "parents": [
+            {"id": "mom", "name": "Mom", "push": [], "alerts": {"push": True, "email": False, "sms": False}},
+            {"id": "dad", "name": "Dad", "push": [], "alerts": {"push": True, "email": False, "sms": False}},
+        ],
+        "feed": [], "emotes": [], "history": [],
     }
     for q in h["quests"]:
         q.update(stage="Ready", things=[], keeperLine="", confidence=1.0, attempt=0)

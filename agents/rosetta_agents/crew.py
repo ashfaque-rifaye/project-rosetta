@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from . import config, store, vision
+from . import config, notify, store, vision
 
 log = logging.getLogger(__name__)
 
@@ -116,6 +116,9 @@ def ask_parent(reason: str) -> str:
     q["needsParent"] = True
     q["parentReason"] = reason
     _log("Router", f"Sent to a parent: {reason}", tool_name="ask_parent")
+    notify.emit(_ctx.h, "needs_approval", f"Check {_ctx.kid['name']}'s room?",
+                f"The Judge is {q.get('confidence', 0):.0%} sure the Lost Things are home. Approve from here.",
+                by="Router", data={"questId": q["id"], "kidId": q["kidId"]})
     _ctx.save()
     return "parent asked"
 
@@ -130,6 +133,10 @@ def complete_quest() -> str:
     for g in _ctx.h["glyphs"]:
         if g["id"] == q["glyphId"]:
             g["earnedBy"] = q["kidId"]
+    record_finish(_ctx.h, q)
+    notify.emit(_ctx.h, "quest_done", f"{_ctx.kid['name']} finished “{q['title']}” ✅",
+                f"{len(q['things'])} Lost Things are home. A glyph was carved into the Family Stone.",
+                by="QuestMaster", data={"questId": q["id"], "kidId": q["kidId"]})
     _ctx.save()
     done = sum(1 for g in _ctx.h["glyphs"] if g.get("earnedBy"))
     return f"glyph carved; stone {done}/{len(_ctx.h['glyphs'])}"
@@ -180,6 +187,17 @@ def _deterministic(phase: str) -> None:
         keeper_says("Every Lost Thing is home; a new glyph is carved into the Family Stone.")
     else:
         keeper_says(f"Judge result: {r}. Name what is still lost and where it belongs.")
+
+
+def record_finish(h: dict, q: dict) -> None:
+    """Habit history for Growth and the Digest agent: one row per finished quest."""
+    import time
+    opened = q.get("openedAtMs") or int(time.time() * 1000)
+    h["history"] = (h.get("history", []) + [{
+        "kidId": q["kidId"], "questId": q["id"], "roomId": q["roomId"], "atMs": int(time.time() * 1000),
+        "minutes": max(1, (int(time.time() * 1000) - opened) // 60000), "selfStarted": bool(q.get("selfStarted")),
+        "items": len(q.get("things", [])),
+    }])[-500:]
 
 
 def run(code: str, quest_id: str, phase: str) -> None:

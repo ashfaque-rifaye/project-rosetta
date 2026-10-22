@@ -162,3 +162,31 @@ KEEPER_SYSTEM = (
 def keeper(kid_name: str, kid_age: int, situation: str) -> str:
     out = _converse([{"text": situation}], KEEPER_TOOL, KEEPER_SYSTEM.format(age=kid_age, name=kid_name), max_tokens=200)
     return out.get("line", "").strip()
+
+
+# ---------------------------------------------------------------- Digest (weekly Growth summary for parents)
+DIGEST_TOOL = {
+    "toolSpec": {
+        "name": "write_digest",
+        "description": "Weekly habit digest for parents.",
+        "inputSchema": {"json": {
+            "type": "object", "required": ["headline", "notes"],
+            "properties": {
+                "headline": {"type": "string", "description": "One upbeat sentence, max 14 words."},
+                "notes": {"type": "array", "maxItems": 3, "items": {"type": "string"},
+                          "description": "Specific, numeric, kind observations and one practical suggestion; max 22 words each."},
+            },
+        }},
+    }
+}
+
+DIGEST_SYSTEM = (
+    "You are the Digest agent in Rosetta, writing a short weekly note to parents about how a child's tidying habits are "
+    "growing. Use only the numbers given. Praise effort and progress, never compare siblings, never shame. Give at most "
+    "one practical suggestion (e.g. a better time of day or pairing a quest with a sibling)."
+)
+
+
+def digest(kid_name: str, kid_age: int, stats: dict) -> dict:
+    out = _converse([{"text": f"Child: {kid_name}, age {kid_age}. Stats: {json.dumps(stats)}"}], DIGEST_TOOL, DIGEST_SYSTEM, max_tokens=400)
+    return {"headline": out.get("headline", ""), "notes": out.get("notes", [])[:3]}
