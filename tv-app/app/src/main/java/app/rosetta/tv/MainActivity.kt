@@ -42,6 +42,11 @@ import app.rosetta.tv.ui.study.StudyScreen
 import app.rosetta.tv.ui.raid.ArenaLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import app.rosetta.tv.ui.growth.GrowthScreen
+import app.rosetta.tv.ui.habit.HabitScreen
+import app.rosetta.tv.ui.home.WatchApp
+import app.rosetta.tv.ui.intro.IntroScreen
+import android.content.Intent
+import android.widget.Toast
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +58,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 
 sealed interface Screen {
+    data object Intro : Screen
     data object Home : Screen
     data class Quest(val id: String) : Screen
     data class Reward(val reward: QuestReward) : Screen
@@ -70,6 +76,20 @@ class MainActivity : ComponentActivity() {
     private lateinit var keeper: KeeperVoice
     private lateinit var repo: RosettaRepository
 
+    /** The home music waits for the intro film (it has its own score). */
+    private var introDone = false
+
+    /** When TV time opened a streaming app: the minutes away are reported as used when Rosetta comes back. */
+    private var watchStartMs = 0L
+
+    /** Earned TV time: open the first installed package of [app] (Fire TV can't lock other apps, so time is counted honestly). */
+    private fun watch(app: WatchApp) {
+        val launch = app.packages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) ?: packageManager.getLeanbackLaunchIntentForPackage(it) }
+        if (launch == null) { Toast.makeText(this, "${app.label} isn't installed on this TV", Toast.LENGTH_LONG).show(); return }
+        watchStartMs = System.currentTimeMillis()
+        runCatching { startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { watchStartMs = 0L }
+    }
+
     // The Unity arena hands back the raid's hits when the family presses Back.
     private val arena = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         ArenaLauncher.quizAnswers(r.data)?.let { answers ->
@@ -84,16 +104,17 @@ class MainActivity : ComponentActivity() {
         Sfx.init(this)
         repo = RosettaConfig.repository(this, lifecycleScope)
 
+        if (savedInstanceState != null) introDone = true
         setContent {
             RosettaTheme {
                 val household by repo.household.collectAsState()
-                var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+                var screen by remember { mutableStateOf<Screen>(if (introDone) Screen.Home else Screen.Intro) }
                 var pendingReward by remember { mutableStateOf<QuestReward?>(null) }
 
                 var arenaQuizPending by remember { mutableStateOf(false) }
 
                 LaunchedEffect(Unit) { repo.rewards.collect { pendingReward = it } }
-                BackHandler(enabled = screen != Screen.Home && screen !is Screen.Reward) { screen = Screen.Home }
+                BackHandler(enabled = screen != Screen.Home && screen !is Screen.Reward && screen != Screen.Intro) { screen = Screen.Home }
                 LaunchedEffect(arenaQuizPending, household.quiz) {
                     val quiz = household.quiz
                     if (arenaQuizPending && quiz != null && !quiz.done && quiz.questions.isNotEmpty()) {
@@ -109,7 +130,7 @@ class MainActivity : ComponentActivity() {
                             repo.emote(household.kids.random().id, listOf("🔥", "💀", "🫶", "⚡", "🏆", "😭").random()); true
                         }
                         // One Back press goes Home: on TV, Compose otherwise spends the first press clearing focus.
-                        it.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_BACK && screen != Screen.Home && screen !is Screen.Reward -> {
+                        it.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_BACK && screen != Screen.Home && screen !is Screen.Reward && screen != Screen.Intro -> {
                             if (it.type == KeyEventType.KeyUp) { arenaQuizPending = false; screen = Screen.Home }
                             true
                         }
@@ -122,9 +143,15 @@ class MainActivity : ComponentActivity() {
                     label = "screen",
                 ) { s ->
                     when (s) {
+                        Screen.Intro -> IntroScreen(onDone = {
+                            if (!introDone) { introDone = true; Sfx.musicOn() }
+                            screen = Screen.Home
+                        })
                         Screen.Home -> HomeScreen(
                             household = household,
                             onOpenQuest = { q -> repo.openQuest(q.id); screen = Screen.Quest(q.id) },
+                            onRequestTv = repo::requestTvTime,
+                            onWatch = ::watch,
                             onTab = { tab ->
                                 screen = when (tab) {
                                     HomeTab.Codex -> Screen.Codex
@@ -132,12 +159,11 @@ class MainActivity : ComponentActivity() {
                                     HomeTab.Shop -> Screen.Shop
                                     HomeTab.Stone -> Screen.Stone()
                                     HomeTab.Growth -> Screen.Growth
-                                    // Full 3D fight in the Unity arena when installed; the native raid screen otherwise.
-                                    // The Stone Trial runs in the Unity arena when it's installed, natively otherwise.
+                                    // Family Quiz Night runs in the Unity arena when it's installed, natively otherwise.
                                     HomeTab.Quiz -> {
                                         if (household.quiz == null || household.quiz?.done == true) repo.startQuiz()
-                                        // On-device the quiz is ready at once; live, the Quizmaster takes a few seconds,
-                                        // so the Stone Trial opens (below) as soon as its questions land.
+                                        // On-device the quiz is ready at once; live, the AI takes a few seconds to write it,
+                                        // so the arena opens (above) as soon as its questions land.
                                         arenaQuizPending = ArenaLauncher.isInstalled(this@MainActivity)
                                         Screen.Quiz
                                     }
@@ -156,7 +182,12 @@ class MainActivity : ComponentActivity() {
                                 }
                                 keeper.speak(quest.keeperLine, audio)
                             }
-                            if (quest.isStudy) StudyScreen(
+                            if (quest.isHabit) HabitScreen(
+                                household = household,
+                                quest = quest,
+                                joinUrl = RosettaConfig.joinUrl(household.pairingCode),
+                                onClaim = { pendingReward?.takeIf { it.questId == quest.id }?.let { screen = Screen.Reward(it) } },
+                            ) else if (quest.isStudy) StudyScreen(
                                 household = household,
                                 quest = quest,
                                 joinUrl = RosettaConfig.joinUrl(household.pairingCode),
@@ -179,8 +210,8 @@ class MainActivity : ComponentActivity() {
                         is Screen.Stone -> {
                             LaunchedEffect(s.carvedGlyphId) {
                                 if (s.carvedGlyphId != null) keeper.speak(
-                                    if (household.stoneComplete) "The last glyph is carved. The Family Stone is complete. Movie night is yours."
-                                    else "A new glyph is carved into the Family Stone.",
+                                    if (household.stoneComplete) "That's every star. The Family Goal is done. Movie night is yours!"
+                                    else "A new star for the Family Goal. ${household.glyphsEarned} of ${household.glyphs.size}.",
                                 )
                             }
                             StoneScreen(household, s.carvedGlyphId, onMovieNight = { screen = Screen.MovieNight }, onBack = { screen = Screen.Home })
@@ -203,7 +234,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() { super.onResume(); Sfx.musicOn() }
+    override fun onResume() {
+        super.onResume()
+        if (introDone) Sfx.musicOn()
+        if (watchStartMs > 0) {
+            val minutes = ((System.currentTimeMillis() - watchStartMs + 59_999) / 60_000).toInt()
+            watchStartMs = 0L
+            repo.useTvTime(minutes)
+        }
+    }
     override fun onPause() { Sfx.musicOff(); super.onPause() }
 
     override fun onDestroy() {

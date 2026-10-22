@@ -61,7 +61,7 @@ import app.rosetta.tv.data.Household0
 import app.rosetta.tv.data.HomeworkItem
 import app.rosetta.tv.data.Quest
 import app.rosetta.tv.data.QuestStage
-import app.rosetta.tv.ui.common.AssetImage
+import app.rosetta.tv.ui.common.FittedPhoto
 import app.rosetta.tv.ui.kit.AvatarRing
 import app.rosetta.tv.ui.kit.ButtonTone
 import app.rosetta.tv.ui.kit.Glass
@@ -70,7 +70,7 @@ import app.rosetta.tv.ui.kit.RosettaButton
 import app.rosetta.tv.ui.kit.Sfx
 import app.rosetta.tv.ui.quest.JoinPanel
 import app.rosetta.tv.ui.quest.KeeperCard
-import app.rosetta.tv.ui.quest.MissionControl
+import app.rosetta.tv.ui.quest.AiSteps
 import app.rosetta.tv.ui.theme.Rosetta
 
 private val SheetW = 500.dp
@@ -138,10 +138,9 @@ fun StudyScreen(
                     ) {
                         AnimatedContent(quest.beforePhoto, transitionSpec = { fadeIn(tween(500)) togetherWith fadeOut(tween(350)) }, label = "sheet") { p ->
                             if (p == null) JoinPanel(household.pairingCode, kid.name, joinUrl, what = "your homework")
-                            else AssetImage(p, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+                            else FittedPhoto(p, Modifier.fillMaxSize()) { quest.homework?.let { hw -> Marks(hw.items) } }
                         }
                         if (quest.working) SheetSweep()
-                        quest.homework?.let { hw -> Marks(hw.items) }
                     }
                     Spacer(Modifier.height(12.dp))
                     KeeperCard(quest.keeperLine)
@@ -156,17 +155,17 @@ fun StudyScreen(
                     when {
                         quest.stage == QuestStage.Practising -> PracticeCard(quest, onAnswer, Modifier.weight(1f))
                         quest.homework != null -> {
-                            MissionControl(quest, Modifier.height(190.dp), graphHeight = 96.dp)
+                            AiSteps(quest, kid.name, Modifier.height(236.dp))
                             Spacer(Modifier.height(10.dp))
                             MarkingList(quest.homework.items, Modifier.weight(1f))
                         }
-                        else -> MissionControl(quest, Modifier.weight(1f))
+                        else -> AiSteps(quest, kid.name, Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(10.dp))
                     AnimatedVisibility(quest.stage == QuestStage.Done, enter = fadeIn() + scaleIn(initialScale = 0.8f)) {
                         RosettaButton(
                             "Claim rewards", onClaim, modifier = Modifier.focusRequester(claim).fillMaxWidth(),
-                            icon = "🎁", sub = "+${quest.xpReward} XP · +${quest.coinReward} coins · Homework Hero stamp", tone = ButtonTone.Lime, big = true,
+                            icon = "🎁", sub = "+${quest.xpReward} XP · +${quest.coinReward} coins · a star · Homework Hero stamp", tone = ButtonTone.Lime, big = true,
                         )
                     }
                 }
@@ -177,7 +176,8 @@ fun StudyScreen(
 
 private fun stageLabel(q: Quest) = when (q.stage) {
     QuestStage.Ready, QuestStage.AwaitingBefore -> "WAITING FOR PHOTO"
-    QuestStage.Scanning -> "TUTOR READING"
+    QuestStage.Scanning -> "✦ AI TUTOR READING"
+    QuestStage.Checking -> "GROWN-UP CHECK"
     QuestStage.Checked -> "MARKED"
     QuestStage.Practising -> "PRACTICE ${q.answers.size + 1}/${q.practice.size}".takeIf { q.answers.size < q.practice.size } ?: "PRACTICE DONE"
     QuestStage.Done -> "COMPLETE"
@@ -222,7 +222,7 @@ private fun MarkingList(items: List<HomeworkItem>, modifier: Modifier) {
     Glass(modifier.fillMaxWidth(), radius = 20.dp) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("TUTOR'S MARKING", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
+                Text("✦ AI TUTOR'S MARKING", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
                 Spacer(Modifier.weight(1f))
                 Text("${items.count { it.correct }}/${items.size} right", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Rosetta.Gold)
             }
@@ -236,7 +236,7 @@ private fun MarkingList(items: List<HomeworkItem>, modifier: Modifier) {
                         }
                         if (!it.correct && it.hint.isNotBlank()) Text("Hint: ${it.hint}", fontSize = 12.sp, color = Rosetta.Mist, maxLines = 2)
                     }
-                    if (it.checkedBy == "math") Text("exact", fontSize = 10.sp, color = Rosetta.Moss, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+                    if (it.checkedBy == "math") Text("double-checked", fontSize = 10.sp, color = Rosetta.Moss, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
                 }
             }
         }
@@ -248,7 +248,7 @@ private fun MarkingList(items: List<HomeworkItem>, modifier: Modifier) {
 private fun Hints(wrong: List<HomeworkItem>) {
     Glass(Modifier.fillMaxWidth(), radius = 18.dp) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("TUTOR'S HINTS", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Moss)
+            Text("✦ HINTS FROM THE AI TUTOR", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Moss)
             wrong.forEach {
                 Column {
                     Text("${it.n}. ${it.question}  ${it.kidAnswer}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Rose, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -268,7 +268,7 @@ private fun PracticeCard(quest: Quest, onAnswer: (String, Int) -> Unit, modifier
     Glass(modifier.fillMaxWidth(), radius = 22.dp, glow = Rosetta.Moss) {
         Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("PRACTICE ROUND", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Moss)
+                Text("✦ PRACTICE ROUND", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Moss)
                 Spacer(Modifier.weight(1f))
                 quest.practice.forEach { q ->
                     val a = quest.answers[q.id]

@@ -19,11 +19,11 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 # Kid-safe, fixed set: phones can only send these.
-ALLOWED_EMOTES = {"🔥", "💀", "🫶", "⚡", "🏆", "😭"}
+ALLOWED_EMOTES = {"🔥", "💀", "🫶", "⚡", "🏆", "😭", "👏", "😄"}
 
 KEEPER_OPEN = "Snap the room with your phone, {name}. Let's see who got lost today."
 KEEPER_OPEN_STUDY = "Snap your homework with your phone, {name}. The AI Tutor will take a look."
-KEEPER_OPEN_HABIT = "Time for {title}, {name}. Tell me on your phone when it's done."
+KEEPER_OPEN_HABIT = "Next up for {name}: {title}. Tell me on your phone when it's done."
 AUDIO_EXT = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-m4a": "m4a"}
 
 
@@ -77,12 +77,22 @@ def api(event, _context):
 
         m = re.fullmatch(r"/household/(\w+)/reset", path)
         if m and method == "POST":  # start the family over from nothing (parents only)
+            old = None
             try:
-                if not _is_parent(event, store.load(m[1])):
+                old = store.load(m[1])
+                if not _is_parent(event, old):
                     return _resp(403, {"error": "parent PIN required"})
             except KeyError:
                 pass  # a brand-new household can be created by anyone with the code
-            return _resp(200, store.public_view(store.seed(m[1])))
+            h = store.seed(m[1])
+            if old:  # progress starts over; the parents' phones stay signed up for alerts
+                keep = {p["id"]: p for p in old.get("parents", [])}
+                for p in h["parents"]:
+                    for f in ("push", "email", "phone", "alerts"):
+                        if f in keep.get(p["id"], {}):
+                            p[f] = keep[p["id"]][f]
+                store.save(h)
+            return _resp(200, store.public_view(h))
 
         m = re.fullmatch(r"/household/(\w+)/quests/(\w+)/(open|close|approve|reject)", path)
         if m and method == "POST":
@@ -93,10 +103,12 @@ def api(event, _context):
                 return _resp(403, {"error": "parent PIN required"})
             if action == "open" and q["stage"] == "Ready":
                 opener = {"study": KEEPER_OPEN_STUDY, "habit": KEEPER_OPEN_HABIT}.get(q.get("kind"), KEEPER_OPEN)
-                line = opener.format(name=store.kid(h, q["kidId"])["name"], title=q["title"].lower())
+                line = opener.format(name=store.kid(h, q["kidId"])["name"], title=q["title"])
                 audio = voice.fixed(line)
                 h = store.load(code)  # fresh after the voice (only slow the first time a line is heard)
                 q = store.quest(h, qid)
+                if q["stage"] != "Ready":  # a photo or check-in landed while the voice was made: keep it
+                    return _resp(200, {"ok": True, "stage": q["stage"]})
                 q.update(stage="AwaitingBefore" if q.get("kind") != "habit" else "Ready", openedAtMs=int(time.time() * 1000))
                 voice.set_line(q, line, audio)
             elif action == "reject":  # parent says "not yet": back to it, kid gets a kind nudge
@@ -313,6 +325,13 @@ def api(event, _context):
             else:
                 family.wish_delete(h, m[2])
                 r = {"ok": True}
+            store.save(h)
+            return _resp(200, r)
+
+        m = re.fullmatch(r"/household/(\w+)/kids/(\w+)/(buy|equip)", path)
+        if m and method == "POST":  # the TV's coin shop: outfits and house decor
+            h = store.load(m[1])
+            r = (family.buy if m[3] == "buy" else family.equip)(h, m[2], body)
             store.save(h)
             return _resp(200, r)
 

@@ -67,7 +67,10 @@ def ensure(h: dict) -> dict:
     s = h.setdefault("settings", {})
     for f, v in (("tvMinutes", 45), ("tvNeedsApproval", False), ("moneyPerCoin", 0), ("currency", "₹")):
         s.setdefault(f, v)
-    for f in ("habits", "memories", "wishlist", "stars", "squad", "stamps", "history", "feed", "emotes", "quests"):
+    for k in h["kids"]:
+        k.setdefault("owned", [])
+        k.setdefault("equipped", None)
+    for f in ("habits", "memories", "wishlist", "stars", "squad", "stamps", "history", "feed", "emotes", "quests", "decor"):
         h.setdefault(f, [])
     h.setdefault("starsGoal", STAR_GOAL)
     h.setdefault("digest", {})
@@ -428,6 +431,35 @@ def _wish_ready(h: dict, k: dict) -> None:
             notify.emit(h, "wish_ready", f"{k['name']} can afford “{w['title']}” 🎉",
                         "Their pocket money reached it. They can ask you from their phone.", by="Rosetta",
                         data={"action": "wish", "wishId": w["id"], "kidId": k["id"]})
+
+
+# ---------------------------------------------------------------- the TV's coin shop (outfits and house decor)
+def buy(h: dict, kid_id: str, body: dict) -> dict:
+    """The TV owns the catalogue (art and prices); the server owns the coins, so a purchase is spent once, for real."""
+    k = kid(h, kid_id)
+    item, price = str(body["itemId"])[:30], max(0, int(body["price"]))
+    owned = k.setdefault("owned", [])
+    decor = h.setdefault("decor", [])
+    if item in owned or item in decor:
+        return k
+    if k["coins"] < price:
+        raise ValueError("not enough coins yet")
+    k["coins"] -= price
+    if body.get("kind") == "decor":
+        decor.append(item)
+    else:
+        owned.append(item)
+        k.update(equipped=item, avatar=str(body.get("avatar") or k["avatar"])[:40])
+    return k
+
+
+def equip(h: dict, kid_id: str, body: dict) -> dict:
+    k = kid(h, kid_id)
+    item = body.get("itemId")
+    if item and item not in k.get("owned", []):
+        raise ValueError("buy it first")
+    k.update(equipped=item, avatar=str(body.get("avatar") or k["id"])[:40])
+    return k
 
 
 # ---------------------------------------------------------------- Coach's notes (from real history only)

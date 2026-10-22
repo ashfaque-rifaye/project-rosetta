@@ -19,16 +19,70 @@ data class Kid(
     val streak: Int = 0,
     val owned: Set<String> = emptySet(),
     val equipped: String? = null,
+    val grade: String = "",
+    /** Real pocket money earned (rupees), set by the parents' rates. */
+    val money: Double = 0.0,
 ) {
     val xpForNext get() = 100 + (level - 1) * 50
     val levelProgress get() = (xp.toFloat() / xpForNext).coerceIn(0f, 1f)
     val title get() = when {
-        level >= 10 -> "Grand Keeper"
-        level >= 6 -> "Glyph Carver"
-        level >= 3 -> "Pathfinder"
-        else -> "Apprentice"
+        level >= 10 -> "Rosetta Legend"
+        level >= 6 -> "Super Star"
+        level >= 3 -> "Rising Star"
+        else -> "Starter"
     }
 }
+
+/** Mom and Dad: shown with the kids on the TV. */
+data class Parent(val id: String, val name: String, val avatar: String)
+
+/** A daily task the parents made (make the bed, read 10 pages, prayer time…); [streaks] per kid, in days. */
+data class Habit(
+    val id: String,
+    val title: String,
+    val icon: String,
+    val kidIds: List<String>,
+    val proof: String,
+    val coins: Int,
+    val money: Double,
+    val streaks: Map<String, Int> = emptyMap(),
+)
+
+/** Something a kid is saving pocket money for. */
+data class WishItem(val id: String, val kidId: String, val title: String, val price: Double, val status: String)
+
+/** Today's TV time: earned when every must-do task is done (and a parent says OK, if they asked to). */
+data class TvTime(
+    val mustDo: Int = 0,
+    val done: Int = 0,
+    val allDone: Boolean = false,
+    val unlocked: Boolean = false,
+    val needsApproval: Boolean = false,
+    val requested: Boolean = false,
+    val tvMinutes: Int = 45,
+    val minutesLeft: Int = 45,
+    val waitingOn: List<String> = emptyList(),
+)
+
+/** One finished task, as the server recorded it (the only source for Progress and streaks). */
+data class HistoryRow(
+    val kidId: String,
+    val kind: String,
+    val title: String,
+    val habitId: String,
+    val day: String,
+    val atMs: Long,
+    val minutes: Int,
+    val coins: Int,
+    val money: Double,
+    val right: Int = 0,
+    val total: Int = 0,
+    val topic: String = "",
+    val skills: List<String> = emptyList(),
+)
+
+/** ✦ Coach's notes for parents, written by the AI from real history. */
+data class CoachNotes(val headline: String, val notes: List<String>)
 
 /** A room of the Home Base diorama; [rect] locates it on the key art. */
 data class Room(val id: String, val name: String, val rect: NormRect, val ownerId: String? = null)
@@ -48,10 +102,10 @@ data class LostThing(
     val returned: Boolean = false,
 )
 
-enum class QuestStage { Ready, AwaitingBefore, Scanning, Found, AwaitingAfter, Verifying, Partial, Checked, Practising, Done }
+enum class QuestStage { Ready, AwaitingBefore, Scanning, Found, AwaitingAfter, Verifying, Partial, Checked, Practising, Checking, Done }
 
-/** Tidy: a room photo becomes Lost Things. Study: a homework photo is marked, then practised. */
-enum class QuestKind { Tidy, Study }
+/** Tidy: a room photo becomes Lost Things. Study: a homework photo is marked, then practised. Habit: a daily task. */
+enum class QuestKind { Tidy, Study, Habit }
 
 enum class Agent(val label: String, val role: String) {
     QuestMaster("Quest Master", "orchestrates"),
@@ -90,8 +144,19 @@ data class Quest(
     /** Study quests: practice questions on the skills that went wrong, and the first answer to each. */
     val practice: List<Question> = emptyList(),
     val answers: Map<String, Answer> = emptyMap(),
+    val icon: String = "",
+    /** How a habit is shown done: none (tick), note, voice or photo. */
+    val proof: String = "photo",
+    val mustDo: Boolean = false,
+    /** ✦ What the AI honestly saw when a photo or voice note didn't fit the task. */
+    val whatISee: String = "",
+    /** A habit's check-in: the kid's note, or the ✦ summary of their voice note or photo. */
+    val checkin: String = "",
+    val checkinKind: String = "",
+    val reward: QuestReward? = null,
 ) {
     val isStudy get() = kind == QuestKind.Study
+    val isHabit get() = kind == QuestKind.Habit
     val practiceRight get() = answers.values.count { it.correct }
     val found get() = things.size
     val home get() = things.count { it.returned }
@@ -127,11 +192,13 @@ data class Question(
     val why: String,
     val skill: String,
     val forKid: String = "",
+    /** Quiz only: why the AI picked this question (for the parents), e.g. "Maths test on Friday". */
+    val reason: String = "",
 )
 
 data class Answer(val choice: Int, val correct: Boolean)
 
-/** The family Quiz Battle: co-op, every right answer lights one glyph of the Stone Trial. */
+/** Family Quiz Night: co-op, the family counts right answers together. */
 data class Quiz(
     val id: String,
     val title: String,
@@ -150,7 +217,7 @@ data class Glyph(val id: String, val name: String, val asset: String, val earned
     val earned get() = earnedBy != null
 }
 
-/** Codex: every Lost Thing character the family has rescued; rarity grows with rescues (earned, never random). */
+/** Squad: every Lost Thing character the family has brought home; rarity grows with rescues (earned, never random). */
 data class CodexEntry(val character: String, val name: String, val lore: String, val rescues: Int, val firstBy: String?) {
     val rarity get() = when {
         rescues >= 12 -> Rarity.Legendary
@@ -208,12 +275,22 @@ data class Household(
     val pairingCode: String,
     /** False until the cloud agent crew is connected; the TV then runs its on-device household engine. */
     val live: Boolean,
+    val parents: List<Parent> = emptyList(),
+    val habits: List<Habit> = emptyList(),
+    val wishlist: List<WishItem> = emptyList(),
+    val tvTime: TvTime = TvTime(),
+    val history: List<HistoryRow> = emptyList(),
+    val coach: Map<String, CoachNotes> = emptyMap(),
+    val currency: String = "₹",
+    val memories: Int = 0,
+    val todayDate: String = "",
 ) {
     val glyphsEarned get() = glyphs.count { it.earned }
     val stoneComplete get() = glyphs.all { it.earned }
     val stoneProgress get() = glyphsEarned.toFloat() / glyphs.size
     fun kid(id: String) = kids.first { it.id == id }
-    fun room(id: String) = rooms.first { it.id == id }
+    fun room(id: String) = rooms.firstOrNull { it.id == id } ?: Room(id, "", NormRect(0.4f, 0.4f, 0.6f, 0.6f))
+    fun parentOrNull(id: String) = parents.firstOrNull { it.id == id }
     fun quest(id: String) = quests.first { it.id == id }
 }
 
@@ -228,6 +305,8 @@ data class QuestReward(
     val glyph: Glyph?,
     val stamp: Stamp?,
     val codexUpgrades: List<CodexEntry>,
+    val money: Double = 0.0,
+    val streak: Int = 0,
 )
 
 

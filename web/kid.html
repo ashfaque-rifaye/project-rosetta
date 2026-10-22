@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a1020">
-  <title>Rosetta · Quest</title>
+  <title>Rosetta</title>
+  <link rel="icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,113 +19,202 @@
     <button id="joinBtn">Join</button>
   </section>
 
-  <section id="quest" hidden>
-    <div class="card">
-      <div class="eyebrow" id="stage"></div>
-      <p class="keeper" id="keeper"></p>
-      <div id="crew"></div>
-    </div>
-    <label class="btn" id="snapLabel" for="photo" style="display:block;text-align:center">📷 Snap the room</label>
-    <input id="photo" type="file" accept="image/*" capture="environment" hidden>
-    <p class="muted" id="status"></p>
-    <img id="preview" class="preview" hidden alt="">
-    <div class="card">
-      <div class="eyebrow">Hype the family</div>
-      <div class="emotes">
-        <button data-e="🔥">🔥</button><button data-e="💀">💀</button><button data-e="🫶">🫶</button>
-        <button data-e="⚡">⚡</button><button data-e="🏆">🏆</button><button data-e="😭">😭</button>
-      </div>
-    </div>
-    <div class="card" id="markCard" hidden>
-      <div class="eyebrow" id="markTitle">Tutor's marking</div>
-      <div id="marks"></div>
-    </div>
-    <div class="card" id="practiceCard" hidden>
-      <div class="eyebrow" id="practiceTitle">Practice</div>
-      <div id="practice"></div>
-    </div>
-    <div class="card" id="thingsCard" hidden>
-      <div class="eyebrow">Lost Things</div>
-      <div id="things"></div>
-    </div>
+  <section id="pick" hidden>
+    <div class="who" id="kids"></div>
   </section>
 
-  <section id="quizCard" class="card" hidden>
-    <div class="eyebrow" id="quizTitle">Family Quiz Battle</div>
-    <div id="quiz"></div>
+  <section id="app" hidden>
+    <div class="kidbar">
+      <img id="meAvatar" alt="">
+      <div class="grow">
+        <div class="name" id="meName"></div>
+        <div class="stats" id="meStats"></div>
+      </div>
+      <button class="link" id="switch">Not you?</button>
+    </div>
+
+    <div class="card tv" id="tv"></div>
+
+    <h2>Today</h2>
+    <section id="tasks"></section>
+
+    <section id="detail" class="card detail" hidden>
+      <div class="row"><div class="eyebrow" id="dStage"></div><button class="link" id="dClose">Close</button></div>
+      <div class="dtitle" id="dTitle"></div>
+      <p class="keeper" id="dKeeper"></p>
+      <div id="dNote"></div>
+      <div id="dCtl"></div>
+      <p class="muted" id="dStatus"></p>
+      <img id="dPreview" class="preview" hidden alt="">
+      <div id="dMarks"></div>
+      <div id="dPractice"></div>
+      <div id="dThings"></div>
+    </section>
+
+    <section id="quizCard" class="card" hidden>
+      <div class="eyebrow" id="quizTitle">Family Quiz Night</div>
+      <div id="quiz"></div>
+    </section>
+
+    <h2>My wish list</h2>
+    <section id="wishes"></section>
+
+    <div class="card">
+      <div class="eyebrow">Cheer on the family</div>
+      <div class="emotes">
+        <button data-e="🔥">🔥</button><button data-e="🫶">🫶</button><button data-e="⚡">⚡</button>
+        <button data-e="🏆">🏆</button><button data-e="👏">👏</button><button data-e="😄">😄</button>
+      </div>
+    </div>
   </section>
 </main>
+<div class="toast" id="toast" hidden></div>
+<input id="photo" type="file" accept="image/*" capture="environment" hidden>
 <script src="config.js"></script>
 <script src="rosetta.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-let questId = null, busy = false;
+const KID_KEY = "rosetta.kid";
+let me = localStorage.getItem(KID_KEY);
+let household = null, openId = null, userPicked = false, busy = false;
+const recorder = voiceRecorder();
 
-function activeQuest(h) {
-  const order = ["Scanning", "Verifying", "Practising", "Checked", "Partial", "Found", "AwaitingAfter", "AwaitingBefore", "Done"];
-  return h.quests.slice().sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage)).find((q) => order.includes(q.stage));
+// ---------------------------------------------------------------- who are you?
+function showPick(h) {
+  $("title").textContent = "Hi! Who are you?";
+  $("sub").textContent = h.name;
+  $("pick").hidden = false; $("app").hidden = true;
+  setHtml("kids", h.kids.map((k) => `<button class="whokid" data-id="${k.id}">
+    <img src="${avatarArt(k.avatar)}" alt=""><span>${esc(k.name)}</span></button>`).join(""));
+  $("kids").querySelectorAll(".whokid").forEach((b) => b.onclick = () => { me = b.dataset.id; localStorage.setItem(KID_KEY, me); refresh(); });
+}
+$("switch").onclick = () => { me = null; localStorage.removeItem(KID_KEY); openId = null; refresh(); };
+
+// ---------------------------------------------------------------- render
+function tvHtml(h) {
+  const t = h.tvTime || {};
+  let line, extra = "";
+  if (t.unlocked) line = `🔓 TV time is on! <b>${t.minutesLeft} minutes</b> left today.`;
+  else if (t.allDone && t.needsApproval && t.requested) line = "📺 Asked Mom and Dad. Waiting for a yes…";
+  else if (t.allDone && t.needsApproval) { line = "📺 All done! Ask for TV time."; extra = `<button id="askTv">Ask Mom &amp; Dad for TV</button>`; }
+  else line = `🔒 TV time: <b>${t.done || 0} of ${t.mustDo || 0}</b> must-do tasks done. ${t.mustDo - t.done === 1 ? "One more to go!" : ""}`;
+  return `<div>${line}</div>${extra}`;
 }
 
-async function refresh() {
-  try {
-    const h = await getHousehold();
-    renderQuiz(h);
-    const q = activeQuest(h);
-    if (!q) { $("title").textContent = h.name; $("sub").textContent = "Pick a quest on the TV to start."; $("quest").hidden = true; return; }
-    questId = q.id;
-    const kid = h.kids.find((k) => k.id === q.kidId);
-    myKid = kid.id;
-    $("title").textContent = q.title;
-    $("sub").textContent = `${kid.name}'s quest`;
-    $("quest").hidden = false;
-    const study = q.kind === "study";
-    $("stage").textContent = (study ? STUDY_TEXT : STAGE_TEXT)[q.stage] || q.stage;
-    $("keeper").textContent = q.keeperLine ? `“${q.keeperLine}”` : "";
-    $("crew").innerHTML = crewHtml(q.stage, study);
-    $("markCard").hidden = !(study && q.homework);
-    if (study && q.homework) {
-      $("markTitle").textContent = `Tutor's marking · ${q.homework.items.filter((i) => i.correct).length}/${q.homework.items.length} right`;
-      $("marks").innerHTML = markingHtml(q.homework);
+function taskRow(h, q) {
+  const done = q.stage === "Done";
+  return `<button class="task ${done ? "done" : ""} ${q.id === openId ? "open" : ""}" data-id="${q.id}">
+    <span class="ico">${taskIcon(q)}</span>
+    <span class="grow"><span class="tt">${esc(q.title)}</span><span class="st">${q.mustDo ? "Must-do · " : ""}${esc(stageText(q))}</span></span>
+    <span class="go">${done ? "✓" : "›"}</span></button>`;
+}
+
+function wishHtml(h, kid) {
+  const mine = (h.wishlist || []).filter((w) => w.kidId === kid.id && w.status !== "bought");
+  if (!mine.length) return `<div class="card muted">No wishes yet. Ask Mom or Dad to add something you're saving for.</div>`;
+  return mine.map((w) => {
+    const p = w.status === "approved" ? 1 : Math.min(1, (kid.money || 0) / Math.max(1, w.price));
+    const action = w.status === "requested" ? `<div class="ok">Asked ✓ Waiting for Mom or Dad</div>`
+      : w.status === "approved" ? `<div class="ok">Yes! It's coming 🎁</div>`
+      : p >= 1 ? `<button data-wish="${w.id}">Ask Mom &amp; Dad 🎁</button>`
+      : `<div class="muted">${money(h, w.price - (kid.money || 0))} more to go</div>`;
+    return `<div class="card wish"><div class="row"><b>🎁 ${esc(w.title)}</b><span class="price">${money(h, w.price)}</span></div>
+      <div class="bar"><i style="width:${Math.max(3, p * 100)}%"></i></div>${action}</div>`;
+  }).join("");
+}
+
+// The task panel: controls are rebuilt only when the task or its stage changes, so typing is never wiped.
+function renderDetail(h) {
+  const q = h.quests.find((x) => x.id === openId);
+  $("detail").hidden = !q;
+  if (!q) return;
+  $("dStage").textContent = stageText(q);
+  $("dTitle").textContent = `${taskIcon(q)} ${q.title}`;
+  $("dKeeper").textContent = q.keeperLine ? `“${q.keeperLine}”` : "";
+  let note = "";
+  if (q.whatISee && q.stage !== "Done") note = `<div class="ai warn"><b>✦ What Rosetta noticed</b><div>${esc(q.whatISee)}</div><div class="muted small">Try again when it's really done.</div></div>`;
+  const c = q.checkin || {};
+  if ((q.stage === "Done" || q.stage === "Checking") && (c.summary || c.note))
+    note += `<div class="ai"><b>${c.summary ? "✦ What Rosetta heard" : "Your note"}</b><div>${esc(c.summary || c.note)}</div></div>`;
+  setHtml("dNote", note);
+
+  const key = `${q.id}:${q.stage}:${q.kind}:${q.proof}`;
+  if (renderDetail.key !== key) { renderDetail.key = key; $("dCtl").innerHTML = controls(q); wire(q); }
+
+  const study = q.kind === "study";
+  setHtml("dMarks", study && q.homework ? `<div class="eyebrow">✦ AI Tutor's marking · ${q.homework.items.filter((i) => i.correct).length}/${q.homework.items.length} right</div>${markingHtml(q.homework)}` : "");
+  renderPractice(q);
+  setHtml("dThings", q.things && q.things.length ? `<div class="eyebrow">Lost Things</div>${thingsHtml(q.things)}` : "");
+}
+
+function controls(q) {
+  if (q.stage === "Done") return `<div class="big ok">Done! Look at the TV to claim your reward 🎁</div>`;
+  if (q.stage === "Checking") return `<div class="muted">Mom or Dad will take a look soon.</div>`;
+  if (["Scanning", "Verifying"].includes(q.stage)) return `<div class="muted">✦ Rosetta is checking. Watch the TV!</div>`;
+  if (q.kind === "habit") {
+    if (q.proof === "note") return `<textarea id="note" rows="3" maxlength="500" placeholder="What did you do? (e.g. I read 8 pages of Matilda)"></textarea><button id="sendNote">Send my note</button>`;
+    if (q.proof === "voice") return `<button id="rec" class="rec">🎙 Tap to record a voice note</button><p class="muted small">Tell Rosetta what you did. It's saved for Mom and Dad.</p>`;
+    if (q.proof === "photo") return `<label class="btn" for="photo">📷 Snap a photo</label>`;
+    return `<button id="tick">✓ I did it!</button>`;
+  }
+  if (q.kind === "study") return ["Checked", "Practising"].includes(q.stage) ? "" : `<label class="btn" for="photo">📷 Snap your homework</label>`;
+  return `<label class="btn" for="photo">📷 ${["Ready", "AwaitingBefore"].includes(q.stage) ? "Snap your room" : "Snap it again"}</label>`;
+}
+
+function wire(q) {
+  const tick = $("tick"), send = $("sendNote"), rec = $("rec");
+  if (tick) tick.onclick = () => checkin(q, "");
+  if (send) send.onclick = () => { const n = $("note").value.trim(); if (!n) return toast("Write a few words first ✍️"); checkin(q, n); };
+  if (rec) rec.onclick = async () => {
+    if (!recorder.recording) {
+      try { await recorder.start(); rec.textContent = "⏹ Tap to stop and send"; rec.classList.add("on"); }
+      catch (e) { toast("Rosetta needs the microphone. Allow it and try again."); }
+      return;
     }
-    renderPractice(q);
-    const working = q.stage === "Scanning" || q.stage === "Verifying";
-    $("snapLabel").style.opacity = working || q.stage === "Done" ? 0.4 : 1;
-    $("snapLabel").textContent = study ? "📷 Snap your homework" : q.stage === "AwaitingBefore" || q.stage === "Ready" ? "📷 Snap the room" : "📷 Snap again";
-    $("snapLabel").style.display = study && ["Checked", "Practising", "Done"].includes(q.stage) ? "none" : "block";
-    $("thingsCard").hidden = !q.things.length;
-    $("things").innerHTML = thingsHtml(q.things);
-  } catch (e) { $("status").textContent = "Can't reach the TV yet… " + e.message; }
+    rec.disabled = true; rec.textContent = "Sending…"; rec.classList.remove("on");
+    try {
+      const blob = await recorder.stop();
+      if (!blob || blob.size < 2000) { toast("That was very short. Try again!"); rec.disabled = false; rec.textContent = "🎙 Tap to record a voice note"; return; }
+      await uploadVoice(q.id, blob);
+      $("dStatus").textContent = "Sent! ✦ Rosetta is listening…";
+    } catch (e) { $("dStatus").textContent = "Couldn't send: " + e.message; }
+    rec.disabled = false; rec.textContent = "🎙 Record again";
+  };
+}
+
+async function checkin(q, note) {
+  try {
+    const r = await post(`/household/${CODE}/quests/${q.id}/checkin`, { kidId: me, note });
+    toast(r.stage === "Checking" ? "Sent to Mom and Dad 👀" : "Done! 🎉 Look at the TV");
+    refresh();
+  } catch (e) { toast(e.message); }
 }
 
 $("photo").addEventListener("change", async (ev) => {
   const file = ev.target.files[0];
-  if (!file || !questId || busy) return;
+  if (!file || !openId || busy) return;
   busy = true;
-  $("preview").src = URL.createObjectURL(file); $("preview").hidden = false;
-  $("status").textContent = "Sending to the TV…";
-  try { const phase = await uploadPhoto(questId, file); $("status").textContent = phase === "before" ? "Sent! Look at the TV." : "Sent! The Judge is checking."; }
-  catch (e) { $("status").textContent = "Upload failed: " + e.message; }
+  $("dPreview").src = URL.createObjectURL(file); $("dPreview").hidden = false;
+  $("dStatus").textContent = "Sending…";
+  try { await uploadPhoto(openId, file); $("dStatus").textContent = "Sent! ✦ Rosetta is looking. Watch the TV!"; }
+  catch (e) { $("dStatus").textContent = "Upload failed: " + e.message; }
   busy = false; ev.target.value = "";
 });
 
-let myKid = null;
-// Polling refreshes every 1.5 s; only rebuild a question when it actually changes, so taps aren't lost mid-press.
 const shown = { practice: "", quiz: "" };
-let justAnswered = null; // { id, until }: keep the answered question (and its explanation) on screen for a moment
+let justAnswered = null; // keep the answered question (and its explanation) on screen for a moment
 
 function renderPractice(q) {
   const open = q.kind === "study" && q.stage === "Practising" && (q.practice || []).length;
-  $("practiceCard").hidden = !open;
-  if (!open) return;
+  if (!open) { shown.practice = ""; $("dPractice").innerHTML = ""; return; }
   const answers = q.answers || {};
   const held = justAnswered && Date.now() < justAnswered.until && q.practice.find((p) => p.id === justAnswered.id);
   const cur = held || q.practice.find((p) => !(p.id in answers)) || q.practice[q.practice.length - 1];
-  $("practiceTitle").textContent = `Practice · ${Object.keys(answers).length}/${q.practice.length}`;
   const key = `${q.id}:${cur.id}:${answers[cur.id] ? answers[cur.id].choice : "-"}`;
   if (shown.practice === key) return;
   shown.practice = key;
-  $("practice").innerHTML = questionHtml(cur, answers[cur.id] ? answers[cur.id].choice : null);
-  $("practice").querySelectorAll("button.choice").forEach((b) => b.onclick = async () => {
+  $("dPractice").innerHTML = `<div class="eyebrow">✦ Practice · ${Object.keys(answers).length}/${q.practice.length}</div>` + questionHtml(cur, answers[cur.id] ? answers[cur.id].choice : null);
+  $("dPractice").querySelectorAll("button.choice").forEach((b) => b.onclick = async () => {
     b.disabled = true;
     justAnswered = { id: cur.id, until: Date.now() + 2500 };
     try { await post(`/household/${CODE}/quests/${q.id}/answer`, { questionId: cur.id, choice: +b.dataset.i }); refresh(); } catch (e) {}
@@ -139,7 +229,8 @@ function renderQuiz(h) {
   const done = new Set(z.answers.map((a) => a.questionId));
   const cur = z.questions.find((q) => !done.has(q.id));
   const kid = h.kids.find((k) => k.id === cur.forKid) || h.kids[z.answers.length % h.kids.length];
-  $("quizTitle").textContent = `Quiz Battle · ${z.lit}/${z.goal} glyphs lit · ${kid.name}'s turn`;
+  const right = z.answers.filter((a) => a.correct).length;
+  $("quizTitle").textContent = `Family Quiz Night · ${right} of ${z.questions.length} right · ${kid.name}'s turn`;
   if (shown.quiz === `${z.id}:${cur.id}`) return;
   shown.quiz = `${z.id}:${cur.id}`;
   $("quiz").innerHTML = questionHtml(cur, null);
@@ -148,13 +239,50 @@ function renderQuiz(h) {
     try { await post(`/household/${CODE}/quiz/answer`, { questionId: cur.id, kidId: kid.id, choice: +b.dataset.i }); refresh(); } catch (e) {}
   });
 }
+
+async function refresh() {
+  let h;
+  try { h = household = await getHousehold(); } catch (e) { $("sub").textContent = "Can't reach Rosetta yet… " + e.message; return; }
+  const kid = h.kids.find((k) => k.id === me);
+  if (!kid) return showPick(h);
+  $("pick").hidden = true; $("app").hidden = false;
+  $("title").textContent = `Hi ${kid.name} 👋`;
+  $("sub").textContent = `${h.name} · Level ${kid.level}`;
+  $("meAvatar").src = avatarArt(kid.avatar);
+  $("meName").textContent = kid.name;
+  setHtml("meStats", `<span>🪙 ${kid.coins}</span><span>💰 ${money(h, kid.money)}</span><span>🔥 ${kid.streak} day${kid.streak === 1 ? "" : "s"}</span>`);
+  if (setHtml("tv", tvHtml(h)) && $("askTv")) $("askTv").onclick = async () => {
+    try { await post(`/household/${CODE}/tvtime/request`); toast("Asked! Mom and Dad got a notification 📱"); refresh(); } catch (e) { toast(e.message); }
+  };
+
+  const mine = h.quests.filter((q) => q.kidId === me)
+    .sort((a, b) => (a.stage === "Done") - (b.stage === "Done") || (b.mustDo ? 1 : 0) - (a.mustDo ? 1 : 0));
+  // The TV opened one of my tasks? Show it, unless I picked another myself.
+  const live = mine.find((q) => ["AwaitingBefore", "Scanning", "Found", "AwaitingAfter", "Verifying", "Partial", "Checked", "Practising"].includes(q.stage));
+  if (!userPicked && live) openId = live.id;
+  setHtml("tasks", mine.length ? mine.map((q) => taskRow(h, q)).join("") : `<div class="card muted">Nothing for you today. 🎉</div>`);
+  $("tasks").querySelectorAll(".task").forEach((b) => b.onclick = () => {
+    userPicked = true; openId = openId === b.dataset.id ? null : b.dataset.id;
+    shownHtml.tasks = ""; refresh();
+    if (openId) setTimeout(() => $("detail").scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  });
+  renderDetail(h);
+  renderQuiz(h);
+  if (setHtml("wishes", wishHtml(h, kid))) $("wishes").querySelectorAll("button[data-wish]").forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { await post(`/household/${CODE}/wishlist/${b.dataset.wish}/request`, { kidId: me }); toast("Asked! 🎁 Mom and Dad will see it"); refresh(); }
+    catch (e) { toast(e.message); b.disabled = false; }
+  });
+}
+
+$("dClose").onclick = () => { userPicked = true; openId = null; shownHtml.tasks = ""; refresh(); };
 document.querySelectorAll(".emotes button").forEach((b) => b.onclick = async () => {
   b.classList.add("pop"); setTimeout(() => b.classList.remove("pop"), 300);
-  try { await post(`/household/${CODE}/emote`, { kidId: myKid || "arjun", emoji: b.dataset.e }); } catch (e) {}
+  try { await post(`/household/${CODE}/emote`, { kidId: me || "", emoji: b.dataset.e }); } catch (e) {}
 });
 $("joinBtn").onclick = () => { const c = $("code").value.trim().toUpperCase(); if (c) location.search = "?code=" + c; };
 
-if (!CODE) { $("join").hidden = false; } else { refresh(); setInterval(refresh, 1500); }
+if (!CODE) { $("join").hidden = false; } else { refresh(); setInterval(refresh, 2000); }
 </script>
 </body>
 </html>

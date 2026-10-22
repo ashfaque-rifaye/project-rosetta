@@ -58,7 +58,7 @@ Detailed step-by-step problems are in [FRICTION_LOG.md](FRICTION_LOG.md).
 - **Build again?** Yes, behind the same provider switch.
 
 ## Unity 6 (6000.3 LTS, URP) as a Fire OS companion app
-- **Used for:** the Stone Trial: the family quiz on a carved stone with bloom, particles and igniting glyphs. The TV app launches it with the quiz as an intent extra and receives the answers as the activity result.
+- **Used for:** Family Quiz Night: the family quiz on a carved stone with bloom, particles and stars that light up. The TV app launches it with the quiz as an intent extra and receives the answers as the activity result.
 - **Worked well:** building the whole scene from C# means it builds headless from a script; ARM64 + x86_64 in one APK covers Fire TV hardware and emulators.
 - **Needs work:** IL2CPP code stripping removed colliders created only from code (`stripEngineCode = false` and `link.xml` fixed it); launching with the launcher intent's `NEW_TASK` flag silently cancels the activity result; Unity 6 can't target 32-bit x86, which rules out the API 30 Android TV image; the Hub's installer needed an admin prompt nobody saw (we ran the signed installers silently).
 - **Build again?** Yes, for moments that deserve a real game engine.

@@ -48,6 +48,14 @@ class FreshFamily(Base):
         self.assertEqual(call("POST", "/household/R4KX/reset")[0], 403)
         self.assertEqual(call("POST", "/household/R4KX/reset", pin=PIN)[0], 200)
 
+    def test_reset_starts_progress_over_but_keeps_parents_alerts(self):
+        self.habit()
+        call("POST", "/household/R4KX/reset", pin=PIN)
+        h = self.h()
+        self.assertEqual(h["habits"], [])
+        mom = next(p for p in h["parents"] if p["id"] == "mom")
+        self.assertTrue(mom.get("push"))
+
 
 class Habits(Base):
     def test_parent_adds_a_daily_task_and_a_tick_finishes_it(self):
@@ -63,6 +71,21 @@ class Habits(Base):
         self.assertEqual(len(h["stars"]), 1)  # all of Arjun's daily tasks done today
         self.assertIn(("push", "habit_done"), SENT)
         self.assertTrue(call("POST", f"/household/R4KX/quests/{q['id']}/checkin", {"kidId": "arjun"})[1]["repeat"])
+
+    def test_a_check_in_during_the_tv_opening_line_is_kept(self):
+        from rosetta_agents import voice
+        hb, q = self.habit()
+        slow = voice.fixed
+
+        def fixed(line):  # the TV's opening line is voiced; the kid's phone checks in meanwhile
+            call("POST", f"/household/R4KX/quests/{q['id']}/checkin", {"kidId": "arjun"})
+            return slow(line)
+        voice.fixed = fixed
+        try:
+            call("POST", f"/household/R4KX/quests/{q['id']}/open")
+        finally:
+            voice.fixed = slow
+        self.assertEqual(store.quest(self.h(), q["id"])["stage"], "Done")
 
     def test_note_proof_needs_a_note_and_becomes_a_memory(self):
         _, q = self.habit(title="Prayer time", proof="note")
@@ -155,6 +178,18 @@ class WishList(Base):
         self.assertIn(("push", "wish_request"), SENT)
         self.assertEqual(call("POST", f"/household/R4KX/wishlist/{w['id']}/approve", pin=PIN)[1]["status"], "approved")
         self.assertEqual(family.kid(self.h(), "arjun")["money"], 0)
+
+
+class Shop(Base):
+    def test_coins_are_spent_once_on_the_server(self):
+        self.assertEqual(call("POST", "/household/R4KX/kids/arjun/buy", {"itemId": "hat", "price": 60, "kind": "avatar", "avatar": "arjun_hat"})[0], 400)
+        h = self.h(); family.kid(h, "arjun")["coins"] = 100; store.save(h)
+        k = call("POST", "/household/R4KX/kids/arjun/buy", {"itemId": "hat", "price": 60, "kind": "avatar", "avatar": "arjun_hat"})[1]
+        self.assertEqual((k["coins"], k["owned"], k["avatar"]), (40, ["hat"], "arjun_hat"))
+        self.assertEqual(call("POST", "/household/R4KX/kids/arjun/buy", {"itemId": "hat", "price": 60})[1]["coins"], 40)  # no double spend
+        call("POST", "/household/R4KX/kids/arjun/buy", {"itemId": "kite", "price": 40, "kind": "decor"})
+        self.assertEqual(self.h()["decor"], ["kite"])
+        self.assertEqual(call("POST", "/household/R4KX/kids/arjun/equip", {"itemId": None})[1]["avatar"], "arjun")
 
 
 class LearningProfile(Base):

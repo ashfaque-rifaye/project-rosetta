@@ -89,7 +89,7 @@ fun CodexScreen(household: Household) {
     var focused by remember { mutableStateOf(household.codex.first()) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    ScreenFrame("THE LOST THINGS CODEX", "Everyone you've brought home", "Rescue a Lost Thing more often and its card grows rarer. Earned, never random.") {
+    ScreenFrame("THE SQUAD", "Lost Things you brought home", "Put the same thing back again and again, and its card gets rarer. Earned, never random.") {
         Row(Modifier.fillMaxSize()) {
             LazyVerticalGrid(
                 GridCells.Fixed(4), Modifier.weight(1f), contentPadding = PaddingValues(8.dp),
@@ -157,22 +157,22 @@ private fun CodexDetail(e: CodexEntry, h: Household, modifier: Modifier) {
 fun PassportScreen(household: Household) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    ScreenFrame("FAMILY PASSPORT", "Stamps, days and streaks", "Every kind of quest has its own stamp. Collect them all.") {
+    ScreenFrame("PASSPORT & STREAKS", "Stamps and streaks", "Each kind of task has its own stamp. Do your daily tasks every day to grow your streak.") {
         Row(Modifier.fillMaxSize()) {
             // Passport book spread (cream paper).
             Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFEFE3CB), Rosetta.Paper, Color(0xFFEFE3CB))))) {
                 Box(Modifier.align(Alignment.Center).width(2.dp).fillMaxHeight().background(Color(0x22000000)))
                 LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize().padding(18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     itemsIndexed(household.stamps) { i, s ->
-                        FocusCard(onClick = {}, accent = Rosetta.Ember, radius = 16.dp, modifier = Modifier.height(176.dp).then(if (i == 0) Modifier.focusRequester(first) else Modifier)) {
+                        FocusCard(onClick = {}, accent = Rosetta.Ember, radius = 16.dp, modifier = Modifier.height(292.dp).then(if (i == 0) Modifier.focusRequester(first) else Modifier)) {
                             Box(Modifier.fillMaxSize().background(Rosetta.Paper)) {
                                 Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     AssetImage(
                                         Household0.stamp(s.asset),
-                                        Modifier.size(118.dp).graphicsLayer { rotationZ = (i % 3 - 1) * 7f; alpha = if (s.earnedOn != null) 1f else 0.16f },
+                                        Modifier.padding(top = 16.dp).size(196.dp).graphicsLayer { rotationZ = (i % 3 - 1) * 7f; alpha = if (s.earnedOn != null) 1f else 0.16f },
                                         contentScale = ContentScale.Fit,
                                     )
-                                    Text(s.name.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black, color = Rosetta.Ink, letterSpacing = 1.4.sp, maxLines = 1)
+                                    Text(s.name.uppercase(), fontSize = 14.sp, fontWeight = FontWeight.Black, color = Rosetta.Ink, letterSpacing = 1.4.sp, maxLines = 1, modifier = Modifier.padding(top = 10.dp))
                                     Text(s.earnedOn?.let { d -> "$d · ${household.kid(s.by!!).name}" } ?: "not yet", fontSize = 11.sp, color = if (s.earnedOn != null) Rosetta.Ember else Color(0xFF9A8F7A))
                                 }
                             }
@@ -181,29 +181,48 @@ fun PassportScreen(household: Household) {
                 }
             }
             Spacer(Modifier.width(20.dp))
-            // Day Card.
-            Glass(Modifier.width(330.dp).fillMaxHeight()) {
+            // Today and streaks (from the server's history: nothing made up).
+            Glass(Modifier.width(380.dp).fillMaxHeight()) {
                 Column(Modifier.fillMaxSize().padding(18.dp)) {
-                    Text("TODAY'S DAY CARD", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Gold)
-                    Spacer(Modifier.height(10.dp))
-                    household.today.forEach { d ->
-                        Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AssetImage(Household0.avatar(household.kid(d.kidId).avatar), Modifier.size(38.dp).clip(CircleShape))
+                    Text("TODAY", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Gold)
+                    Spacer(Modifier.height(6.dp))
+                    val done = household.history.filter { it.day == household.todayDate }.sortedByDescending { it.atMs }
+                    val fmt = remember { java.text.SimpleDateFormat("h:mm a", java.util.Locale.US) }
+                    if (done.isNotEmpty()) done.take(4).forEach { r ->
+                        Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            household.kids.firstOrNull { it.id == r.kidId }?.let { AssetImage(Household0.avatar(it.avatar), Modifier.size(34.dp).clip(CircleShape)) }
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(fmt.format(java.util.Date(r.atMs)), fontSize = 11.sp, color = Rosetta.Mist)
+                                Text(r.title + if (r.total > 0) " · ${r.right} of ${r.total} right" else "", fontSize = 14.sp, color = Rosetta.Cream, maxLines = 1)
+                            }
+                        }
+                    } else if (household.today.isNotEmpty()) household.today.takeLast(4).forEach { d ->
+                        Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            AssetImage(Household0.avatar(household.kid(d.kidId).avatar), Modifier.size(34.dp).clip(CircleShape))
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(d.time, fontSize = 11.sp, color = Rosetta.Mist)
-                                Text(d.text, fontSize = 14.sp, color = Rosetta.Cream, maxLines = 2)
+                                Text(d.text, fontSize = 14.sp, color = Rosetta.Cream, maxLines = 1)
                             }
                         }
-                    }
-                    if (household.today.isEmpty()) Text("No quests yet today.", color = Rosetta.Mist)
-                    Spacer(Modifier.weight(1f))
+                    } else Text("Nothing finished yet today.", color = Rosetta.Mist, fontSize = 14.sp)
+                    Spacer(Modifier.height(14.dp))
                     RailHeader("Streaks")
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     household.kids.forEach { k ->
                         Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(k.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, modifier = Modifier.width(80.dp))
-                            repeat(7) { d -> Text(if (d < k.streak) "🔥" else "·", fontSize = 16.sp, color = Rosetta.Mist, modifier = Modifier.width(22.dp)) }
+                            AssetImage(Household0.avatar(k.avatar), Modifier.size(28.dp).clip(CircleShape))
+                            Spacer(Modifier.width(8.dp))
+                            Text(k.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, modifier = Modifier.width(70.dp))
+                            Text(if (k.streak > 0) "🔥 ${k.streak} ${if (k.streak == 1) "day" else "days"} in a row" else "Start a streak today", fontSize = 14.sp, color = if (k.streak > 0) Rosetta.Ember else Rosetta.Mist)
+                        }
+                        household.habits.filter { k.id in it.kidIds }.take(3).forEach { hb ->
+                            val n = hb.streaks[k.id] ?: 0
+                            Row(Modifier.padding(start = 36.dp, top = 1.dp, bottom = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${hb.icon.ifBlank { "✓" }} ${hb.title}", fontSize = 13.sp, color = Rosetta.Mist, maxLines = 1, modifier = Modifier.weight(1f))
+                                Text(if (n > 0) "🔥 $n" else "·", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (n > 0) Rosetta.Ember else Rosetta.Mist)
+                            }
                         }
                     }
                 }
@@ -222,7 +241,7 @@ fun ShopScreen(household: Household, onBuy: (kidId: String, itemId: String) -> B
     var toast by remember { mutableStateOf<String?>(null) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    ScreenFrame("THE SHOP", "Spend what you earned", "Outfits for your avatar and decor that appears on your house.") {
+    ScreenFrame("REWARDS", "Spend what you earned", "Coins buy outfits and decor. Pocket money is real money from Mom and Dad, saved for your wish list.") {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             household.kids.forEachIndexed { i, k ->
                 RosettaButton(
@@ -232,6 +251,8 @@ fun ShopScreen(household: Household, onBuy: (kidId: String, itemId: String) -> B
             }
             Spacer(Modifier.weight(1f))
             StatChip("🪙", "${kid.coins} coins")
+            Spacer(Modifier.width(10.dp))
+            StatChip("💰", app.rosetta.tv.ui.reward.money(household.currency, kid.money), tint = Rosetta.Lime)
             Spacer(Modifier.width(10.dp))
             StatChip("🔥", "${kid.streak} day streak", tint = Rosetta.Ember)
         }
@@ -244,7 +265,7 @@ fun ShopScreen(household: Household, onBuy: (kidId: String, itemId: String) -> B
                     when {
                         item.id in kid.owned -> { onEquip(kid.id, if (kid.equipped == item.id) null else item.id); toast = if (kid.equipped == item.id) "Took off the ${item.name}" else "${kid.name} is wearing the ${item.name}!" }
                         onBuy(kid.id, item.id) -> toast = "${kid.name} bought the ${item.name}!"
-                        else -> toast = "Not enough coins yet. Finish a quest!"
+                        else -> toast = "Not enough coins yet. Finish a task!"
                     }
                 }
                 Spacer(Modifier.height(14.dp))
@@ -254,24 +275,61 @@ fun ShopScreen(household: Household, onBuy: (kidId: String, itemId: String) -> B
                     toast = when {
                         item.id in household.decor -> "The ${item.name} is already on the house"
                         onBuy(kid.id, item.id) -> "${kid.name} added the ${item.name} to the house!"
-                        else -> "Not enough coins yet. Finish a quest!"
+                        else -> "Not enough coins yet. Finish a task!"
                     }
                 }
             }
             Spacer(Modifier.width(20.dp))
-            Glass(Modifier.width(280.dp).fillMaxHeight()) {
-                Column(Modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val preview = focused?.takeIf { it.kind == ItemKind.Avatar }?.avatar ?: kid.avatar
-                    AvatarRing(Household0.avatar(preview), kid.levelProgress, 170.dp, level = kid.level)
-                    Text(kid.name, style = MaterialTheme.typography.headlineSmall, color = Rosetta.Cream, modifier = Modifier.padding(top = 10.dp))
-                    Text("${kid.title} · level ${kid.level}", color = Rosetta.Mist, fontSize = 14.sp)
+            Glass(Modifier.width(360.dp).fillMaxHeight()) {
+                Column(Modifier.fillMaxSize().padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val preview = focused?.takeIf { it.kind == ItemKind.Avatar }?.avatar ?: kid.avatar
+                        AvatarRing(Household0.avatar(preview), kid.levelProgress, 84.dp, level = kid.level)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(kid.name, style = MaterialTheme.typography.headlineSmall, color = Rosetta.Cream)
+                            Text("${kid.title} · level ${kid.level}", color = Rosetta.Mist, fontSize = 13.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    toast?.let { Text(it, color = Rosetta.Lime, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2) }
+                    Spacer(Modifier.height(8.dp))
+                    RailHeader("Pocket money")
+                    Text(app.rosetta.tv.ui.reward.money(household.currency, kid.money), style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold), color = Rosetta.Lime)
+                    Text("Real money from Mom and Dad, earned with daily tasks.", fontSize = 12.sp, color = Rosetta.Mist)
                     Spacer(Modifier.height(12.dp))
-                    focused?.let { Text(it.name, style = MaterialTheme.typography.titleMedium, color = Rosetta.Gold) }
-                    Spacer(Modifier.weight(1f))
-                    toast?.let { Text(it, color = Rosetta.Lime, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                    RailHeader("${kid.name}'s wish list")
+                    Spacer(Modifier.height(6.dp))
+                    val wishes = household.wishlist.filter { it.kidId == kid.id && it.status != "bought" }.take(3)
+                    if (wishes.isEmpty()) Text("Nothing yet. Mom or Dad can add something you're saving for from their phone.", fontSize = 13.sp, color = Rosetta.Mist)
+                    wishes.forEach { w -> WishRow(w, kid, household.currency) }
                 }
             }
         }
+    }
+}
+
+/** A saved-for wish: how close the pocket money is, and what happens next. */
+@Composable
+private fun WishRow(w: app.rosetta.tv.data.WishItem, kid: Kid, currency: String) {
+    val p = if (w.status == "approved" || w.price <= 0) 1f else (kid.money / w.price).toFloat().coerceIn(0f, 1f)
+    Column(Modifier.padding(vertical = 5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("🎁 ${w.title}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 1, modifier = Modifier.weight(1f))
+            Text(app.rosetta.tv.ui.reward.money(currency, w.price), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Gold)
+        }
+        Spacer(Modifier.height(4.dp))
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Color(0x33FFFFFF))) {
+            Box(Modifier.fillMaxWidth(p.coerceAtLeast(0.03f)).height(8.dp).clip(RoundedCornerShape(50)).background(if (p >= 1f) Rosetta.Lime else Rosetta.Gold))
+        }
+        Text(
+            when (w.status) {
+                "requested" -> "Asked Mom & Dad. Waiting for a yes"
+                "approved" -> "Yes! Mom & Dad are getting it"
+                else -> if (p >= 1f) "Enough saved! Ask Mom & Dad on your phone" else "${app.rosetta.tv.ui.reward.money(currency, w.price - kid.money)} more to go"
+            },
+            fontSize = 12.sp, color = if (p >= 1f || w.status != "saving") Rosetta.Lime else Rosetta.Mist,
+        )
     }
 }
 

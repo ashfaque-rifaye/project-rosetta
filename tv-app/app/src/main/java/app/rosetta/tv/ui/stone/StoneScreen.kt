@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
@@ -51,6 +52,8 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import app.rosetta.tv.data.Household0
 import app.rosetta.tv.data.Glyph
 import app.rosetta.tv.data.Household
@@ -101,6 +104,7 @@ fun StoneScreen(
                 glyph = g,
                 isNew = g.id == carvedGlyphId,
                 index = i,
+                household = household,
                 modifier = Modifier
                     .offset((left + (i % cols) * cell).dp, (top + (i / cols) * cell).dp)
                     .size(cell.dp)
@@ -116,23 +120,23 @@ fun StoneScreen(
             ),
         )
         Column(Modifier.padding(start = 48.dp, top = 40.dp).width(300.dp)) {
-            Eyebrow("THE FAMILY STONE")
+            Eyebrow("THE FAMILY GOAL")
             Text(
-                "${household.glyphsEarned} of ${household.glyphs.size} glyphs carved",
+                "${household.glyphsEarned} of ${household.glyphs.size} stars",
                 style = MaterialTheme.typography.displaySmall,
                 color = Rosetta.Cream,
                 modifier = Modifier.padding(top = 6.dp),
             )
             if (carved != null) {
                 Text(
-                    "${household.kid(carved.earnedBy ?: "").name} carved “${carved.name}”.",
+                    "${household.kids.firstOrNull { it.id == carved.earnedBy }?.name ?: "Someone"} earned a star for “${carved.name}”.",
                     style = MaterialTheme.typography.headlineSmall,
                     color = Rosetta.Gold,
                     modifier = Modifier.padding(top = 14.dp),
                 )
             }
             Text(
-                "Every quest a family member finishes carves a glyph. A finished stone unlocks movie night, and the Keeper reads its story aloud.",
+                "Every task anyone in the family finishes adds a star. Fill all ${household.glyphs.size} and Movie Night is unlocked for everyone.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Rosetta.Mist,
                 modifier = Modifier.padding(top = 14.dp),
@@ -147,8 +151,8 @@ fun StoneScreen(
             modifier = Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 40.dp),
         ) {
             app.rosetta.tv.ui.kit.RosettaButton(
-                "Movie night is unlocked", onMovieNight, Modifier.focusRequester(action),
-                icon = "🍿", sub = "The Stone is complete", tone = app.rosetta.tv.ui.kit.ButtonTone.Gold, big = true,
+                "Movie Night is unlocked", onMovieNight, Modifier.focusRequester(action),
+                icon = "🍿", sub = "All ${household.glyphs.size} stars are in", tone = app.rosetta.tv.ui.kit.ButtonTone.Gold, big = true,
             )
         }
         if (!household.stoneComplete) {
@@ -160,39 +164,36 @@ fun StoneScreen(
     }
 }
 
+/** One star slot on the stone: a gold star with who earned it, or a faint empty star still to win. */
 @Composable
-private fun GlyphSlot(glyph: Glyph, isNew: Boolean, index: Int, modifier: Modifier) {
-    val img = rememberImage(Household0.glyph(glyph.asset))
+private fun GlyphSlot(glyph: Glyph, isNew: Boolean, index: Int, household: Household, modifier: Modifier) {
     val carve = remember(glyph.id, isNew) { Animatable(if (isNew) 0f else 1f) }
     LaunchedEffect(glyph.id, isNew) {
-        if (isNew) { delay(700); app.rosetta.tv.ui.kit.Sfx.play(app.rosetta.tv.ui.kit.Sfx.Carve); carve.animateTo(1f, tween(1800, easing = FastOutSlowInEasing)) }
+        if (isNew) { delay(700); app.rosetta.tv.ui.kit.Sfx.play(app.rosetta.tv.ui.kit.Sfx.Carve); carve.animateTo(1f, tween(1400, easing = FastOutSlowInEasing)) }
     }
     val glow by rememberInfiniteTransition(label = "g").animateFloat(0.55f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "glow")
-    val earnedNow = glyph.earned && carve.value >= 0.999f
     Box(
         modifier
-            .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, if (glyph.earned) Rosetta.Gold.copy(alpha = if (isNew) glow else 0.5f) else Rosetta.Line, RoundedCornerShape(10.dp))
-            .background(Rosetta.Night.copy(alpha = 0.35f)),
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, if (glyph.earned) Rosetta.Gold.copy(alpha = if (isNew) glow else 0.5f) else Rosetta.Line, RoundedCornerShape(14.dp))
+            .background(Rosetta.Night.copy(alpha = 0.45f)),
+        contentAlignment = Alignment.Center,
     ) {
-        if (img != null) {
-            val dim = ColorMatrix().apply { setToSaturation(0f) }
-            Image(
-                BitmapPainter(img),
-                contentDescription = glyph.name,
-                contentScale = ContentScale.Crop,
-                colorFilter = if (glyph.earned) null else ColorFilter.colorMatrix(dim),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = if (glyph.earned) (if (isNew) carve.value else 1f) else 0.18f
-                        val s = if (isNew) 1.35f - 0.35f * carve.value else 1f
-                        scaleX = s; scaleY = s
+        if (glyph.earned) {
+            Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Rosetta.Gold.copy(alpha = 0.28f * (if (isNew) glow else 0.7f)), Rosetta.Gold.copy(alpha = 0f)))))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "★", fontSize = 54.sp, color = Rosetta.Gold,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = carve.value
+                        val sc = if (isNew) 1.8f - 0.8f * carve.value else 1f
+                        scaleX = sc; scaleY = sc
                     },
-            )
-        }
-        if (isNew && earnedNow) {
-            Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Rosetta.Gold.copy(alpha = 0.35f * glow), Rosetta.Gold.copy(alpha = 0f)))))
+                )
+                Text(household.kids.firstOrNull { it.id == glyph.earnedBy }?.name ?: "", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 1)
+            }
+        } else {
+            Text("☆", fontSize = 44.sp, color = Color.White.copy(alpha = 0.16f))
         }
     }
 }
@@ -204,7 +205,7 @@ private fun GlyphLegend(household: Household) {
             val mine = household.glyphs.filter { it.earnedBy == kid.id }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(kid.name, style = MaterialTheme.typography.titleMedium, color = Rosetta.Cream, modifier = Modifier.width(90.dp))
-                Text("${mine.size} glyphs", style = MaterialTheme.typography.bodyMedium, color = Rosetta.Mist)
+                Text(if (mine.size == 1) "1 star" else "${mine.size} stars", style = MaterialTheme.typography.bodyMedium, color = Rosetta.Mist)
             }
         }
     }

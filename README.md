@@ -2,54 +2,71 @@
 
 **The Fire TV that turns homework and chores into a family adventure, with an AI tutor that never gives the answer away.**
 
-Kids photograph their worksheet (or their room) with any phone. An AI agent crew running on AWS reads it: the
-**Tutor** marks every answer on the TV, with arithmetic double-checked in code and a hint (never the answer) for each
-mistake; **Practice** builds a short round on exactly the skills that slipped; the **Quizmaster** turns the week's
-homework into a co-op **Quiz Battle** that lights up the Family Stone in a Unity scene. The **Keeper** narrates in a
-warm storyteller voice, and Mom and Dad get alerts, approve what the AI isn't sure about, and send messages the TV reads
-aloud. Every finished quest carves a glyph; a full stone unlocks Movie Night. The TV, the biggest shared screen in the
-home, finally works *for* the family instead of being the prize everyone fights over.
+Parents set the day: homework, a tidy-up, and daily tasks like *make your bed*, *read 10 pages* or *prayer time*. Kids
+check in from any phone with a tick, a note, a voice note or a photo, and the TV shows the whole family how the day is
+going. ✦ AI checks the work honestly: the **AI Tutor** marks a worksheet answer by answer (arithmetic double-checked in
+code, a hint for each mistake, never the answer), Rosetta tells a child plainly when a photo shows something else, and a
+voice note only counts if it's really about the task. Finished tasks pay real pocket money toward a wish list, add a
+star to the Family Goal (nine stars unlock Movie Night), and grow streaks. **TV time unlocks only when today's must-do
+tasks are done.** Parents get phone alerts, approve what needs a grown-up, and look back on their children's voice
+notes as memories.
 
 > Built for the Amazon Developer **Build, Ship, Shape** hackathon · **Fire TV track** · AWS Builder + Open Source mini challenges.
 > Open-source spin-off: [**compose-vision-overlay**](https://github.com/ashfaque-rifaye/compose-vision-overlay), the Compose for TV library that draws AI vision results.
 
-All screenshots below are from the Android TV emulator configured as **Fire OS 16** (Android 16, API 36, 1080p, 320 dpi), running against the live AWS stack.
+All screenshots are from the Android TV emulator configured as **Fire OS 16** (Android 16, API 36, 1080p, 320 dpi).
 
-| Home Base (live) | Homework Check + Practice | Stone Trial (Unity) |
+| Intro (Veo + Lyria) | Home: the family and TV time | Homework, marked by the ✦ AI Tutor |
 |---|---|---|
-| ![Home](docs/screens/20-firetv-home-live.png) | ![Homework](docs/screens/21-firetv-homework-marked.png) | ![Stone Trial](docs/screens/22-firetv-stone-trial-unity.png) |
+| ![Intro](docs/screens/30-intro.png) | ![Home](docs/screens/31-home-tv-time.png) | ![Homework](docs/screens/32-homework-ai-tutor.png) |
 
-| Quiz Battle (native) | Message from Mom, read aloud | Lost Things (Room Scan) |
-|---|---|---|
-| ![Quiz](docs/screens/23-firetv-quiz-native.png) | ![Message](docs/screens/24-message-banner.png) | ![Found](docs/screens/02-quest-found.png) |
+| Room check | A daily task pays pocket money | Family Goal | Rewards and wish list |
+|---|---|---|---|
+| ![Room](docs/screens/33-room-check.png) | ![Reward](docs/screens/34-reward-pocket-money.png) | ![Goal](docs/screens/35-family-goal.png) | ![Rewards](docs/screens/36-rewards-wish-list.png) |
 
 ## What's inside
 
 | Feature | What it does |
 |---|---|
-| **Homework Check** | Snap a worksheet; the Tutor agent marks each answer with a tick or cross drawn on the child's handwriting. Arithmetic is verified exactly in code (`mathcheck.py`), so the model reads and code decides; wrong answers get a method hint, never the answer. |
-| **Practice** | Fresh questions on exactly the skills that went wrong, validated in code (one right option, never a repeat of the homework). Answer with the remote or the phone. |
-| **Quiz Battle: the Stone Trial** | A co-op family quiz the Quizmaster agent builds from this week's homework, pitched at each child. Right answers ignite glyphs on the Family Stone (Unity 6 scene, or native on the TV). No rankings. |
-| **The Keeper's voice** | Every line the TV speaks is a warm generated voice: live lines as they happen, repeating lines cached, offline lines bundled with the app. |
-| **Live agent Mission Control** | Watch Quest Master route work to Tutor, Coach, Scout, Judge, Router and Keeper, with confidence scores. |
-| **Parent Mission Control** | A phone page (installable PWA): PIN sign-in, approve or send back what the AI isn't sure about, the family feed, messages to the TV, posting quests, push / email / SMS alert settings. |
-| **Home Base** | The family's house as a lit miniature. Rescued Lost Things live in its rooms and chat in bubbles; bought decor appears on it. |
-| **Room Scan → Lost Things** | Scout finds what's out of place in a phone photo; each item becomes a stop-motion character pinned to the real object. |
-| **Progression** | Levels, XP, coins, streaks, reward reveal, passport stamps, a Codex of collectibles, a shop for outfits and house decor. |
-| **Family Stone → Movie Night** | Every quest carves a glyph; a full stone unlocks movie night. |
-| **Growth** | For parents: what's being learned and the recurring mistakes, quests per day, trends, and the agents' plain-language notes. |
+| **TV time, earned** | Home shows today's deal: *2 tasks to go*. When every must-do task is done (and a parent says OK, if they asked to), TV time unlocks and Rosetta opens Prime Video, YouTube or Netflix, counting the minutes used. |
+| **Daily tasks + memories** | Parents add recurring tasks with presets. Kids check in with a tick, a note, a voice note (✦ transcribed and summarised) or a photo (✦ checked). Notes and voice notes are kept 90 days as memories parents can replay. |
+| **Streaks** | A day streak per child and a streak per daily task, from the server's history only. |
+| **Homework Check** | Snap a worksheet; the AI Tutor marks each answer on the child's handwriting. Arithmetic is verified in code (`mathcheck.py`): the model reads, code decides. Wrong answers get a method hint, never the answer. Then a practice round on exactly the skills that slipped. |
+| **Honest photo checks** | Every check reports what it actually saw. A worksheet sent for "tidy your room" is called out; a tidy room is accepted as tidy. Nothing is ever made up. |
+| **Family Quiz Night** | 8 questions, moderate difficulty, written for each child's class, subjects and coming tests (set by parents); siblings take turns. Co-op only. Plays in a Unity 6 scene or natively. |
+| **Pocket money + wish list** | Tasks can pay real money set by parents. Parents add wishes (an Amazon link, say); when a child has saved enough they ask from their phone, and a parent approves. Coins buy outfits and house decor. |
+| **Family Goal → Movie Night** | Every finished task adds a star; nine unlock Movie Night. |
+| **Progress, for parents** | Per child: a 14-day habit calendar, homework accuracy, pocket money, and ✦ Coach's notes the AI writes from real activity once there is some. |
+| **Parents in control** | A phone page (no app to install): PIN sign-in, push alerts, approvals, today at a glance, memories, daily tasks, learning profile, wish list, TV settings and a Fire TV parental-controls guide. |
+| **The intro** | An 8-second film made with Veo 3.1 and an original Lyria score, with the ROSETTA wordmark animated in Compose. |
+
+The **✦** sparkle marks everything the AI does, on the TV and on the phones.
+
+### The agent crew (behind the scenes)
+Kids never see agent names; this is how the work is split on the server (`agents/rosetta_agents/`):
+
+| Agent | Job |
+|---|---|
+| Quest Master (`crew.py`, Strands) | Decides which specialist to call for each photo, and when to ask a parent |
+| AI Tutor (`tutor.py`) | Marks homework; writes practice and Family Quiz Night questions |
+| Scout / Judge (`vision.py`) | Finds what's out of place in a room photo; compares before and after |
+| Listener (`vision.listen`) | Transcribes and summarises a voice note, and says whether it's about the task |
+| Proof check (`vision.check_proof`) | Says honestly whether a photo shows the task done |
+| Router | Sends low-confidence verdicts to a parent instead of deciding |
+| Coach (`vision.digest`) | Writes the Coach's notes from real history |
+| Keeper (`voice.py`) | Says it out loud in a warm Gemini TTS voice |
 
 ## How it works
 
 ```
  Kid's phone (any browser)            AWS us-east-1 (AWS CDK)                                Fire TV (native Kotlin app)
  ┌───────────────────────┐ PUT photo ┌───────────────────────────────────────────────────┐ poll ┌──────────────────────────┐
- │ kid.html (QR on TV)   │ ────────► │ S3 uploads/ (deleted after 1 day)                 │ ◄─── │ Home Base · quests       │
+ │ kid.html (QR on TV)   │ ────────► │ S3 uploads/ (deleted after 1 day)                 │ ◄─── │ Home · TV time · tasks   │
  └───────────────────────┘           │   └─event─► Agent Lambda: Quest Master            │      │ Homework Check · Practice│
- ┌───────────────────────┐ HTTP API  │              (Strands Agents SDK)                 │      │ Mission Control          │
+ ┌───────────────────────┐ HTTP API  │              (Strands Agents SDK)                 │      │ Homework · daily tasks   │
  │ parent.html (PWA)     │ ────────► │      ├ Tutor / Coach / Quizmaster (homework)      │      │ Keeper voice · messages  │
- │ PIN · approve · alerts│           │      ├ Scout / Judge / Router (tidy-ups)          │      │ ─launch─► Unity Stone    │
- └───────────────────────┘           │      └ Keeper (line + voice)                      │      │           Trial (answers │
+ │ PIN · approve · alerts│           │      ├ Scout / Judge / Router (tidy-ups)          │      │ ─launch─► Unity Quiz     │
+ └───────────────────────┘           │      └ Listener · Keeper (voice in and out)       │      │           Night (answers │
                                      │ API Lambda ── DynamoDB (one household document)   │      │           sync back)     │
                                      │ EventBridge ── nudges + weekly digest             │      └──────────────────────────┘
                                      │ SES · SNS · Web Push ── parent alerts             │
@@ -65,7 +82,7 @@ All screenshots below are from the Android TV emulator configured as **Fire OS 1
 - **Models**: provider-agnostic. Every call goes through `vision._converse`; prompts and schemas are written once as Bedrock Converse tool specs and reused as Gemini response schemas (`agents/rosetta_agents/gemini.py`). Today the crew runs on **Gemini 2.5 Flash via Google Vertex AI** (cost), with **Gemini TTS** for the Keeper's voice; `npx cdk deploy -c aiProvider=bedrock` switches back to **Amazon Bedrock (Nova Pro)**.
 - **No keys**: the Lambdas sign in to Vertex AI with Workload Identity Federation (Google trusts this stack's AWS roles); `agents/gcp_wif.json` holds no secrets.
 - **Infrastructure** (`infra/`): AWS CDK (TypeScript): S3, DynamoDB, Lambda ×3, API Gateway HTTP API, EventBridge, CloudFront.
-- **Phone pages** (`web/`): plain HTML/JS. The kid scans the QR on the TV and takes a photo; the phone shrinks it and uploads it straight to S3.
+- **Phone pages** (`web/`): plain HTML/JS. The kid scans the QR on the TV, picks their name and checks in; photos are shrunk on the phone and voice notes recorded in the browser, both uploaded straight to S3.
 
 ## Run it
 
@@ -75,10 +92,10 @@ All screenshots below are from the Android TV emulator configured as **Fire OS 1
    ```bash
    cd tv-app && ./gradlew installDebug -ProsettaApiUrl=https://jlgtsqwtzl.execute-api.us-east-1.amazonaws.com -ProsettaWebUrl=https://dr8w3l96syzm7.cloudfront.net
    ```
-   Optional: the Unity Stone Trial, `adb install -r RosettaArena.apk` (build it with step 4).
-3. **Reset the demo household** (the Rao family): `curl -X POST https://jlgtsqwtzl.execute-api.us-east-1.amazonaws.com/household/R4KX/reset`
-4. **Play.** Home shows **AGENTS LIVE**. Open *Fractions homework*, scan the QR with any phone (or open `https://dr8w3l96syzm7.cloudfront.net/kid.html?code=R4KX`) and photograph a worksheet. Try `assets/homework/arjun_fractions.jpg` on a laptop screen. In about 15 s the Tutor marks it on the TV and a practice round appears. Up from the quest list is **Quiz Battle**.
-5. **Parent phone:** `https://dr8w3l96syzm7.cloudfront.net/parent.html?code=R4KX`, sign in as Mom or Dad with demo PIN **2468**, send a message and watch the TV read it aloud.
+   Optional: the Unity Quiz Night, `adb install -r RosettaArena.apk` (build it with step 4).
+3. **The demo household** is the Rao family (Mom, Dad, Arjun in Grade 3, Meera in Grade 1), starting from zero: no fake progress anywhere.
+4. **Parent phone:** `https://dr8w3l96syzm7.cloudfront.net/parent.html?code=R4KX`, sign in as Mom or Dad with demo PIN **2468**, turn on alerts, and add a daily task (try the *Read 10 pages* preset, voice note).
+5. **Kid phone:** scan the QR on the TV (or open `https://dr8w3l96syzm7.cloudfront.net/kid.html?code=R4KX`), pick a name, and check in. Open *Fractions homework* on the TV and photograph a worksheet (try `assets/homework/arjun_fractions.jpg` on a laptop screen): in about 15 s the AI Tutor marks it. Finish the must-do tasks and TV time unlocks. **Start the family over** is at the bottom of the parent page.
 
 Emulator keys: arrows = D-pad, Enter = select, Esc = Back.
 
@@ -86,7 +103,7 @@ Emulator keys: arrows = D-pad, Enter = select, Esc = Back.
 ```bash
 cd tv-app && ./gradlew installDebug
 ```
-The TV runs its on-device household engine (badge **ON-DEVICE**). Hidden developer keys stand in for the phone: **MENU** sends the bundled photo for the open quest (the marking replayed is real model output recorded on that photo) and **FAST-FORWARD** sends a sibling emote (`adb shell input keyevent KEYCODE_MENU`).
+The TV runs its on-device household engine (badge **AI offline**). Hidden developer keys stand in for the phone: **MENU** sends the bundled photo for the open quest (the marking replayed is real model output recorded on that photo) and **FAST-FORWARD** sends a sibling emote (`adb shell input keyevent KEYCODE_MENU`).
 
 ### 3. Deploy your own backend
 Prerequisites: an AWS account (us-east-1), Node 20+, Python 3.12+, [uv](https://docs.astral.sh/uv/), and a Google Cloud project with the Vertex AI API enabled (or Bedrock access to Amazon Nova Pro, then add `-c aiProvider=bedrock`).
@@ -109,16 +126,16 @@ gcloud iam workload-identity-pools create-cred-config projects/<number>/location
 ```
 Then rebuild the bundle and deploy again. `python agents/warm_voice.py` pre-voices the repeating Keeper lines (Gemini TTS has a small per-minute quota).
 
-### 4. Stone Trial (Unity 6, optional)
-The TV app opens the Stone Trial in the companion Unity app when it is installed, and plays it natively otherwise. The source lives in `arena-unity/`; the scene is built entirely from code, so it builds headlessly.
+### 4. Family Quiz Night in Unity (optional)
+The TV app opens Family Quiz Night in the companion Unity app when it is installed, and plays it natively otherwise. The source lives in `arena-unity/`; the scene is built entirely from code, so it builds headlessly.
 ```bash
 bash arena-unity/sync.sh --build     # mirrors the source into a Unity 6 project and builds Builds/RosettaArena.apk
 ```
-The APK targets ARM64 (Fire TV hardware) and x86_64 (emulators). BACK returns to Home Base with the answers.
+The APK targets ARM64 (Fire TV hardware) and x86_64 (emulators). BACK returns home with the answers.
 
 ### 5. Tests
 ```bash
-python -m unittest discover -s agents/tests     # 24 offline tests: API, uploads, crew policy, marking, quiz, voice (models stubbed)
+python -m unittest discover -s agents/tests     # 43 offline tests: API, habits, voice notes, TV time, wish list, marking, quiz (models stubbed)
 ```
 
 ## AWS integrations
@@ -127,10 +144,10 @@ python -m unittest discover -s agents/tests     # 24 offline tests: API, uploads
 |---|---|---|
 | Strands Agents SDK | Quest Master agent choosing tools per photo: mark_homework, make_practice, scout_room, check_after, ask_parent, complete_quest, keeper_says | `agents/rosetta_agents/crew.py` |
 | AWS Lambda | API, the agent crew (S3-triggered) and scheduled jobs | `agents/rosetta_agents/handlers.py`, `infra/lib/rosetta-stack.ts` |
-| Amazon S3 | Photo uploads (presigned PUT, 1-day lifecycle), voice clips, web hosting | `store.py`, `voice.py`, `rosetta-stack.ts` |
-| Amazon DynamoDB | Household document (quests, marking, practice, quiz, glyphs, feed) | `store.py` |
+| Amazon S3 | Photo and voice-note uploads (presigned PUT, 1-day lifecycle), memories (90 days), voice clips, web hosting | `store.py`, `voice.py`, `rosetta-stack.ts` |
+| Amazon DynamoDB | Household document (tasks, habits, history, memories, wish list, TV time, quiz, feed) | `store.py` |
 | Amazon API Gateway (HTTP API) | TV + phone API | `rosetta-stack.ts` |
-| Amazon EventBridge | Evening streak nudge and weekly Growth digest | `rosetta-stack.ts`, `handlers.scheduled` |
+| Amazon EventBridge | Daily tasks, evening streak nudge, Coach's notes | `rosetta-stack.ts`, `handlers.scheduled` |
 | Amazon SES / Amazon SNS / Web Push | Parent alerts by email, SMS (urgent only) and phone push (VAPID) | `notify.py` |
 | Amazon CloudFront | HTTPS phone pages with the API URL injected | `rosetta-stack.ts` |
 | AWS CDK | One-command infrastructure | `infra/` |
@@ -138,7 +155,7 @@ python -m unittest discover -s agents/tests     # 24 offline tests: API, uploads
 
 ## Privacy and kids
 - No kid accounts: a household is parent-managed; kids are a first name.
-- Photos and voice clips are deleted automatically after one day (S3 lifecycle).
+- Photos are deleted automatically after one day (S3 lifecycle). Daily-task notes and voice notes are kept 90 days as memories for parents, then deleted.
 - The Keeper is prompted never to shame, mock, or comment on a child's character, and to praise only what actually went well.
 - Low-confidence verdicts go to a parent instead of auto-deciding. Parent actions need the household PIN.
 - Co-op only: siblings are never ranked. Rewards are earned, never random.
@@ -147,11 +164,11 @@ python -m unittest discover -s agents/tests     # 24 offline tests: API, uploads
 | Path | |
 |---|---|
 | `tv-app/` | Fire TV app (Kotlin, Compose for TV) · `tv-app/vision-overlay/` the original of the open-source library |
-| `arena-unity/` | Stone Trial companion app (Unity 6, URP, C#) |
+| `arena-unity/` | Family Quiz Night companion app (Unity 6, URP, C#) |
 | `agents/` | Agent crew (Python, Strands) + offline tests · `gemini.py` Vertex AI · `voice.py` Keeper voice |
 | `infra/` | AWS CDK stack |
 | `web/` | Kid and parent phone pages |
-| `assets/flow/` | Original art generated in Google Flow (watermarks untouched) · `assets/voice/` bundled Keeper voice generator |
+| `assets/flow/` | Original art generated in Google Flow (watermarks untouched) · `assets/voice/` bundled Keeper voice generator · `assets/intro/` Veo + Lyria intro |
 | `assets/homework/` | Demo worksheets rendered from code, their true answers, and recorded model outputs replayed offline |
 | `PROJECT_ROSETTA.md` | Product spec, prior-art search, hackathon compliance map |
 | `SUBMISSION.md` · `FEEDBACK.md` · `FRICTION_LOG.md` · `CREDITS.md` | Devpost text, developer feedback, friction log, asset credits |

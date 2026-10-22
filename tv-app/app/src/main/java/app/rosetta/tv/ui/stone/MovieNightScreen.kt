@@ -39,15 +39,16 @@ fun MovieNightScreen(household: Household, onBack: () -> Unit) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    val picker = household.kids.last() // the kid who didn't carve the last glyph picks
+    // The kid with fewer stars this round picks the film: fair, and it's real data.
+    val picker = household.kids.minByOrNull { k -> household.glyphs.count { it.earnedBy == k.id } } ?: household.kids.first()
     Box(Modifier.fillMaxSize()) {
         AssetImage(Household0.MOVIE_ART, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Rosetta.Night.copy(alpha = 0.92f), Rosetta.Night.copy(alpha = 0.1f)))))
         Column(Modifier.align(Alignment.CenterStart).padding(start = 56.dp).width(440.dp)) {
-            Eyebrow("THE STONE IS COMPLETE")
-            Text("Movie night is unlocked", style = MaterialTheme.typography.displayMedium, color = Rosetta.Cream, modifier = Modifier.padding(top = 8.dp))
+            Eyebrow("THE FAMILY GOAL IS DONE")
+            Text("Movie Night is unlocked", style = MaterialTheme.typography.displayMedium, color = Rosetta.Cream, modifier = Modifier.padding(top = 8.dp))
             Text(
-                "Nine glyphs, carved together this month. Tonight ${picker.name} picks the film, and everyone gets the popcorn.",
+                "${household.glyphs.size} stars, earned together: ${household.kids.joinToString(" and ") { k -> "${k.name} ${household.glyphs.count { it.earnedBy == k.id }}" }}. Tonight ${picker.name} picks the film, and everyone gets the popcorn.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = Rosetta.Mist,
                 modifier = Modifier.padding(top = 12.dp, bottom = 26.dp),
@@ -58,7 +59,7 @@ fun MovieNightScreen(household: Household, onBack: () -> Unit) {
                         ?: Intent(android.provider.Settings.ACTION_SETTINGS)
                     runCatching { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }, Modifier.focusRequester(first), icon = "🍿", sub = "${picker.name} chooses tonight", tone = app.rosetta.tv.ui.kit.ButtonTone.Gold, big = true)
-                app.rosetta.tv.ui.kit.RosettaButton("Start a new stone", onBack, icon = "🗿", sub = "Back to the house", tone = app.rosetta.tv.ui.kit.ButtonTone.Glass, big = true)
+                app.rosetta.tv.ui.kit.RosettaButton("Start a new goal", onBack, icon = "⭐", sub = "Back to the house", tone = app.rosetta.tv.ui.kit.ButtonTone.Glass, big = true)
             }
         }
     }

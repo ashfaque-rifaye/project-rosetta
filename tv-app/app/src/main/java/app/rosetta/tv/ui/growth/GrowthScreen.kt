@@ -1,9 +1,5 @@
 package app.rosetta.tv.ui.growth
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -18,12 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,204 +26,235 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import app.rosetta.tv.data.Growth
+import app.rosetta.tv.data.HistoryRow
 import app.rosetta.tv.data.Household
 import app.rosetta.tv.data.Household0
-import app.rosetta.tv.ui.common.AssetImage
+import app.rosetta.tv.data.Kid
+import app.rosetta.tv.ui.kit.AvatarRing
 import app.rosetta.tv.ui.kit.ButtonTone
 import app.rosetta.tv.ui.kit.Glass
 import app.rosetta.tv.ui.kit.RosettaButton
+import app.rosetta.tv.ui.reward.money
 import app.rosetta.tv.ui.theme.Rosetta
-import kotlin.math.roundToInt
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
+
+private const val DAYS = 14
 
 /**
- * Growth: how each kid's habits are developing, for parents (and kids who like seeing themselves level up).
- * Stat tiles for the headline numbers, one chart per measure (no dual axes), Coach agent notes in plain words.
+ * Progress, for parents: each kid's real activity from the server's history (nothing synthetic). A 14-day habit
+ * calendar, homework accuracy, pocket money, and ✦ Coach's notes the AI writes once there is something real to say.
  */
 @Composable
 fun GrowthScreen(household: Household) {
-    var kidIdx by remember { mutableStateOf(0) }
-    val kid = household.kids[kidIdx]
-    val g = household.growth[kid.id] ?: return
-    val color = Rosetta.KidSeries[kidIdx % Rosetta.KidSeries.size]
+    var kidIdx by remember { mutableIntStateOf(0) }
+    val kid = household.kids[kidIdx.coerceIn(0, household.kids.lastIndex)]
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    val rows = household.history.filter { it.kidId == kid.id }
+    val days = remember(household.todayDate) { lastDays(household.todayDate) }
+    val week = days.takeLast(7).toSet()
+    val thisWeek = rows.filter { it.day in week }
+    val study = rows.filter { it.kind == "study" && it.total > 0 }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1A2550), Rosetta.Night), radius = 1500f))) {
-        Column(Modifier.fillMaxSize().padding(start = 44.dp, end = 40.dp, top = 26.dp, bottom = 20.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 44.dp, end = 40.dp, top = 26.dp, bottom = 22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("GROWTH", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 3.sp), color = Rosetta.Gold)
-                    Text("How ${kid.name} is levelling up", style = MaterialTheme.typography.displaySmall, color = Rosetta.Cream)
+                    Text("PROGRESS", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 3.sp), color = Rosetta.Gold)
+                    Text("How ${kid.name} is doing", style = MaterialTheme.typography.displaySmall, color = Rosetta.Cream)
                 }
                 household.kids.forEachIndexed { i, k ->
-                    RosettaButton(k.name, { kidIdx = i }, Modifier.padding(start = 10.dp).then(if (i == 0) Modifier.focusRequester(first) else Modifier),
-                        icon = if (i == kidIdx) "★" else "☆", tone = if (i == kidIdx) ButtonTone.Lime else ButtonTone.Glass)
+                    RosettaButton(
+                        k.name, { kidIdx = i }, Modifier.padding(start = 10.dp).then(if (i == 0) Modifier.focusRequester(first) else Modifier),
+                        icon = if (i == kidIdx) "★" else "☆", tone = if (i == kidIdx) ButtonTone.Lime else ButtonTone.Glass,
+                    )
                 }
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // ---------- Hero + headline numbers ----------
+            Row(Modifier.fillMaxWidth().height(150.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Hero(kid, Modifier.width(380.dp).fillMaxHeight())
+                val right = study.sumOf { it.right }
+                val total = study.sumOf { it.total }
+                StatTile("Tasks this week", "${thisWeek.size}", "on ${thisWeek.map { it.day }.distinct().size} of 7 days", Modifier.weight(1f))
+                StatTile(
+                    "Homework right", if (total == 0) "–" else "${right * 100 / total}%",
+                    if (total == 0) "after the first homework check" else "$right of $total answers", Modifier.weight(1f),
+                )
+                StatTile(
+                    "Pocket money", money(household.currency, kid.money),
+                    "${money(household.currency, thisWeek.sumOf { it.money })} earned this week", Modifier.weight(1f), accent = Rosetta.Lime,
+                )
+                StatTile("Stars", "${household.glyphs.count { it.earnedBy == kid.id }}", "for the Family Goal", Modifier.weight(1f), accent = Rosetta.Ember)
             }
             Spacer(Modifier.height(14.dp))
-            // ---------- Stat tiles ----------
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("Quests this week", "${g.questsThisWeek}", delta(g.questsThisWeek - g.questsLastWeek, "vs last week", upIsGood = true), Modifier.weight(1f))
-                StatTile("Avg tidy time", "${g.avgMinutesThisWeek.roundToInt()} min", delta((g.avgMinutesThisWeek - g.avgMinutesLastWeek).roundToInt(), "min vs last week", upIsGood = false), Modifier.weight(1f))
-                StatTile("Starts on their own", "${(g.selfStartRate * 100).roundToInt()}%", "no reminder needed", Modifier.weight(1f))
-                StatTile("Streak", "${kid.streak} days 🔥", "level ${kid.level} · ${kid.title}", Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.weight(1f)) {
-                Column(Modifier.weight(1f)) {
-                    ChartCard("Quests per day · last 4 weeks", Modifier.weight(1f)) { QuestBars(g, color) }
-                    Spacer(Modifier.height(12.dp))
-                    ChartCard("Minutes to tidy a room · lower is smoother", Modifier.weight(1f)) { MinutesLine(g, color) }
+
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    HabitCalendar(household, kid, rows, days, Modifier.fillMaxWidth().weight(1f))
+                    Homework(study, Modifier.fillMaxWidth().height(150.dp))
                 }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.width(360.dp)) {
-                    ChartCard("Skill balance", Modifier.height(168.dp)) { SkillBars(g, color) }
-                    Spacer(Modifier.height(12.dp))
-                    Glass(Modifier.fillMaxWidth().weight(1f)) {
-                        Column(Modifier.padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(26.dp).clip(CircleShape).background(Rosetta.Lime.copy(alpha = 0.2f)).border(1.dp, Rosetta.Lime, CircleShape), contentAlignment = Alignment.Center) { Text("➜", color = Rosetta.Lime, fontSize = 13.sp) }
-                                Spacer(Modifier.width(8.dp))
-                                Text("COACH AGENT NOTES", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            g.insights.forEach { line ->
-                                Row(Modifier.padding(vertical = 4.dp)) {
-                                    Text("•", color = Rosetta.Gold, fontSize = 15.sp, modifier = Modifier.width(14.dp))
-                                    Text(line, color = Rosetta.Cream, fontSize = 13.sp, lineHeight = 17.sp)
-                                }
-                            }
+                CoachCard(household, kid, rows.size, Modifier.width(440.dp).fillMaxHeight())
+            }
+        }
+    }
+}
+
+/** The last [DAYS] days as yyyy-MM-dd in India time, ending today (the server's day when it sent one). */
+private fun lastDays(today: String): List<String> {
+    val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("Asia/Kolkata") }
+    val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
+    runCatching { if (today.isNotBlank()) cal.time = fmt.parse(today)!! }
+    cal.add(Calendar.DAY_OF_YEAR, -(DAYS - 1))
+    return (0 until DAYS).map { fmt.format(cal.time).also { cal.add(Calendar.DAY_OF_YEAR, 1) } }
+}
+
+private fun weekday(day: String): String = runCatching {
+    val d = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day)!!
+    SimpleDateFormat("EEEEE", Locale.US).format(d)
+}.getOrDefault("")
+
+@Composable
+private fun Hero(kid: Kid, modifier: Modifier) {
+    Glass(modifier, glow = Rosetta.Gold.copy(alpha = 0.4f)) {
+        Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            AvatarRing(Household0.avatar(kid.avatar), kid.levelProgress, 104.dp, level = kid.level)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(kid.name, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = Rosetta.Cream)
+                Text("${kid.title}${if (kid.grade.isBlank()) "" else if (kid.grade.startsWith("Grade")) " · ${kid.grade}" else " · Grade ${kid.grade}"}", fontSize = 14.sp, color = Rosetta.Mist)
+                Spacer(Modifier.height(8.dp))
+                Text("Level ${kid.level} · ${kid.xp} of ${kid.xpForNext} XP", fontSize = 13.sp, color = Rosetta.Lime)
+                Text(
+                    if (kid.streak > 0) "🔥 ${kid.streak} ${if (kid.streak == 1) "day" else "days"} in a row" else "No streak yet",
+                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (kid.streak > 0) Rosetta.Ember else Rosetta.Mist,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatTile(label: String, value: String, sub: String, modifier: Modifier, accent: Color = Rosetta.Gold) {
+    Glass(modifier.fillMaxHeight()) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.Center) {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold), color = Rosetta.Mist)
+            Text(value, style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold), color = accent, maxLines = 1)
+            Text(sub, fontSize = 13.sp, color = Rosetta.Mist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** One row per daily task (plus homework and tidy-ups); a lit cell is a day it was really done. */
+@Composable
+private fun HabitCalendar(h: Household, kid: Kid, rows: List<HistoryRow>, days: List<String>, modifier: Modifier) {
+    data class Line(val label: String, val color: Color, val streak: Int?, val done: Set<String>)
+    val lines = h.habits.filter { kid.id in it.kidIds }.map { hb ->
+        Line("${hb.icon.ifBlank { "✓" }} ${hb.title}", Rosetta.Lime, hb.streaks[kid.id] ?: 0, rows.filter { it.habitId == hb.id }.map { it.day }.toSet())
+    } + listOf(
+        Line("📘 Homework", Rosetta.Sky, null, rows.filter { it.kind == "study" }.map { it.day }.toSet()),
+        Line("🧸 Tidy-ups", Rosetta.Gold, null, rows.filter { it.kind == "tidy" }.map { it.day }.toSet()),
+    )
+    Glass(modifier) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("LAST 2 WEEKS", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
+                Spacer(Modifier.weight(1f))
+                Text("each square is a day it was done", fontSize = 12.sp, color = Rosetta.Mist)
+            }
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                lines.take(6).forEach { l ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(l.label, fontSize = 16.sp, color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(200.dp))
+                        days.forEach { d ->
+                            val on = d in l.done
+                            Box(
+                                Modifier.padding(end = 6.dp).size(36.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (on) l.color else Color.White.copy(alpha = 0.06f))
+                                    .border(1.dp, if (d == days.last()) Rosetta.Cream.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(8.dp)),
+                            )
                         }
+                        Spacer(Modifier.width(8.dp))
+                        l.streak?.let { Text(if (it > 0) "🔥 $it" else "", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Rosetta.Ember) }
                     }
                 }
-            }
-        }
-    }
-}
-
-private fun delta(d: Int, unit: String, upIsGood: Boolean): String {
-    if (d == 0) return "same as last week"
-    val good = (d > 0) == upIsGood
-    return "${if (d > 0) "▲" else "▼"} ${kotlin.math.abs(d)} $unit${if (good) " · nice" else ""}"
-}
-
-@Composable
-private fun StatTile(label: String, value: String, sub: String, modifier: Modifier) {
-    Glass(modifier.height(90.dp)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(label.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = Rosetta.Mist)
-            Text(value, fontSize = 27.sp, fontWeight = FontWeight.Black, color = Rosetta.Cream)
-            Text(sub, fontSize = 12.sp, color = if (sub.contains("nice")) Rosetta.Lime else Rosetta.Mist, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun ChartCard(title: String, modifier: Modifier, chart: @Composable () -> Unit) {
-    Glass(modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxSize().padding(14.dp)) {
-            Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream)
-            Spacer(Modifier.height(6.dp))
-            Box(Modifier.fillMaxSize()) { chart() }
-        }
-    }
-}
-
-/** 28 thin bars, rounded ends anchored to the baseline, 2px gaps, week separators; this week's bars at full colour. */
-@Composable
-private fun QuestBars(g: Growth, color: Color) {
-    val grow = remember(g) { Animatable(0f) }
-    LaunchedEffect(g) { grow.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
-    val max = (g.days.maxOf { it.quests }).coerceAtLeast(1)
-    Column(Modifier.fillMaxSize()) {
-        Canvas(Modifier.weight(1f).fillMaxWidth()) {
-            val n = g.days.size
-            val gap = 4.dp.toPx()
-            val bw = (size.width - gap * (n - 1)) / n
-            // Recessive grid.
-            for (i in 0..max) {
-                val y = size.height - size.height * i / max
-                drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, y), Offset(size.width, y), 1f)
-            }
-            g.days.forEachIndexed { i, d ->
-                val h = size.height * d.quests / max * grow.value
-                val x = i * (bw + gap)
-                val thisWeek = i >= n - 7
-                if (h > 0) drawRoundRect(
-                    color.copy(alpha = if (thisWeek) 1f else 0.45f), Offset(x, size.height - h), Size(bw, h), CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                )
-                if (i % 7 == 0 && i > 0) drawLine(Color.White.copy(alpha = 0.18f), Offset(x - gap / 2, 0f), Offset(x - gap / 2, size.height), 1.dp.toPx())
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            listOf("3 wks ago", "2 wks ago", "last week", "this week").forEach {
-                Text(it, fontSize = 11.sp, color = if (it == "this week") Rosetta.Cream else Rosetta.Mist, modifier = Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-/** 2px line + end marker with a direct label; the falling trend reads left to right. */
-@Composable
-private fun MinutesLine(g: Growth, color: Color) {
-    val draw = remember(g) { Animatable(0f) }
-    LaunchedEffect(g) { draw.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
-    val pts = g.days.filter { it.quests > 0 }.map { it.minutes }
-    val maxV = (pts.maxOrNull() ?: 1).coerceAtLeast(10)
-    Row(Modifier.fillMaxSize()) {
-        Canvas(Modifier.weight(1f).fillMaxHeight()) {
-            for (i in 0..3) {
-                val y = size.height * i / 3
-                drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, y), Offset(size.width, y), 1f)
-            }
-            if (pts.size < 2) return@Canvas
-            val path = Path()
-            val upto = (pts.size * draw.value).toInt().coerceAtLeast(2)
-            pts.take(upto).forEachIndexed { i, v ->
-                val x = size.width * i / (pts.size - 1)
-                val y = size.height - size.height * v / maxV
-                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-            }
-            drawPath(path, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            val lx = size.width * (upto - 1) / (pts.size - 1)
-            val ly = size.height - size.height * pts[upto - 1] / maxV
-            drawCircle(Rosetta.Night, 7.dp.toPx(), Offset(lx, ly))
-            drawCircle(color, 5.dp.toPx(), Offset(lx, ly))
-        }
-        Column(Modifier.width(78.dp).padding(start = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Text("${pts.firstOrNull() ?: 0} min", fontSize = 12.sp, color = Rosetta.Mist)
-            Text("${pts.lastOrNull() ?: 0} min", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Rosetta.Cream)
-            Text("now", fontSize = 11.sp, color = Rosetta.Mist)
-        }
-    }
-}
-
-/** Labelled horizontal bars (a radar is harder to read); value printed in text ink, not series colour. */
-@Composable
-private fun SkillBars(g: Growth, color: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        g.skills.forEach { (name, v) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(name, fontSize = 13.sp, color = Rosetta.Cream, modifier = Modifier.width(78.dp))
-                Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(50)).background(Color(0x22FFFFFF))) {
-                    Box(Modifier.fillMaxWidth(v).fillMaxHeight().clip(RoundedCornerShape(50)).background(color))
+                Row {
+                    Spacer(Modifier.width(200.dp))
+                    days.forEach { d -> Text(weekday(d), fontSize = 12.sp, color = Rosetta.Mist, modifier = Modifier.width(42.dp)) }
                 }
-                Text("${(v * 100).roundToInt()}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Rosetta.Mist, modifier = Modifier.width(32.dp).padding(start = 6.dp))
+            }
+            if (h.habits.none { kid.id in it.kidIds }) {
+                Spacer(Modifier.weight(1f))
+                Text("Mom or Dad can add daily tasks like \"Make the bed\" or \"Read 10 pages\" from their phone. Each one gets its own row and streak.", fontSize = 14.sp, color = Rosetta.Mist)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Homework(study: List<HistoryRow>, modifier: Modifier) {
+    Glass(modifier) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Text("✦ HOMEWORK THE AI TUTOR CHECKED", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
+            Spacer(Modifier.height(8.dp))
+            if (study.isEmpty()) Text("Nothing checked yet. Snap a worksheet from the phone and it shows up here.", fontSize = 14.sp, color = Rosetta.Mist)
+            study.sortedByDescending { it.atMs }.take(3).forEach { r ->
+                Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(r.topic.ifBlank { r.title }, fontSize = 14.sp, color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(230.dp))
+                    val p = r.right.toFloat() / r.total
+                    Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(50)).background(Color(0x22FFFFFF))) {
+                        Box(Modifier.fillMaxWidth(p.coerceAtLeast(0.03f)).fillMaxHeight().clip(RoundedCornerShape(50)).background(if (p >= 0.8f) Rosetta.Lime else Rosetta.Gold))
+                    }
+                    Text("  ${r.right}/${r.total}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Gold)
+                    if (r.skills.isNotEmpty()) Text("  practise: ${r.skills.joinToString(", ").lowercase()}", fontSize = 12.sp, color = Rosetta.Mist, maxLines = 1, modifier = Modifier.width(220.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CoachCard(h: Household, kid: Kid, finished: Int, modifier: Modifier) {
+    val notes = h.coach[kid.id]
+    Glass(modifier, glow = Rosetta.Violet.copy(alpha = 0.35f)) {
+        Column(Modifier.fillMaxSize().padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✦", fontSize = 18.sp, color = Rosetta.Gold)
+                Spacer(Modifier.width(8.dp))
+                Text("COACH'S NOTES", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text("Written by the AI from ${kid.name}'s real week, for Mom and Dad.", fontSize = 12.sp, color = Rosetta.Mist)
+            Spacer(Modifier.height(14.dp))
+            if (notes == null || (notes.headline.isBlank() && notes.notes.isEmpty())) {
+                Text(
+                    if (finished < 3) "Notes appear after 3 finished tasks. ${kid.name} has $finished so far." else "Notes are on the way. They refresh a few times a day.",
+                    style = MaterialTheme.typography.titleMedium, color = Rosetta.Cream,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("Only real activity counts: nothing here is sample data.", fontSize = 13.sp, color = Rosetta.Mist)
+            } else {
+                if (notes.headline.isNotBlank()) Text(notes.headline, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 21.sp, lineHeight = 27.sp), color = Rosetta.Gold)
+                Spacer(Modifier.height(12.dp))
+                notes.notes.take(4).forEach { n ->
+                    Row(Modifier.padding(vertical = 5.dp)) {
+                        Text("•", fontSize = 16.sp, color = Rosetta.Violet, modifier = Modifier.width(16.dp))
+                        Text(n, fontSize = 15.sp, lineHeight = 21.sp, color = Rosetta.Cream, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }

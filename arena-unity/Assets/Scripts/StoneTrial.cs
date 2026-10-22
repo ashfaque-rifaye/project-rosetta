@@ -204,11 +204,11 @@ namespace Rosetta.Arena
             scaler.matchWidthOrHeight = 1f;
             canvas = (RectTransform)go.transform;
 
-            var title = Label(canvas, "FAMILY QUIZ BATTLE  ·  <color=#FFF4E0>THE STONE TRIAL</color>", 28, Gold, TextAnchor.LowerLeft);
+            var title = Label(canvas, "TONIGHT  ·  <color=#FFF4E0>FAMILY QUIZ NIGHT</color>", 28, Gold, TextAnchor.LowerLeft);
             Stretch(title.rectTransform, new Vector2(0.52f, 0.86f), new Vector2(0.97f, 0.86f), new Vector2(4, 12), new Vector2(0, 60));
             teamText = Label(canvas, "", 34, Cream, TextAnchor.UpperLeft);
             Stretch(teamText.rectTransform, new Vector2(0.52f, 0), new Vector2(0.97f, 0.08f), new Vector2(4, -10), new Vector2(0, -6));
-            var back = Label(canvas, "BACK  return to Home Base", 22, new Color(1, 1, 1, 0.55f), TextAnchor.UpperRight);
+            var back = Label(canvas, "BACK  home", 22, new Color(1, 1, 1, 0.55f), TextAnchor.UpperRight);
             Stretch(back.rectTransform, new Vector2(0.5f, 1), new Vector2(1, 1), new Vector2(0, -70), new Vector2(-60, -36));
 
             var panel = Box(canvas, Night, new Vector2(0.52f, 0.08f), new Vector2(0.97f, 0.86f), Vector2.zero, Vector2.zero);
@@ -253,7 +253,7 @@ namespace Rosetta.Arena
         void Next()
         {
             current = Raid.questions.FindIndex(q => !Raid.answers.Exists(a => a.questionId == q.id));
-            teamText.text = $"<color=#FFD166><b>{Lit}</b></color> / {Raid.questions.Count} glyphs lit · team";
+            teamText.text = $"<color=#FFD166><b>{Lit}</b></color> of {Raid.questions.Count} right, as a team";
             if (current < 0) { Finish(); return; }
             var q = Raid.questions[current];
             var kid = KidFor(q, current);
@@ -312,7 +312,7 @@ namespace Rosetta.Arena
                 dust.transform.position = at; dust.Emit(24);
                 ArenaAudio.Play("hit", 0.5f);
             }
-            teamText.text = $"<color=#FFD166><b>{Lit}</b></color> / {Raid.questions.Count} glyphs lit · team";
+            teamText.text = $"<color=#FFD166><b>{Lit}</b></color> of {Raid.questions.Count} right, as a team";
             StartCoroutine(After(2.4f));
         }
 
@@ -335,13 +335,13 @@ namespace Rosetta.Arena
             bloom.intensity.Override(1.6f);
             ArenaAudio.Play("victory");
             int lit = Lit;
-            turnText.text = "STONE TRIAL COMPLETE";
+            turnText.text = "QUIZ COMPLETE!";
             progressText.text = "";
             turnAvatar.enabled = false;
-            promptText.text = $"{lit} of {Raid.questions.Count} glyphs lit together";
+            promptText.text = $"{lit} of {Raid.questions.Count} right together";
             choiceRoot.gameObject.SetActive(false);
             feedbackText.color = Lime;
-            feedbackText.text = (lit > 0 ? $"Everyone gets +{10 * lit} coins. Teamwork wins." : "Tough round! Tomorrow's trial has new questions.")
+            feedbackText.text = (lit > 0 ? $"Everyone gets +{5 * lit} coins. Teamwork wins." : "Tough round! Next quiz has new questions.")
                                 + "\n<color=#FFD166>Press OK to return</color>";
         }
 

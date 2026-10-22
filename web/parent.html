@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a1020">
-  <title>Rosetta · Mission Control</title>
+  <title>Rosetta for parents</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -12,9 +12,9 @@
 </head>
 <body>
 <main>
-  <div class="eyebrow">Rosetta · Parent</div>
-  <h1>Mission Control</h1>
-  <p class="lead" id="sub">Homework, chores and alerts for your family.</p>
+  <div class="eyebrow">Rosetta · for parents</div>
+  <h1 id="hello">Your family</h1>
+  <p class="lead" id="sub">Homework, daily tasks, pocket money and TV time.</p>
 
   <!-- Sign in: who is this, and the household PIN (it stays on this phone) -->
   <section id="signin" class="card" hidden>
@@ -33,38 +33,113 @@
       <button class="link" id="signout">Sign out</button>
     </div>
 
+    <!-- First run: alerts are how Rosetta reaches you, so they come first until they're on. -->
+    <div class="card onboard" id="onboard" hidden>
+      <b>📱 Get a ping when something needs you</b>
+      <p class="muted small">Homework checked, a voice note from your child, a wish they've saved for, a request for TV time. No app to install: this page sends the alerts.</p>
+      <button id="pushBtn2">Turn on phone alerts</button>
+      <p class="muted small" id="pushHint2">On iPhone, first add this page to your Home Screen (Share → Add to Home Screen), then open it from there.</p>
+    </div>
+
+    <div class="family" id="family"></div>
+
     <div id="needsWrap" hidden>
       <h2>Needs you</h2>
       <section id="needs"></section>
     </div>
 
-    <h2>Family feed</h2>
-    <section class="card" id="feed"></section>
+    <h2>Today</h2>
+    <section id="today"></section>
+
+    <h2>Memories</h2>
+    <p class="muted small">Notes, voice notes and photos from daily tasks, kept for 90 days. ✦ marks the AI's summary.</p>
+    <section class="card" id="memories"></section>
+
+    <h2>Daily tasks</h2>
+    <p class="muted small">They appear on the TV every day. Must-do tasks gate TV time.</p>
+    <section id="habits"></section>
+    <div class="card">
+      <div class="eyebrow">Add a daily task</div>
+      <div class="chips" id="presets"></div>
+      <div class="row2"><input id="hIcon" maxlength="4" placeholder="🛏️" class="icon"><input id="hTitle" maxlength="40" placeholder="e.g. Make your bed"></div>
+      <div class="chips" id="hKids"></div>
+      <label class="field">How they show it's done
+        <select id="hProof">
+          <option value="none">A tick is enough</option>
+          <option value="note">A short written note</option>
+          <option value="voice">A voice note (✦ the AI listens)</option>
+          <option value="photo">A photo (✦ the AI checks it)</option>
+        </select>
+      </label>
+      <div class="row2">
+        <label class="field">Coins<input id="hCoins" type="number" min="0" max="100" value="10"></label>
+        <label class="field">Pocket money<input id="hMoney" type="number" min="0" max="500" step="0.5" value="0"></label>
+      </div>
+      <label class="toggle"><input type="checkbox" id="hMust" checked> Must-do before TV time</label>
+      <label class="toggle"><input type="checkbox" id="hParent"> I want to OK it myself</label>
+      <button id="hAdd">Add to every day</button>
+    </div>
+
+    <h2>Homework or a tidy-up, just for today</h2>
+    <div class="card">
+      <select id="kind">
+        <option value="study">Homework (✦ the AI Tutor marks it)</option>
+        <option value="tidy">Tidy-up (✦ Rosetta checks the room)</option>
+      </select>
+      <select id="kid"></select>
+      <select id="room"></select>
+      <input id="qtitle" placeholder="e.g. Spelling worksheet" maxlength="60">
+      <label class="toggle"><input type="checkbox" id="qMust" checked> Must-do before TV time</label>
+      <button id="add">Put it on the TV</button>
+    </div>
+
+    <h2>Learning profile</h2>
+    <p class="muted small">✦ Family Quiz Night writes 8 questions from this: each child's class, subjects and coming tests.</p>
+    <section id="profiles"></section>
+
+    <h2>Pocket money &amp; wish list</h2>
+    <section class="card" id="wishCard"></section>
+    <div class="card">
+      <div class="eyebrow">Add a wish</div>
+      <select id="wKid"></select>
+      <input id="wTitle" maxlength="60" placeholder="e.g. LEGO Classic box">
+      <div class="row2">
+        <input id="wPrice" type="number" min="1" step="1" placeholder="Price (₹)">
+        <input id="wLink" maxlength="300" placeholder="Link (optional), e.g. Amazon">
+      </div>
+      <button id="wAdd">Add to the wish list</button>
+      <label class="field">Pocket money for every coin earned (0 = only what daily tasks pay)
+        <input id="sPerCoin" type="number" min="0" max="10" step="0.1" value="0">
+      </label>
+    </div>
+
+    <h2>TV time</h2>
+    <div class="card">
+      <div id="tvState"></div>
+      <label class="field">Minutes earned each day<input id="sMinutes" type="number" min="0" max="240" step="5" value="45"></label>
+      <label class="toggle"><input type="checkbox" id="sApprove"> Ask me before TV time unlocks</label>
+      <button id="sSave" class="ghost">Save TV and pocket money settings</button>
+      <details class="guide">
+        <summary>Lock the other apps on Fire TV</summary>
+        <p class="small">Rosetta unlocks TV time inside Rosetta and opens Prime Video, YouTube or Netflix when it's earned. Fire TV doesn't let any app lock the others, so use Fire TV's own controls for that:</p>
+        <ol class="small">
+          <li>Settings → Preferences → Parental Controls → turn them <b>On</b> and set a PIN.</li>
+          <li>Turn on <b>PIN protect app launches</b>, so other apps need your PIN.</li>
+          <li>Or make an Amazon Kids profile and add only the apps you allow.</li>
+          <li>Pin Rosetta to the first spot on the home row so it's what the kids see first.</li>
+        </ol>
+      </details>
+    </div>
 
     <h2>Send a message to the TV</h2>
     <div class="card">
       <div class="chips" id="quick">
         <button class="chip" data-t="Proud of you! 🫶">Proud of you! 🫶</button>
-        <button class="chip" data-t="Homework first, then movie night 🍿">Homework first 🍿</button>
+        <button class="chip" data-t="Homework first, then TV 📺">Homework first 📺</button>
         <button class="chip" data-t="Snack's ready 🍪">Snack's ready 🍪</button>
       </div>
-      <textarea id="msg" maxlength="140" rows="2" placeholder="The Keeper reads it aloud on the TV"></textarea>
+      <textarea id="msg" maxlength="140" rows="2" placeholder="Rosetta reads it aloud on the TV"></textarea>
       <button id="send">Send</button>
-    </div>
-
-    <h2>Tonight's quests</h2>
-    <section id="quests"></section>
-
-    <h2>Post a quest</h2>
-    <div class="card">
-      <select id="kind">
-        <option value="study">Homework</option>
-        <option value="tidy">Tidy-up</option>
-      </select>
-      <select id="kid"></select>
-      <select id="room"></select>
-      <input id="qtitle" placeholder="e.g. Spelling worksheet" maxlength="60">
-      <button id="add">Put it on the TV</button>
     </div>
 
     <h2>Alerts</h2>
@@ -84,10 +159,13 @@
       <p class="muted small" id="alertMsg"></p>
     </div>
 
-    <h2>Family Stone</h2>
-    <div class="card" id="stone"></div>
+    <h2>Family feed</h2>
+    <section class="card" id="feed"></section>
 
-    <button class="ghost" id="reset" style="margin-top:18px">Reset demo household</button>
+    <h2>Family Goal</h2>
+    <div class="card" id="goal"></div>
+
+    <button class="ghost" id="reset" style="margin-top:18px">Start the family over</button>
   </section>
 </main>
 <div class="toast" id="toast" hidden></div>
@@ -98,38 +176,27 @@ const $ = (id) => document.getElementById(id);
 let me = parentSession();
 let household = null, filled = false, settingsLoaded = false;
 
-const KIND_ICON = {
-  quest_done: "✅", needs_approval: "🙋", done_check: "📸", message: "💬", parent_reply: "↩️", new_quest: "📝",
-  quiz_started: "📺", quiz_done: "🏆", streak_risk: "🔥", weekly_digest: "📈", raid_defeated: "🏆",
+const FEED_ICON = {
+  quest_done: "✅", habit_done: "✅", needs_approval: "🙋", done_check: "📸", message: "💬", parent_reply: "↩️", new_quest: "📝",
+  quiz_started: "📺", quiz_done: "🏆", streak_risk: "🔥", weekly_digest: "📈", goal_done: "⭐", wish_request: "🎁",
+  wish_ready: "🎯", wish_approved: "🎁", tv_request: "📺", tv_unlocked: "📺",
 };
+const PRESETS = [
+  ["🛏️", "Make your bed", "photo"], ["📖", "Read 10 pages", "voice"], ["🙏", "Prayer time", "none"],
+  ["🦷", "Brush your teeth", "none"], ["🎒", "Pack your school bag", "photo"], ["🧘", "10 minutes of quiet", "note"],
+];
 
-function toast(text) {
-  $("toast").textContent = text; $("toast").hidden = false;
-  clearTimeout(toast.t); toast.t = setTimeout(() => ($("toast").hidden = true), 2600);
-}
-
-// Polling refreshes every 3 s; only rebuild a section when its HTML actually changes, so taps aren't lost mid-press.
-const shown = {};
-function setHtml(id, html) {
-  if (shown[id] === html) return;
-  shown[id] = html;
-  $(id).innerHTML = html;
-}
-
-function ago(ms) {
-  const s = Math.max(1, Math.round((Date.now() - ms) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
+const PIN_ERR = (e) => (e.status === 403 ? "Your PIN changed. Sign in again." : e.message);
+async function act(path, body, ok) {
+  try { const r = await asParent(path, { body }); if (ok) toast(ok); refresh(); return r; }
+  catch (e) { toast(PIN_ERR(e)); return null; }
 }
 
 // ---------------------------------------------------------------- sign in
 function showSignin(h) {
   $("signin").hidden = false; $("app").hidden = true;
-  $("signinMsg").textContent = "The PIN is set for your household. Demo household: 2468.";
   const parents = (h && h.parents && h.parents.length) ? h.parents : [{ id: "mom", name: "Mom" }, { id: "dad", name: "Dad" }];
-  $("who").innerHTML = parents.map((p, i) => `<button class="chip ${i === 0 ? "on" : ""}" data-id="${p.id}">${esc(p.name)}</button>`).join("");
+  $("who").innerHTML = parents.map((p, i) => `<button class="chip ${i === 0 ? "on" : ""}" data-id="${p.id}">${p.avatar ? `<img class="mini" src="${avatarArt(p.avatar)}" alt="">` : ""}${esc(p.name)}</button>`).join("");
   $("who").querySelectorAll(".chip").forEach((b) => b.onclick = () => {
     $("who").querySelectorAll(".chip").forEach((x) => x.classList.remove("on")); b.classList.add("on");
   });
@@ -146,113 +213,218 @@ $("signinBtn").onclick = async () => {
     localStorage.setItem(PARENT_KEY, JSON.stringify(me));
     $("pin").value = "";
     start();
-  } catch (e) {
-    $("signinMsg").textContent = "That PIN didn't match. Try again.";
-  }
+  } catch (e) { $("signinMsg").textContent = "That PIN didn't match. Try again."; }
 };
 $("signout").onclick = () => { localStorage.removeItem(PARENT_KEY); me = null; settingsLoaded = false; showSignin(household); };
 
 // ---------------------------------------------------------------- render
+function familyHtml(h) {
+  return h.kids.map((k) => `<div class="fk"><img src="${avatarArt(k.avatar)}" alt="">
+    <div><b>${esc(k.name)}</b><div class="muted small">${esc(k.grade || "")} · Level ${k.level}</div>
+    <div class="small">🪙 ${k.coins} · 💰 ${money(h, k.money)} · 🔥 ${k.streak}</div></div></div>`).join("");
+}
+
 function needsHtml(h) {
-  const items = h.quests.filter((q) => q.needsParent).map((q) => {
+  const items = [];
+  h.quests.filter((q) => q.needsParent || q.stage === "Checking").forEach((q) => {
     const kid = h.kids.find((k) => k.id === q.kidId);
-    const hw = q.homework;
-    const what = hw ? `${hw.items.filter((i) => i.correct).length}/${hw.items.length} marked right · ${esc(hw.topic)}`
-                    : `${q.things.filter((t) => t.returned).length}/${q.things.length} Lost Things home`;
-    const photo = q.afterUrl || q.beforeUrl;
-    return `<div class="card needs">
-      <div class="flag">${q.kind === "study" ? "The Tutor isn't sure" : "The Judge isn't sure"}</div>
+    const hw = q.homework, c = q.checkin || {};
+    const what = q.kind === "habit" ? (c.summary || c.note || "Says it's done") :
+      hw ? `${hw.items.filter((i) => i.correct).length}/${hw.items.length} marked right · ${esc(hw.topic)}`
+         : `${q.things.filter((t) => t.returned).length}/${q.things.length} things put back`;
+    const photo = c.photoUrl || q.afterUrl || q.beforeUrl;
+    items.push(`<div class="card needs">
+      <div class="flag">${q.kind === "habit" ? "Did they do it?" : "✦ Rosetta isn't sure"}</div>
       <div><b>${esc(kid ? kid.name : "")}</b> · ${esc(q.title)}</div>
-      <p class="muted">${what}${q.parentReason ? " · " + esc(q.parentReason) : ""}</p>
-      ${photo ? `<img class="preview" src="${photo}" alt="The photo the crew checked">` : ""}
-      <div class="row">
-        <button data-act="approve" data-q="${q.id}">Looks good, approve ✓</button>
-        <button class="ghost" data-act="reject" data-q="${q.id}">Not yet</button>
-      </div></div>`;
+      <p class="muted">${esc(what)}${q.parentReason ? " · " + esc(q.parentReason) : ""}</p>
+      ${c.audioUrl ? `<audio controls preload="none" src="${c.audioUrl}"></audio>` : ""}
+      ${photo ? `<img class="preview" src="${photo}" alt="The photo Rosetta checked">` : ""}
+      <div class="row"><button data-act="approve" data-q="${q.id}">Yes, approve ✓</button>
+      <button class="ghost" data-act="reject" data-q="${q.id}">Not yet</button></div></div>`);
   });
-  const hour = Date.now() - 3600 * 1000;
-  (h.feed || []).filter((f) => f.kind === "done_check" && f.atMs > hour).slice(-2).forEach((f) => items.push(
-    `<div class="card needs"><div class="flag">Done? Check?</div><div>${esc(f.title)}</div><p class="muted">${esc(f.body)} · ${ago(f.atMs)}</p></div>`));
+  (h.wishlist || []).filter((w) => w.status === "requested").forEach((w) => {
+    const kid = h.kids.find((k) => k.id === w.kidId);
+    items.push(`<div class="card needs"><div class="flag">🎁 Wish ready</div>
+      <div><b>${esc(kid ? kid.name : "")}</b> saved up for <b>${esc(w.title)}</b> · ${money(h, w.price)}</div>
+      <p class="muted">${esc(kid ? kid.name : "")} has ${money(h, kid ? kid.money : 0)}. Approving takes ${money(h, w.price)} from their pocket money.</p>
+      ${w.link ? `<p class="small"><a href="${esc(w.link)}" target="_blank" rel="noopener">Open the link</a></p>` : ""}
+      <div class="row"><button data-wish="approve" data-w="${w.id}">Yes, get it 🎁</button></div></div>`);
+  });
+  const t = h.tvTime || {};
+  if (t.requested && !t.approved) items.push(`<div class="card needs"><div class="flag">📺 TV time?</div>
+    <div>All ${t.mustDo} must-do tasks are done today.</div>
+    <div class="row"><button id="tvApprove">Unlock ${t.tvMinutes} minutes</button></div></div>`);
   return items.join("");
+}
+
+function todayHtml(h) {
+  return h.kids.map((k) => {
+    const qs = h.quests.filter((q) => q.kidId === k.id);
+    if (!qs.length) return "";
+    return `<div class="card"><div class="eyebrow">${esc(k.name)} · ${qs.filter((q) => q.stage === "Done").length} of ${qs.length} done</div>
+      ${qs.map((q) => {
+        const c = q.checkin || {}, hw = q.homework;
+        const extra = hw ? `${hw.items.filter((i) => i.correct).length}/${hw.items.length} right · ${esc(hw.topic)}` :
+          (c.summary || c.note) ? `${c.summary ? "✦ " : ""}${esc(c.summary || c.note)}` : q.whatISee ? `✦ ${esc(q.whatISee)}` : "";
+        return `<div class="trow ${q.stage === "Done" ? "done" : ""}"><span>${taskIcon(q)}</span>
+          <div class="grow"><div>${esc(q.title)}${q.mustDo ? ` <span class="tag">must-do</span>` : ""}</div>
+          <div class="muted small">${esc(stageText(q))}${extra ? " · " + extra : ""}</div></div>
+          <span>${q.stage === "Done" ? "✓" : ""}</span></div>`;
+      }).join("")}</div>`;
+  }).join("") || `<div class="card muted">No tasks today yet. Add a daily task or homework below.</div>`;
+}
+
+function memoriesHtml(h) {
+  const ms = (h.memories || []).slice().reverse().slice(0, 25);
+  if (!ms.length) return `<p class="muted">Nothing yet. When your child sends a note or voice note for a daily task, it's kept here.</p>`;
+  return ms.map((m) => {
+    const kid = h.kids.find((k) => k.id === m.kidId);
+    const body = m.kind === "voice"
+      ? `${m.summary ? `<div>✦ ${esc(m.summary)}</div>` : ""}${m.audioUrl ? `<audio controls preload="none" src="${m.audioUrl}"></audio>` : ""}
+         ${m.transcript ? `<details><summary class="small">What they said</summary><p class="small">“${esc(m.transcript)}”</p></details>` : ""}`
+      : m.kind === "photo" ? `${m.summary ? `<div>✦ ${esc(m.summary)}</div>` : ""}${m.photoUrl ? `<img class="preview" src="${m.photoUrl}" alt="">` : ""}`
+      : `<div>“${esc(m.text)}”</div>`;
+    return `<div class="mem"><img class="mini" src="${kid ? avatarArt(kid.avatar) : "icon-192.png"}" alt="">
+      <div class="grow"><div class="small"><b>${esc(kid ? kid.name : "")}</b> · ${esc(m.title)} · <span class="muted">${ago(m.atMs)}</span></div>${body}</div></div>`;
+  }).join("");
+}
+
+function habitsHtml(h) {
+  if (!(h.habits || []).length) return `<div class="card muted">No daily tasks yet. Try a preset below.</div>`;
+  return `<div class="card">${h.habits.map((hb) => `<div class="trow"><span>${esc(hb.icon || "✅")}</span>
+    <div class="grow"><div>${esc(hb.title)}${hb.mustDo ? ` <span class="tag">must-do</span>` : ""}</div>
+    <div class="muted small">${hb.kidIds.map((id) => { const k = h.kids.find((x) => x.id === id); return k ? `${esc(k.name)} 🔥${(hb.streaks || {})[id] || 0}` : ""; }).join(" · ")}
+      · ${PROOF_TEXT[hb.proof] || ""} · 🪙${hb.coins}${hb.money ? " · " + money(h, hb.money) : ""}</div></div>
+    <button class="link" data-del="${hb.id}">Remove</button></div>`).join("")}</div>`;
+}
+
+function profilesHtml(h) {
+  return h.kids.map((k) => {
+    const tests = (k.upcomingTests || []).map((t) => `${esc(t.subject)}${t.topics ? ` (${esc(t.topics)})` : ""}${t.date ? " on " + esc(t.date) : ""}`).join("; ");
+    return `<div class="card"><div class="eyebrow">${esc(k.name)}</div>
+      <label class="field">Class<input data-k="${k.id}" data-f="grade" value="${esc(k.grade || "")}" placeholder="Grade 3"></label>
+      <label class="field">Subjects (comma separated)<input data-k="${k.id}" data-f="subjects" value="${esc((k.subjects || []).join(", "))}" placeholder="Maths, English, EVS"></label>
+      <label class="field">Next test<div class="row2">
+        <input data-k="${k.id}" data-f="tSubject" placeholder="Subject" value="${esc(((k.upcomingTests || [])[0] || {}).subject || "")}">
+        <input data-k="${k.id}" data-f="tDate" type="date" value="${esc(((k.upcomingTests || [])[0] || {}).date || "")}"></div>
+        <input data-k="${k.id}" data-f="tTopics" placeholder="Topics, e.g. fractions, time" value="${esc(((k.upcomingTests || [])[0] || {}).topics || "")}"></label>
+      ${tests ? `<p class="muted small">Saved: ${tests}</p>` : ""}
+      <button class="ghost" data-profile="${k.id}">Save ${esc(k.name)}'s profile</button></div>`;
+  }).join("");
+}
+
+function wishCardHtml(h) {
+  const rows = h.kids.map((k) => `<div class="trow"><img class="mini" src="${avatarArt(k.avatar)}" alt="">
+    <div class="grow"><b>${esc(k.name)}</b><div class="muted small">Pocket money earned with daily tasks</div></div><b class="price">${money(h, k.money)}</b></div>`).join("");
+  const wishes = (h.wishlist || []).filter((w) => w.status !== "bought");
+  const list = wishes.map((w) => {
+    const k = h.kids.find((x) => x.id === w.kidId);
+    const p = Math.min(1, (k ? k.money : 0) / Math.max(1, w.price));
+    const label = { saving: p >= 1 ? "Enough saved" : `${Math.round(p * 100)}% saved`, requested: "Asked you", approved: "Approved: buy it" }[w.status] || w.status;
+    return `<div class="trow"><span>🎁</span><div class="grow"><div>${esc(w.title)} · <b>${money(h, w.price)}</b></div>
+      <div class="muted small">${esc(k ? k.name : "")} · ${label}${w.link ? ` · <a href="${esc(w.link)}" target="_blank" rel="noopener">link</a>` : ""}</div>
+      <div class="bar"><i style="width:${Math.max(3, p * 100)}%"></i></div></div>
+      ${w.status === "approved" ? `<button class="link" data-wish="bought" data-w="${w.id}">Bought ✓</button>` : `<button class="link" data-wish="delete" data-w="${w.id}">Remove</button>`}</div>`;
+  }).join("");
+  return rows + (list ? `<div class="eyebrow" style="margin-top:12px">Wish list</div>${list}` : `<p class="muted small">No wishes yet.</p>`);
 }
 
 function feedHtml(h) {
   const rows = (h.feed || []).slice(-15).reverse();
-  if (!rows.length) return `<p class="muted">Nothing yet tonight. Finished homework, messages and anything that needs you will show up here.</p>`;
-  return rows.map((f) => `<div class="feedrow"><span class="ico">${KIND_ICON[f.kind] || "•"}</span>
+  if (!rows.length) return `<p class="muted">Nothing yet. Finished tasks, messages and anything that needs you show up here.</p>`;
+  return rows.map((f) => `<div class="feedrow"><span class="ico">${FEED_ICON[f.kind] || "•"}</span>
     <div><div>${esc(f.title)}</div>${f.body ? `<div class="muted small">${esc(f.body)}</div>` : ""}</div>
     <span class="when">${ago(f.atMs)}</span></div>`).join("");
 }
 
-function questsHtml(h) {
-  return h.quests.map((q) => {
-    const kid = h.kids.find((k) => k.id === q.kidId);
-    const study = q.kind === "study";
-    const text = (study ? STUDY_TEXT : STAGE_TEXT)[q.stage] || q.stage;
-    const hw = q.homework;
-    const extra = hw ? `<div class="muted small">${hw.items.filter((i) => i.correct).length}/${hw.items.length} right · ${esc(hw.topic)}${
-      (q.practice || []).length ? ` · practice ${Object.keys(q.answers || {}).length}/${q.practice.length}` : ""}</div>` : "";
-    return `<div class="card"><div class="eyebrow">${esc(kid ? kid.name : "")} · ${study ? "Homework" : "Tidy"} · ${text}</div>
-      <div>${esc(q.title)}</div>${extra}${q.keeperLine ? `<p class="keeper">“${esc(q.keeperLine)}”</p>` : ""}
-      ${crewHtml(q.stage, study)}</div>`;
-  }).join("");
-}
-
 async function refresh() {
-  try {
-    household = await getHousehold();
-  } catch (e) { $("sub").textContent = "Can't reach Rosetta right now… " + e.message; return; }
+  try { household = await getHousehold(); } catch (e) { $("sub").textContent = "Can't reach Rosetta right now… " + e.message; return; }
   const h = household;
-  $("sub").textContent = `${h.name} · join code ${h.code}`;
+  $("sub").textContent = `${h.name} · TV code ${h.code}`;
   if (!me) { if ($("signin").hidden) showSignin(h); return; }
   $("signin").hidden = true; $("app").hidden = false;
+  $("hello").textContent = `Hi ${me.name}`;
   $("me").textContent = `Signed in as ${me.name}`;
+  setHtml("family", familyHtml(h));
   const needs = needsHtml(h);
   $("needsWrap").hidden = !needs;
-  setHtml("needs", needs);
+  if (setHtml("needs", needs) && $("tvApprove")) $("tvApprove").onclick = () => act(`/household/${CODE}/tvtime/approve`, null, "TV time unlocked 📺");
+  setHtml("today", todayHtml(h));
+  setHtml("memories", memoriesHtml(h));
+  setHtml("habits", habitsHtml(h));
+  setHtml("wishCard", wishCardHtml(h));
   setHtml("feed", feedHtml(h));
-  setHtml("quests", questsHtml(h));
-  const done = h.glyphs.filter((g) => g.earnedBy).length;
-  setHtml("stone", `<div>${done} of ${h.glyphs.length} glyphs carved${done === h.glyphs.length ? " · <b>Movie Night unlocked 🍿</b>" : ""}</div>`);
+  const t = h.tvTime || {};
+  setHtml("tvState", `<p>${t.unlocked ? `🔓 Unlocked today · ${t.minutesLeft} minutes left` : t.allDone ? (t.requested ? "📺 They're asking for TV time" : "✓ Must-do tasks done") : `🔒 ${t.done} of ${t.mustDo} must-do tasks done`}</p>`);
+  const stars = (h.stars || []).length, goal = h.starsGoal || 9;
+  setHtml("goal", `<div class="stars">${"★".repeat(Math.min(stars, goal))}<span>${"☆".repeat(Math.max(0, goal - stars))}</span></div>
+    <div class="muted small">${stars} of ${goal} stars · Movie Night ${stars >= goal ? "is unlocked 🍿" : "when all are in"}</div>`);
   if (!filled) {
-    $("kid").innerHTML = h.kids.map((k) => `<option value="${k.id}">${esc(k.name)}</option>`).join("");
+    const kidOpts = h.kids.map((k) => `<option value="${k.id}">${esc(k.name)}</option>`).join("");
+    $("kid").innerHTML = kidOpts; $("wKid").innerHTML = kidOpts;
     $("room").innerHTML = h.rooms.map((r) => `<option value="${r.id}">${esc(r.name)}</option>`).join("");
+    $("hKids").innerHTML = h.kids.map((k) => `<button class="chip on" data-id="${k.id}">${esc(k.name)}</button>`).join("");
+    $("hKids").querySelectorAll(".chip").forEach((b) => b.onclick = () => b.classList.toggle("on"));
+    $("profiles").innerHTML = profilesHtml(h);
+    const s = h.settings || {};
+    $("sMinutes").value = s.tvMinutes ?? 45; $("sApprove").checked = !!s.tvNeedsApproval; $("sPerCoin").value = s.moneyPerCoin ?? 0;
     filled = true;
   }
   if (!settingsLoaded) loadSettings();
 }
 
 // ---------------------------------------------------------------- actions
-async function decide(questId, act) {
-  try {
-    await asParent(`/household/${CODE}/quests/${questId}/${act}`);
-    toast(act === "approve" ? "Approved. The TV is celebrating 🎉" : "Sent back with a kind nudge 👀");
-    refresh();
-  } catch (e) { toast(String(e.message).startsWith("403") ? "Your PIN changed. Sign in again." : "Couldn't send that. Try again."); }
-}
-$("needs").addEventListener("click", (ev) => {
-  const b = ev.target.closest("button[data-act]");
-  if (b) { b.disabled = true; decide(b.dataset.q, b.dataset.act); }
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  if (b.dataset.act) { b.disabled = true; await act(`/household/${CODE}/quests/${b.dataset.q}/${b.dataset.act}`, null, b.dataset.act === "approve" ? "Approved. The TV is celebrating 🎉" : "Sent back with a kind nudge 👀"); }
+  else if (b.dataset.wish) { b.disabled = true; await act(`/household/${CODE}/wishlist/${b.dataset.w}/${b.dataset.wish}`, null, { approve: "Approved 🎁 Pocket money updated", bought: "Marked as bought 🎉", delete: "Removed" }[b.dataset.wish]); }
+  else if (b.dataset.del) { b.disabled = true; await act(`/household/${CODE}/habits/${b.dataset.del}/delete`, null, "Removed from every day"); }
+  else if (b.dataset.profile) {
+    const k = b.dataset.profile, v = (f) => (document.querySelector(`[data-k="${k}"][data-f="${f}"]`) || {}).value || "";
+    const test = v("tSubject").trim() ? [{ subject: v("tSubject").trim(), topics: v("tTopics").trim(), date: v("tDate") }] : [];
+    await act(`/household/${CODE}/kids/${k}/profile`, { grade: v("grade").trim(), subjects: v("subjects").split(",").map((x) => x.trim()).filter(Boolean), upcomingTests: test }, "Saved. Quiz Night will use it ✦");
+  }
 });
 
-$("quick").querySelectorAll(".chip").forEach((b) => b.onclick = () => { $("msg").value = b.dataset.t; });
-$("send").onclick = async () => {
-  const text = $("msg").value.trim(); if (!text) return;
-  try { await asParent(`/household/${CODE}/message`, { body: { from: me.id, text, to: "all" } }); $("msg").value = ""; toast("Sent to the TV 📺"); refresh(); }
-  catch (e) { toast("Couldn't send the message."); }
+$("presets").innerHTML = PRESETS.map(([i, t, p]) => `<button class="chip" data-i="${i}" data-t="${t}" data-p="${p}">${i} ${t}</button>`).join("");
+$("presets").querySelectorAll(".chip").forEach((b) => b.onclick = () => { $("hIcon").value = b.dataset.i; $("hTitle").value = b.dataset.t; $("hProof").value = b.dataset.p; });
+$("hAdd").onclick = async () => {
+  const title = $("hTitle").value.trim();
+  const kidIds = [...$("hKids").querySelectorAll(".chip.on")].map((b) => b.dataset.id);
+  if (!title || !kidIds.length) return toast("Add a name and pick at least one child");
+  const r = await act(`/household/${CODE}/habits`, { title, icon: $("hIcon").value.trim(), kidIds, proof: $("hProof").value,
+    coins: +$("hCoins").value || 0, money: +$("hMoney").value || 0, mustDo: $("hMust").checked, needsParent: $("hParent").checked }, "Added. It's on the TV today ✓");
+  if (r) { $("hTitle").value = ""; $("hIcon").value = ""; }
 };
 
 $("add").onclick = async () => {
   const title = $("qtitle").value.trim(); if (!title) return;
-  try {
-    await asParent(`/household/${CODE}/quests`, { body: { kidId: $("kid").value, roomId: $("room").value, title, kind: $("kind").value } });
-    $("qtitle").value = ""; toast("It's on the TV"); refresh();
-  } catch (e) { toast("Couldn't post the quest."); }
+  const r = await act(`/household/${CODE}/quests`, { kidId: $("kid").value, roomId: $("room").value, title, kind: $("kind").value, mustDo: $("qMust").checked }, "It's on the TV");
+  if (r) $("qtitle").value = "";
+};
+
+$("wAdd").onclick = async () => {
+  const title = $("wTitle").value.trim(), price = +$("wPrice").value;
+  if (!title || !price) return toast("Add what it is and its price");
+  const r = await act(`/household/${CODE}/wishlist`, { kidId: $("wKid").value, title, price, link: $("wLink").value.trim() }, "Added to the wish list 🎁");
+  if (r) { $("wTitle").value = ""; $("wPrice").value = ""; $("wLink").value = ""; }
+};
+
+$("sSave").onclick = () => act(`/household/${CODE}/settings`, { tvMinutes: +$("sMinutes").value, tvNeedsApproval: $("sApprove").checked, moneyPerCoin: +$("sPerCoin").value || 0 }, "Saved");
+
+$("quick").querySelectorAll(".chip").forEach((b) => b.onclick = () => { $("msg").value = b.dataset.t; });
+$("send").onclick = async () => {
+  const text = $("msg").value.trim(); if (!text) return;
+  const r = await act(`/household/${CODE}/message`, { from: me.id, text, to: "all" }, "Sent to the TV 📺");
+  if (r) $("msg").value = "";
 };
 
 $("reset").onclick = async () => {
-  if (!$("reset").dataset.armed) { $("reset").dataset.armed = "1"; $("reset").textContent = "Tap again to reset"; return; }
-  await post(`/household/${CODE}/reset`); delete $("reset").dataset.armed; $("reset").textContent = "Reset demo household"; refresh();
+  if (!$("reset").dataset.armed) { $("reset").dataset.armed = "1"; $("reset").textContent = "Tap again: this clears all progress"; return; }
+  await act(`/household/${CODE}/reset`, null, "Started over");
+  delete $("reset").dataset.armed; $("reset").textContent = "Start the family over";
+  filled = false;
 };
 
 // ---------------------------------------------------------------- alerts
@@ -273,11 +445,16 @@ async function loadSettings() {
 function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
 
 async function updatePushButton() {
-  if (!pushSupported()) { $("pushBtn").disabled = true; $("pushBtn").textContent = "Phone alerts aren't available in this browser"; return; }
+  if (!pushSupported()) {
+    $("pushBtn").disabled = true; $("pushBtn").textContent = "Phone alerts aren't available in this browser";
+    $("onboard").hidden = false; $("pushBtn2").disabled = true; $("pushBtn2").textContent = "Open this page in Chrome to get alerts";
+    return;
+  }
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = reg && await reg.pushManager.getSubscription();
   $("pushBtn").textContent = sub ? "Phone alerts are on for this phone ✓" : "Turn on phone alerts";
   $("pushHint").hidden = !!sub;
+  $("onboard").hidden = !!sub;
 }
 
 function urlB64ToBytes(b64) {
@@ -286,12 +463,12 @@ function urlB64ToBytes(b64) {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
-$("pushBtn").onclick = async () => {
+async function turnOnPush() {
   if (!pushSupported()) return;
   $("alertMsg").textContent = "Asking your phone…";
   try {
     const perm = await Notification.requestPermission();
-    if (perm !== "granted") { $("alertMsg").textContent = "Alerts are blocked for this site. You can allow them in your browser settings."; return; }
+    if (perm !== "granted") { $("alertMsg").textContent = "Alerts are blocked for this site. You can allow them in your browser settings."; toast("Alerts are blocked in this browser"); return; }
     const reg = await navigator.serviceWorker.register("sw.js");
     await navigator.serviceWorker.ready;
     const { key } = await api("/vapid-public-key");
@@ -302,9 +479,12 @@ $("pushBtn").onclick = async () => {
     $("aPush").checked = true;
     $("pushState").textContent = `${p.devices} device${p.devices > 1 ? "s" : ""} signed up`;
     $("alertMsg").textContent = "Phone alerts are on. Try “Send a test alert”.";
+    toast("Phone alerts are on 📱");
     updatePushButton();
   } catch (e) { $("alertMsg").textContent = "Couldn't turn on alerts: " + e.message; }
-};
+}
+$("pushBtn").onclick = turnOnPush;
+$("pushBtn2").onclick = turnOnPush;
 
 $("saveAlerts").onclick = async () => {
   try {
@@ -327,10 +507,10 @@ $("testAlert").onclick = async () => {
 // ---------------------------------------------------------------- start
 // Notification buttons open this page with ?do=approve|reject&q=<questId>.
 async function handleDeepLink() {
-  const act = params.get("do"), q = params.get("q");
-  if (!me || !q || !["approve", "reject"].includes(act)) return;
+  const doIt = params.get("do"), q = params.get("q");
+  if (!me || !q || !["approve", "reject"].includes(doIt)) return;
   history.replaceState(null, "", `parent.html?code=${CODE}`);
-  await decide(q, act);
+  await act(`/household/${CODE}/quests/${q}/${doIt}`, null, doIt === "approve" ? "Approved 🎉" : "Sent back 👀");
 }
 
 function start() { refresh().then(handleDeepLink); }

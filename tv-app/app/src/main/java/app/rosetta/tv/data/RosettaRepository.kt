@@ -38,6 +38,12 @@ interface RosettaRepository {
     /** One answer in the Quiz Battle (the TV passes the turn between kids). */
     fun answerQuiz(questionId: String, kidId: String, choice: Int)
 
+    /** All of today's must-do tasks are done: ask for TV time (a parent approves it if they asked to). */
+    fun requestTvTime()
+
+    /** Report minutes of earned TV time used (the TV launched a streaming app). */
+    fun useTvTime(minutes: Int)
+
     /** The Unity arena returned: adopt its hit list (it only ever adds hits) and pay out loot if the boss fell. */
     fun applyArenaHits(hits: List<Hit>)
 

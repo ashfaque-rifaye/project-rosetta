@@ -1,6 +1,5 @@
 package app.rosetta.tv.ui.home
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -12,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,325 +23,406 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import app.rosetta.tv.data.Household
 import app.rosetta.tv.data.Household0
 import app.rosetta.tv.data.ItemKind
 import app.rosetta.tv.data.Kid
+import app.rosetta.tv.data.Parent
 import app.rosetta.tv.data.Quest
 import app.rosetta.tv.data.QuestStage
+import app.rosetta.tv.data.TvTime
 import app.rosetta.tv.ui.common.AssetImage
 import app.rosetta.tv.ui.kit.AvatarRing
 import app.rosetta.tv.ui.kit.ButtonTone
 import app.rosetta.tv.ui.kit.FocusCard
-import app.rosetta.tv.ui.kit.Glass
 import app.rosetta.tv.ui.kit.GoalMeter
 import app.rosetta.tv.ui.kit.Pill
 import app.rosetta.tv.ui.kit.RailHeader
 import app.rosetta.tv.ui.kit.RosettaButton
-import app.rosetta.tv.ui.kit.StatChip
 import app.rosetta.tv.ui.theme.Rosetta
 
 enum class HomeTab { Codex, Passport, Shop, Stone, Growth, Raid, Quiz }
+
+/** The streaming apps TV time can open (Fire TV and Android TV package names). */
+enum class WatchApp(val label: String, val icon: String, val packages: List<String>) {
+    Prime("Prime Video", "🎬", listOf("com.amazon.avod", "com.amazon.amazonvideo.livingroom")),
+    YouTube("YouTube", "▶️", listOf("com.amazon.firetv.youtube", "com.google.android.youtube.tv", "com.google.android.youtube.tvkids")),
+    Netflix("Netflix", "🍿", listOf("com.netflix.ninja", "com.netflix.mediaclient")),
+}
 
 @Composable
 fun HomeScreen(
     household: Household,
     onOpenQuest: (Quest) -> Unit,
     onTab: (HomeTab) -> Unit,
+    onRequestTv: () -> Unit = {},
+    onWatch: (WatchApp) -> Unit = {},
 ) {
-    val active = household.quests.filter { it.stage != QuestStage.Done }
-    var focusedQuest by remember { mutableStateOf<Quest?>(null) }
+    val today = household.quests.sortedWith(compareBy<Quest>({ it.stage == QuestStage.Done }, { !it.mustDo }, { it.kidId }))
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
 
-    // Camera: house sits on the right; a focused quest glides its room to stage centre with a spotlight.
-    val target = focusedQuest?.let { household.room(it.roomId).rect }
-    val anim = tween<Float>(1000, easing = FastOutSlowInEasing)
-    val zoomT = if (target != null) 1.12f else 0.94f
-    val stageX = if (target != null) 0.70f else 0.68f
-    val stageY = if (target != null) 0.52f else 0.55f
-    val zoom by animateFloatAsState(zoomT, anim, label = "zoom")
-    val panX by animateFloatAsState(stageX - 0.5f - ((target?.cx ?: 0.52f) - 0.5f) * zoomT, anim, label = "px")
-    val panY by animateFloatAsState(stageY - 0.5f - ((target?.cy ?: 0.52f) - 0.5f) * zoomT, anim, label = "py")
-    val spotX by animateFloatAsState(target?.cx ?: 0.5f, anim, label = "sx")
-    val spotY by animateFloatAsState(target?.cy ?: 0.5f, anim, label = "sy")
-    val dark by animateFloatAsState(if (target != null) 0.6f else 0f, anim, label = "dk")
-
-    BoxWithConstraints(Modifier.fillMaxSize().background(Rosetta.Night)) {
-        val w = maxWidth
-        val h = maxHeight
-        // ---------- The living house ----------
-        Box(Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = panX * size.width; translationY = panY * size.height }) {
-            AssetImage(Household0.HOME_ART, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
-            household.shop.filter { it.kind == ItemKind.Decor && it.id in household.decor }.forEach { item ->
-                val s = item.spot!!
-                AssetImage(
-                    Household0.item(item.asset + "_cut"),
-                    Modifier.offset(w * s.l, h * s.t).size(w * (s.r - s.l), h * (s.b - s.t)),
-                    contentScale = ContentScale.Fit,
-                )
-            }
-            Residents(household, w.value, h.value)
-            Canvas(Modifier.fillMaxSize()) {
-                if (dark > 0f) drawRect(
-                    Brush.radialGradient(
-                        0f to Color.Transparent, 0.5f to Color.Transparent, 1f to Rosetta.Night.copy(alpha = dark),
-                        center = Offset(spotX * size.width, spotY * size.height), radius = size.width * 0.19f,
-                    ),
-                )
-            }
-            active.forEach { q ->
-                RoomPin(household.kid(q.kidId), household.room(q.roomId).rect.let { Offset(it.cx, it.cy) }, w.value, h.value, q.id == focusedQuest?.id, q)
-            }
+    Box(Modifier.fillMaxSize().background(Rosetta.Night)) {
+        // The family's house, softly in the background: a place, not a game board.
+        AssetImage(
+            Household0.HOME_ART, Modifier.fillMaxSize().graphicsLayer { alpha = 0.28f; scaleX = 1.08f; scaleY = 1.08f },
+            contentScale = ContentScale.Crop,
+        )
+        household.shop.filter { it.kind == ItemKind.Decor && it.id in household.decor }.forEach { item ->
+            val s = item.spot!!
+            AssetImage(
+                Household0.item(item.asset + "_cut"),
+                Modifier.offset((1440 * s.l).dp, (810 * s.t).dp).size((1440 * (s.r - s.l)).dp, (810 * (s.b - s.t)).dp).graphicsLayer { alpha = 0.5f },
+                contentScale = ContentScale.Fit,
+            )
         }
-        // Reading gradients.
-        Box(Modifier.fillMaxHeight().width(500.dp).background(Brush.horizontalGradient(0f to Rosetta.Night, 0.55f to Rosetta.Night.copy(alpha = 0.85f), 1f to Color.Transparent)))
-        Box(Modifier.fillMaxWidth().height(110.dp).background(Brush.verticalGradient(listOf(Rosetta.Night.copy(alpha = 0.9f), Color.Transparent))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Rosetta.Night.copy(alpha = 0.55f), Rosetta.Night.copy(alpha = 0.92f)))))
 
-        // ---------- Top bar ----------
-        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 32.dp, top = 22.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("ROSETTA", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 4.sp), color = Rosetta.Gold)
-                Text("Tonight at the Raos'", style = MaterialTheme.typography.headlineSmall, color = Rosetta.Cream)
-            }
-            Spacer(Modifier.weight(1f))
-            household.kids.forEach { KidChip(it, Modifier.padding(start = 12.dp)) }
-            Spacer(Modifier.width(12.dp))
-            // Says whether the agent crew on AWS is driving the household or the TV's own engine is.
-            Pill(if (household.live) "● AGENTS LIVE" else "● ON-DEVICE", if (household.live) Rosetta.Moss else Rosetta.Mist)
-            Spacer(Modifier.width(8.dp))
-            Pill("JOIN ${household.pairingCode}", Rosetta.Gold)
-        }
-
-        // ---------- Left column: jackpot + quests ----------
-        Column(Modifier.padding(start = 40.dp, top = 92.dp, bottom = 84.dp).width(372.dp).fillMaxHeight()) {
-            QuizCard(household, onClick = { onTab(HomeTab.Quiz) }, onFocus = { focusedQuest = null })
-            Spacer(Modifier.height(10.dp))
-            JackpotCard(household)
-            Spacer(Modifier.height(12.dp))
-            RailHeader("Tonight's quests", trailing = "${active.size} left")
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp)) {
-                itemsIndexed(active, key = { _, q -> q.id }) { i, q ->
-                    QuestCard(
-                        q, household,
-                        modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
-                        onFocus = { focusedQuest = q },
-                        onClick = { onOpenQuest(q) },
-                    )
+        Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 28.dp, bottom = 24.dp)) {
+            TopBar(household)
+            Spacer(Modifier.height(18.dp))
+            FamilyStrip(household)
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                TvTimeCard(household, Modifier.width(470.dp).fillMaxHeight(), onRequestTv, onWatch)
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    RailHeader("Today", trailing = "${today.count { it.stage == QuestStage.Done }} of ${today.size} done")
+                    Spacer(Modifier.height(10.dp))
+                    if (today.isEmpty()) EmptyToday()
+                    else LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)) {
+                        items(today, key = { it.id }) { q ->
+                            TaskCard(q, household, if (q == today.first()) Modifier.focusRequester(first) else Modifier) { onOpenQuest(q) }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(horizontal = 4.dp)) {
+                        GoalCard(household, Modifier.weight(1f)) { onTab(HomeTab.Stone) }
+                        QuizCard(household, Modifier.weight(1f)) { onTab(HomeTab.Quiz) }
+                        WishCard(household, Modifier.weight(1f)) { onTab(HomeTab.Shop) }
+                    }
                 }
             }
-        }
-
-        // ---------- Bottom nav ----------
-        Row(
-            Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 22.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            val discovered = household.codex.count { it.discovered }
-            RosettaButton("Codex", { focusedQuest = null; onTab(HomeTab.Codex) }, icon = "🧦", sub = "$discovered/${household.codex.size}", tone = ButtonTone.Glass)
-            RosettaButton("Passport", { onTab(HomeTab.Passport) }, icon = "🗺️", sub = "${household.stamps.count { it.earnedOn != null }} stamps", tone = ButtonTone.Glass)
-            RosettaButton("Shop", { onTab(HomeTab.Shop) }, icon = "🛍️", sub = "new drops", tone = ButtonTone.Glass)
-            RosettaButton("Growth", { onTab(HomeTab.Growth) }, icon = "📈", sub = "for parents", tone = ButtonTone.Glass)
-            RosettaButton("Stone", { onTab(HomeTab.Stone) }, icon = "🗿", sub = "${household.glyphsEarned}/${household.glyphs.size}", tone = ButtonTone.Gold)
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                RosettaButton("Progress", { onTab(HomeTab.Growth) }, icon = "📈", sub = "for parents", tone = ButtonTone.Glass)
+                RosettaButton("Rewards", { onTab(HomeTab.Shop) }, icon = "🎁", sub = "shop · wish list", tone = ButtonTone.Glass)
+                RosettaButton("Squad", { onTab(HomeTab.Codex) }, icon = "🧦", sub = "${household.codex.count { it.discovered }} of ${household.codex.size} found", tone = ButtonTone.Glass)
+                RosettaButton("Passport & streaks", { onTab(HomeTab.Passport) }, icon = "🔥", sub = "${household.stamps.count { it.earnedOn != null }} stamps", tone = ButtonTone.Glass)
+            }
         }
     }
 }
 
 @Composable
-private fun KidChip(kid: Kid, modifier: Modifier = Modifier) {
+private fun TopBar(h: Household) {
+    val pulse by rememberInfiniteTransition(label = "ai").animateFloat(0.4f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "p")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("ROSETTA", fontFamily = FontFamily.Serif, fontSize = 30.sp, letterSpacing = 8.sp, color = Rosetta.Gold)
+        Spacer(Modifier.width(18.dp))
+        Text("Tonight with ${h.name.removePrefix("The ")}", fontSize = 20.sp, color = Rosetta.Cream.copy(alpha = 0.85f))
+        Spacer(Modifier.weight(1f))
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(Color(0xCC0E162E)).border(1.dp, Rosetta.Moss.copy(alpha = 0.5f), RoundedCornerShape(50))
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background((if (h.live) Rosetta.Moss else Rosetta.Mist).copy(alpha = pulse)))
+            Text(if (h.live) "  ✦ AI on" else "  ✦ AI offline (this TV only)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream)
+        }
+        Spacer(Modifier.width(10.dp))
+        Pill("Phone code  ${h.pairingCode}", Rosetta.Gold)
+    }
+}
+
+/** Mom, Dad and the kids together: the parents are part of the family on screen, not just a phone. */
+@Composable
+private fun FamilyStrip(h: Household) {
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        h.parents.forEach { ParentChip(it) }
+        Box(Modifier.width(1.dp).height(56.dp).background(Color.White.copy(alpha = 0.15f)))
+        h.kids.forEach { KidChip(it, h) }
+    }
+}
+
+@Composable
+private fun ParentChip(p: Parent) {
     Row(
-        modifier.clip(RoundedCornerShape(50)).background(Color(0xCC0E162E)).border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
-            .padding(start = 4.dp, end = 14.dp, top = 4.dp, bottom = 4.dp),
+        Modifier.clip(RoundedCornerShape(50)).background(Color(0xCC0E162E)).border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+            .padding(start = 5.dp, end = 18.dp, top = 5.dp, bottom = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AvatarRing(Household0.avatar(kid.avatar), kid.levelProgress, 44.dp, level = kid.level)
+        AssetImage(Household0.avatar(p.avatar), Modifier.size(48.dp).clip(CircleShape).border(2.dp, Rosetta.Sky.copy(alpha = 0.8f), CircleShape))
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(kid.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = Rosetta.Cream)
+            Text(p.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Rosetta.Cream)
+            Text("Parent", fontSize = 13.sp, color = Rosetta.Mist)
+        }
+    }
+}
+
+@Composable
+private fun KidChip(kid: Kid, h: Household) {
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(Color(0xCC0E162E)).border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+            .padding(start = 4.dp, end = 18.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AvatarRing(Household0.avatar(kid.avatar), kid.levelProgress, 52.dp, level = kid.level)
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(kid.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Rosetta.Cream)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssetImage(Household0.COIN, Modifier.size(15.dp), contentScale = ContentScale.Fit)
-                Text(" ${kid.coins}", style = MaterialTheme.typography.labelLarge, color = Rosetta.Gold)
-                Text("   🔥 ${kid.streak}", style = MaterialTheme.typography.labelLarge, color = Rosetta.Ember)
+                Text(" ${kid.coins}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Gold)
+                Text("   ${h.currency}${money(kid.money)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Moss)
+                Text("   🔥 ${kid.streak}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Ember)
             }
         }
     }
 }
 
+/** The family's deal, on the biggest tile: finish today's must-do tasks, then TV time unlocks. */
 @Composable
-private fun JackpotCard(h: Household) {
-    val glow by rememberInfiniteTransition(label = "jp").animateFloat(0.5f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "g")
-    Glass(Modifier.fillMaxWidth(), glow = Rosetta.Gold.copy(alpha = 0.6f * glow)) {
-        AssetImage(Household0.MOVIE_ART, Modifier.matchParentSize().graphicsLayer { alpha = 0.35f }, contentScale = ContentScale.Crop)
-        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Color(0xF00E162E), Color(0x880E162E)))))
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("FAMILY GOAL", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Gold)
-                Spacer(Modifier.weight(1f))
-                Pill(if (h.stoneComplete) "UNLOCKED" else "${h.glyphs.size - h.glyphsEarned} TO GO", Rosetta.Gold, filled = true)
+private fun TvTimeCard(h: Household, modifier: Modifier, onRequest: () -> Unit, onWatch: (WatchApp) -> Unit) {
+    // Live, the server keeps the deal; offline, the TV works it out from today's must-do tasks.
+    val tv = if (h.live) h.tvTime else h.quests.filter { it.mustDo }.let { m ->
+        val all = m.all { it.stage == QuestStage.Done }
+        TvTime(mustDo = m.size, done = m.count { it.stage == QuestStage.Done }, allDone = all, unlocked = all,
+            waitingOn = m.filter { it.stage != QuestStage.Done }.map { "${h.kid(it.kidId).name}: ${it.title}" })
+    }
+    val progress by animateFloatAsState(if (tv.mustDo == 0) 1f else tv.done.toFloat() / tv.mustDo, tween(900), label = "tv")
+    val glow by rememberInfiniteTransition(label = "tvg").animateFloat(0.5f, 1f, infiniteRepeatable(tween(1300), RepeatMode.Reverse), label = "g")
+    val accent = if (tv.unlocked) Rosetta.Moss else Rosetta.Gold
+    Column(
+        modifier.clip(RoundedCornerShape(28.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xF01A2547), Color(0xF00C1328))))
+            .border(2.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.7f * glow), Color.White.copy(alpha = 0.05f))), RoundedCornerShape(28.dp))
+            .padding(26.dp),
+    ) {
+        Text("TV TIME", fontSize = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp, color = accent)
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Ring(progress, 150.dp, accent) {
+                Text(if (tv.unlocked) "🔓" else "🔒", fontSize = 40.sp)
+                Text(if (tv.mustDo == 0) "free" else "${tv.done}/${tv.mustDo}", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Rosetta.Cream)
             }
-            Text("Movie Night 🍿", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = Rosetta.Cream)
+            Spacer(Modifier.width(22.dp))
+            Column {
+                Text(
+                    when {
+                        tv.unlocked -> "${tv.minutesLeft} minutes earned!"
+                        tv.allDone && tv.requested -> "Asked Mom and Dad"
+                        tv.allDone -> "All done! Ask for TV"
+                        else -> "${tv.mustDo - tv.done} task${if (tv.mustDo - tv.done == 1) "" else "s"} to go"
+                    },
+                    fontFamily = FontFamily.Serif, fontSize = 30.sp, lineHeight = 34.sp, color = Rosetta.Cream,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when {
+                        tv.unlocked -> "Pick something to watch together."
+                        tv.allDone && tv.requested -> "A notification is on their phone."
+                        tv.allDone -> "A grown-up says OK from their phone."
+                        else -> "Finish today's must-do tasks and ${tv.tvMinutes} minutes of TV unlock."
+                    },
+                    fontSize = 16.sp, lineHeight = 22.sp, color = Rosetta.Mist,
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        if (!tv.allDone && tv.waitingOn.isNotEmpty()) {
+            Text("STILL TO DO", fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Rosetta.Mist)
             Spacer(Modifier.height(6.dp))
-            GoalMeter(h.stoneProgress, Modifier.fillMaxWidth(), segments = h.glyphs.size)
+            tv.waitingOn.take(4).forEach { Text("•  $it", fontSize = 17.sp, lineHeight = 26.sp, color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
-    }
-}
-
-
-@Composable
-private fun QuestCard(q: Quest, h: Household, modifier: Modifier, onFocus: () -> Unit, onClick: () -> Unit) {
-    val kid = h.kid(q.kidId)
-    FocusCard(onClick = onClick, onFocus = onFocus, modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AvatarRing(Household0.avatar(kid.avatar), kid.levelProgress, 52.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(if (q.isStudy) "${kid.name.uppercase()} · HOMEWORK ✏️" else "${kid.name.uppercase()} · ${h.room(q.roomId).name.uppercase()}", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.4.sp), color = Rosetta.Mist, maxLines = 1)
-                Text(q.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Pill("+${q.xpReward} XP", Rosetta.Lime)
-                    Pill("+${q.coinReward} ●", Rosetta.Gold)
-                    if (q.stage != QuestStage.Ready) Pill(status(q), Rosetta.Sky)
+        if (!tv.unlocked) {
+            Spacer(Modifier.height(22.dp))
+            Text("UNLOCKS", fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Rosetta.Mist)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                WatchApp.entries.forEach { app ->
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).background(Color(0x14FFFFFF)).border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+                            .padding(horizontal = 14.dp, vertical = 8.dp).graphicsLayer { alpha = 0.6f },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) { Text("${app.icon} ${app.label}", fontSize = 15.sp, color = Rosetta.Cream) }
                 }
             }
         }
+        Spacer(Modifier.weight(1f))
+        when {
+            tv.unlocked -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                WatchApp.entries.forEach { app -> RosettaButton(app.label, { onWatch(app) }, icon = app.icon, tone = ButtonTone.Lime) }
+            }
+            tv.allDone && !tv.requested -> RosettaButton("Ask Mom & Dad for TV", onRequest, icon = "📺", tone = ButtonTone.Gold, big = true)
+            else -> Text("✦ Rosetta checks each task, then tells Mom and Dad.", fontSize = 14.sp, color = Rosetta.Mist)
+        }
     }
+}
+
+@Composable
+private fun Ring(progress: Float, size: Dp, color: Color, content: @Composable () -> Unit) {
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val s = 12.dp.toPx()
+            drawArc(Color(0x22FFFFFF), 0f, 360f, false, style = Stroke(s), topLeft = Offset(s / 2, s / 2), size = Size(this.size.width - s, this.size.height - s))
+            drawArc(Brush.sweepGradient(listOf(color.copy(alpha = 0.6f), color)), -90f, 360f * progress, false,
+                style = Stroke(s, cap = StrokeCap.Round), topLeft = Offset(s / 2, s / 2), size = Size(this.size.width - s, this.size.height - s))
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) { content() }
+    }
+}
+
+@Composable
+private fun TaskCard(q: Quest, h: Household, modifier: Modifier, onClick: () -> Unit) {
+    val kid = h.kid(q.kidId)
+    val done = q.stage == QuestStage.Done
+    val streak = h.habits.firstOrNull { it.title == q.title }?.streaks?.get(kid.id) ?: 0
+    FocusCard(onClick = onClick, modifier = modifier.size(250.dp, 236.dp), accent = if (done) Rosetta.Moss else Rosetta.Gold) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x22FFFFFF)), contentAlignment = Alignment.Center) {
+                    Text(taskIcon(q), fontSize = 28.sp)
+                }
+                Spacer(Modifier.weight(1f))
+                AssetImage(Household0.avatar(kid.avatar), Modifier.size(40.dp).clip(CircleShape).border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape))
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(q.title, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("${kid.name} · ${kindLabel(q)}${if (q.mustDo) " · must-do" else ""}", fontSize = 13.sp, color = Rosetta.Mist, maxLines = 1)
+            Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (done) Pill("✓ Done", Rosetta.Moss, filled = true) else Pill(status(q), if (q.stage == QuestStage.Ready) Rosetta.Gold else Rosetta.Sky)
+                Spacer(Modifier.weight(1f))
+                if (streak > 0) Text("🔥 $streak", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Rosetta.Ember)
+                else Text("+${q.coinReward} ●", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rosetta.Gold)
+            }
+        }
+    }
+}
+
+private fun taskIcon(q: Quest) = when {
+    q.icon.isNotBlank() -> q.icon
+    q.isStudy -> "✏️"
+    q.isHabit -> "⭐"
+    else -> "🧸"
+}
+
+private fun kindLabel(q: Quest) = when {
+    q.isStudy -> "homework"
+    q.isHabit -> "daily task"
+    else -> "tidy-up"
 }
 
 private fun status(q: Quest) = when (q.stage) {
-    QuestStage.AwaitingBefore -> "WAITING FOR PHOTO"
-    QuestStage.Scanning, QuestStage.Verifying -> "CREW WORKING"
-    QuestStage.Found, QuestStage.AwaitingAfter -> "${q.found} LOST"
-    QuestStage.Partial -> "${q.home}/${q.found} HOME"
-    QuestStage.Checked -> "MARKED ${q.homework?.right ?: 0}/${q.homework?.items?.size ?: 0}"
-    QuestStage.Practising -> "PRACTICE ${q.answers.size}/${q.practice.size}"
-    else -> ""
+    QuestStage.Ready -> when { q.isHabit && q.proof == "voice" -> "Send a voice note"; q.isHabit && q.proof == "note" -> "Write a note"; q.isHabit && q.proof == "none" -> "Tick it on the phone"; else -> "Needs a photo" }
+    QuestStage.AwaitingBefore -> "Waiting for photo"
+    QuestStage.Scanning, QuestStage.Verifying -> "✦ Checking…"
+    QuestStage.Checking -> if (q.needsParent) "Waiting for a grown-up" else "✦ Checking…"
+    QuestStage.Found, QuestStage.AwaitingAfter -> "${q.found} to put away"
+    QuestStage.Partial -> "${q.home} of ${q.found} put away"
+    QuestStage.Checked -> "Marked ${q.homework?.right ?: 0} of ${q.homework?.items?.size ?: 0}"
+    QuestStage.Practising -> "Practice ${q.answers.size} of ${q.practice.size}"
+    QuestStage.Done -> "Done"
 }
 
-/** SideQuest-style pin: the kid's avatar bubble floating over the room, with a pulsing beacon. */
 @Composable
-private fun RoomPin(kid: Kid, at: Offset, w: Float, h: Float, focused: Boolean, q: Quest) {
-    val bob by rememberInfiniteTransition(label = "bob").animateFloat(0f, 1f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "b")
-    val ring by rememberInfiniteTransition(label = "ring").animateFloat(0f, 1f, infiniteRepeatable(tween(1600)), label = "r")
-    val pinSize = if (focused) 50.dp else 38.dp
-    Box(Modifier.offset((at.x * w).dp - 110.dp, (at.y * h).dp - 70.dp - (bob * 6).dp).size(220.dp, 96.dp), contentAlignment = Alignment.TopCenter) {
-        Canvas(Modifier.size(80.dp).offset(y = 34.dp)) {
-            drawCircle(Rosetta.Gold.copy(alpha = (1 - ring) * 0.7f), radius = 10.dp.toPx() + ring * 26.dp.toPx(), center = Offset(size.width / 2, size.height / 2), style = Stroke(2.dp.toPx()))
-            drawCircle(Rosetta.Gold, radius = 5.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(pinSize).clip(CircleShape).border(3.dp, if (focused) Rosetta.Gold else Color.White, CircleShape)) {
-                AssetImage(Household0.avatar(kid.avatar), Modifier.fillMaxSize())
+private fun EmptyToday() {
+    Box(Modifier.fillMaxWidth().height(236.dp).clip(RoundedCornerShape(22.dp)).background(Color(0x99101A36)), contentAlignment = Alignment.Center) {
+        Text("No tasks yet today. Mom or Dad can add some from their phone.", fontSize = 18.sp, color = Rosetta.Mist)
+    }
+}
+
+@Composable
+private fun GoalCard(h: Household, modifier: Modifier, onClick: () -> Unit) {
+    val left = h.glyphs.size - h.glyphsEarned
+    FocusCard(onClick = onClick, modifier = modifier.height(150.dp)) {
+        AssetImage(Household0.MOVIE_ART, Modifier.matchParentSize().graphicsLayer { alpha = 0.3f }, contentScale = ContentScale.Crop)
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Text("FAMILY GOAL", fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Rosetta.Gold)
+            Text("Movie Night 🍿", fontFamily = FontFamily.Serif, fontSize = 24.sp, color = Rosetta.Cream)
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                h.glyphs.forEach { g -> Text(if (g.earned) "★" else "☆", fontSize = 24.sp, color = if (g.earned) Rosetta.Gold else Color.White.copy(alpha = 0.3f)) }
             }
-            if (focused) Text(
-                q.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Rosetta.Night, maxLines = 1,
-                modifier = Modifier.padding(top = 3.dp).clip(RoundedCornerShape(50)).background(Rosetta.Gold).padding(horizontal = 8.dp, vertical = 2.dp),
-            )
+            Text(if (left == 0) "Unlocked! ⭐ All ${h.glyphs.size} stars" else "⭐ ${h.glyphsEarned} of ${h.glyphs.size} stars · $left to go", fontSize = 13.sp, color = Rosetta.Mist)
         }
     }
 }
 
-
-/** Tonight's Family Quiz Battle, built from the week's homework. Replaces the Mess Boss raid card (22 Oct). */
 @Composable
-private fun QuizCard(h: Household, onClick: () -> Unit, onFocus: () -> Unit) {
+private fun QuizCard(h: Household, modifier: Modifier, onClick: () -> Unit) {
     val quiz = h.quiz
-    val pulse by rememberInfiniteTransition(label = "qz").animateFloat(0.4f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "p")
-    FocusCard(onClick = onClick, onFocus = onFocus, accent = Rosetta.Gold, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(78.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF2A2116)), contentAlignment = Alignment.Center) {
-                AssetImage(Household0.glyph("scholar"), Modifier.fillMaxSize())
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(Rosetta.Gold.copy(alpha = pulse)))
-                    Text(if (quiz != null && !quiz.done) "  LIVE · QUIZ BATTLE" else "  TONIGHT · QUIZ BATTLE", fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp, color = Rosetta.Gold)
-                }
-                Text("The Stone Trial", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 1)
-                Spacer(Modifier.height(5.dp))
-                if (quiz != null) {
-                    Box(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(50)).background(Color(0x33FFFFFF))) {
-                        Box(Modifier.fillMaxWidth(quiz.lit.toFloat() / quiz.goal.coerceAtLeast(1)).fillMaxHeight().background(Brush.horizontalGradient(listOf(Color(0xFFFFB23F), Rosetta.Gold))))
-                    }
-                    Text("${quiz.lit}/${quiz.goal} glyphs lit · family co-op", fontSize = 12.sp, color = Rosetta.Mist)
-                } else Text("Family quiz from this week's homework", fontSize = 12.sp, color = Rosetta.Mist)
-            }
-        }
-    }
-}
-
-@Suppress("unused") // the Mess Boss raid was retired on 22 Oct; kept for the Unity arena's legacy mode
-@Composable
-private fun RaidCard(raid: app.rosetta.tv.data.Raid, onClick: () -> Unit, onFocus: () -> Unit) {
-    val pulse by rememberInfiniteTransition(label = "live").animateFloat(0.4f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "p")
-    FocusCard(onClick = onClick, onFocus = onFocus, accent = Rosetta.Rose, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(78.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF0B1226))) {
-                AssetImage(Household0.boss(raid.boss.asset + "_card"), Modifier.fillMaxSize())
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(Rosetta.Rose.copy(alpha = pulse)))
-                    Text("  LIVE · MESS BOSS", fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp, color = Rosetta.Rose)
-                }
-                Text(raid.boss.name, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 1)
-                Spacer(Modifier.height(5.dp))
-                Box(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(50)).background(Color(0x33FFFFFF))) {
-                    Box(Modifier.fillMaxWidth(raid.hp.toFloat() / raid.boss.maxHp).fillMaxHeight().background(Brush.horizontalGradient(listOf(Color(0xFFFF3B5C), Color(0xFFFFB23F)))))
-                }
-                Text("${raid.hp} HP left · team raid ⚔️", fontSize = 12.sp, color = Rosetta.Mist)
-            }
-        }
-    }
-}
-
-/** Rescued Lost Things live in the house: each bobs in its room, and one at a time says something in a bubble. */
-@Composable
-private fun Residents(h: Household, w: Float, hh: Float) {
-    val residents = h.codex.filter { it.discovered && Household0.residence.containsKey(it.character) }
-    val bob by rememberInfiniteTransition(label = "res").animateFloat(0f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "b")
-    var speaker by remember { mutableStateOf(0) }
-    LaunchedEffect(residents.size) { while (true) { kotlinx.coroutines.delay(3200); speaker = (speaker + 1) % residents.size.coerceAtLeast(1) } }
-    residents.forEachIndexed { i, e ->
-        val r = Household0.residence.getValue(e.character)
-        val phase = if (i % 2 == 0) bob else 1f - bob
-        Box(Modifier.offset((r.l * w).dp, (r.t * hh).dp - (phase * 4).dp)) {
-            AssetImage(Household0.thing(e.character), Modifier.size(((r.r - r.l) * w).dp).clip(CircleShape).border(2.dp, Color.White.copy(alpha = 0.85f), CircleShape))
-            if (i == speaker) Text(
-                Household0.residentLines[e.character] ?: "",
-                fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Rosetta.Night, maxLines = 1,
-                modifier = Modifier.offset(x = (-30).dp, y = (-26).dp).clip(RoundedCornerShape(10.dp)).background(Rosetta.Cream).padding(horizontal = 7.dp, vertical = 3.dp),
+    FocusCard(onClick = onClick, modifier = modifier.height(150.dp), accent = Rosetta.Violet) {
+        Box(Modifier.matchParentSize().background(Brush.linearGradient(listOf(Rosetta.Violet.copy(alpha = 0.22f), Color.Transparent))))
+        Text("?", fontFamily = FontFamily.Serif, fontSize = 120.sp, color = Rosetta.Violet.copy(alpha = 0.16f), modifier = Modifier.align(Alignment.CenterEnd).padding(end = 18.dp))
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Text(if (quiz != null && !quiz.done) "ON NOW" else "TONIGHT", fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Rosetta.Violet)
+            Text("Family Quiz Night", fontFamily = FontFamily.Serif, fontSize = 24.sp, color = Rosetta.Cream)
+            Spacer(Modifier.weight(1f))
+            Text(
+                when {
+                    quiz == null -> "✦ 8 questions made for each child's class and tests"
+                    quiz.done -> "Last time: ${quiz.lit} of ${quiz.goal} right together"
+                    else -> "${quiz.answers.size} of ${quiz.goal} answered · ${quiz.lit} right so far"
+                },
+                fontSize = 13.sp, lineHeight = 18.sp, color = Rosetta.Mist,
             )
         }
     }
 }
+
+@Composable
+private fun WishCard(h: Household, modifier: Modifier, onClick: () -> Unit) {
+    val wish = h.wishlist.filter { it.status != "bought" }.maxByOrNull { w -> h.kids.firstOrNull { it.id == w.kidId }?.money?.div(w.price.coerceAtLeast(1.0)) ?: 0.0 }
+    FocusCard(onClick = onClick, modifier = modifier.height(150.dp), accent = Rosetta.Moss) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Text("SAVING UP", fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = Rosetta.Moss)
+            if (wish == null) {
+                Text("Wish list", fontFamily = FontFamily.Serif, fontSize = 24.sp, color = Rosetta.Cream)
+                Spacer(Modifier.weight(1f))
+                Text("Good habits earn real pocket money. Parents add wishes from their phone.", fontSize = 13.sp, lineHeight = 18.sp, color = Rosetta.Mist)
+            } else {
+                val kid = h.kid(wish.kidId)
+                Text(wish.title, fontFamily = FontFamily.Serif, fontSize = 22.sp, color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.weight(1f))
+                val p = (kid.money / wish.price.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f)
+                Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)).background(Color(0x33FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(p).fillMaxHeight().background(Brush.horizontalGradient(listOf(Rosetta.Moss, Rosetta.Lime))))
+                }
+                Spacer(Modifier.height(6.dp))
+                Text("${kid.name}: ${h.currency}${money(kid.money)} of ${h.currency}${money(wish.price)}", fontSize = 13.sp, color = Rosetta.Mist)
+            }
+        }
+    }
+}
+
+internal fun money(v: Double) = if (v % 1.0 == 0.0) "%.0f".format(v) else "%.2f".format(v)

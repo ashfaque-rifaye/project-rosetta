@@ -54,15 +54,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import app.rosetta.tv.data.Agent
 import app.rosetta.tv.data.Household
 import app.rosetta.tv.data.Household0
 import app.rosetta.tv.data.Quest
 import app.rosetta.tv.data.QuestStage
 import app.rosetta.tv.ui.common.AssetImage
+import app.rosetta.tv.ui.common.FittedPhoto
 import app.rosetta.tv.ui.common.QrCode
-import app.rosetta.tv.ui.kit.AgentFeed
-import app.rosetta.tv.ui.kit.AgentGraph
 import app.rosetta.tv.ui.kit.AvatarRing
 import app.rosetta.tv.ui.kit.ButtonTone
 import app.rosetta.tv.ui.kit.Glass
@@ -137,33 +135,35 @@ fun QuestScreen(
                     ) {
                         AnimatedContent(photoFor(quest), transitionSpec = { fadeIn(tween(500)) togetherWith fadeOut(tween(350)) }, label = "ph") { p ->
                             if (p == null) JoinPanel(household.pairingCode, kid.name, joinUrl)
-                            else AssetImage(p, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+                            else FittedPhoto(p, Modifier.fillMaxSize()) {
+                                // Boxes are in whole-photo coordinates, so they sit inside the fitted photo, not the frame.
+                                if (quest.stage in setOf(QuestStage.Found, QuestStage.AwaitingAfter, QuestStage.Partial)) {
+                                    VisionOverlay(
+                                        detections = quest.things.map { Detection(it.id, it.box.l, it.box.t, it.box.r, it.box.b, resolved = it.returned) },
+                                        modifier = Modifier.fillMaxSize(),
+                                        pulseUnresolved = quest.stage == QuestStage.Partial,
+                                        style = VisionOverlayStyle(outline = Rosetta.Gold, fill = Rosetta.Gold.copy(alpha = 0.08f), badgeSize = 44.dp),
+                                    ) { d -> AssetImage(Household0.thing(quest.things.first { it.id == d.id }.character), Modifier.fillMaxSize()) }
+                                }
+                            }
                         }
                         if (quest.working) ScanSweep()
-                        if (quest.stage in setOf(QuestStage.Found, QuestStage.AwaitingAfter, QuestStage.Partial)) {
-                            VisionOverlay(
-                                detections = quest.things.map { Detection(it.id, it.box.l, it.box.t, it.box.r, it.box.b, resolved = it.returned) },
-                                modifier = Modifier.fillMaxSize(),
-                                pulseUnresolved = quest.stage == QuestStage.Partial,
-                                style = VisionOverlayStyle(outline = Rosetta.Gold, fill = Rosetta.Gold.copy(alpha = 0.08f), badgeSize = 50.dp),
-                            ) { d -> AssetImage(Household0.thing(quest.things.first { it.id == d.id }.character), Modifier.fillMaxSize()) }
-                        }
                         if (quest.stage == QuestStage.Done) DoneBurst()
                     }
                     Spacer(Modifier.height(12.dp))
                     KeeperCard(quest.keeperLine)
                 }
                 Spacer(Modifier.width(18.dp))
-                // ---------- Right: Mission Control ----------
+                // ---------- Right: what Rosetta did ----------
                 Column(Modifier.weight(1f)) {
-                    MissionControl(quest, Modifier.weight(1f))
-                    Spacer(Modifier.height(12.dp))
+                    AiSteps(quest, kid.name, Modifier)
+                    Spacer(Modifier.height(16.dp))
                     LostThingsStrip(quest)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.weight(1f))
                     AnimatedVisibility(quest.stage == QuestStage.Done, enter = fadeIn() + scaleIn(initialScale = 0.8f)) {
                         RosettaButton(
                             "Claim rewards", onClaim, modifier = Modifier.focusRequester(claim).fillMaxWidth(),
-                            icon = "🎁", sub = "+${quest.xpReward} XP · +${quest.coinReward} coins · 1 glyph", tone = ButtonTone.Lime, big = true,
+                            icon = "🎁", sub = "+${quest.xpReward} XP · +${quest.coinReward} coins · a star for the Family Goal", tone = ButtonTone.Lime, big = true,
                         )
                     }
                     if (quest.stage != QuestStage.Done) NextStepHint(quest, kid.name)
@@ -175,11 +175,12 @@ fun QuestScreen(
 
 private fun stageLabel(s: QuestStage) = when (s) {
     QuestStage.Ready, QuestStage.AwaitingBefore -> "WAITING FOR PHOTO"
-    QuestStage.Scanning -> "SCANNING"
+    QuestStage.Scanning -> "✦ LOOKING"
     QuestStage.Found, QuestStage.AwaitingAfter -> "TIDY TIME"
-    QuestStage.Verifying -> "VERIFYING"
+    QuestStage.Verifying -> "✦ CHECKING"
     QuestStage.Partial -> "ALMOST"
     QuestStage.Checked, QuestStage.Practising -> "PRACTICE"
+    QuestStage.Checking -> "GROWN-UP CHECK"
     QuestStage.Done -> "COMPLETE"
 }
 
@@ -222,7 +223,7 @@ private fun androidx.compose.foundation.layout.BoxScope.DoneBurst() {
     val t by rememberInfiniteTransition(label = "db").animateFloat(0.4f, 0.8f, infiniteRepeatable(tween(1200), RepeatMode.Reverse), label = "a")
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Rosetta.Gold.copy(alpha = 0.25f * t), Color.Transparent))))
     Text(
-        "ALL HOME", style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, letterSpacing = 6.sp), color = Rosetta.Gold,
+        "ALL TIDY!", style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, letterSpacing = 6.sp), color = Rosetta.Gold,
         modifier = Modifier.align(Alignment.Center).clip(RoundedCornerShape(16.dp)).background(Rosetta.Night.copy(alpha = 0.75f)).padding(horizontal = 26.dp, vertical = 8.dp),
     )
 }
@@ -246,28 +247,102 @@ internal fun KeeperCard(line: String) {
     }
 }
 
-@Composable
-internal fun MissionControl(quest: Quest, modifier: Modifier, graphHeight: androidx.compose.ui.unit.Dp = 140.dp) {
-    val recent = quest.log.lastOrNull()
-    val active: Set<Agent> = when {
-        quest.working && recent != null -> setOf(recent.agent, Agent.QuestMaster)
-        quest.stage == QuestStage.AwaitingBefore -> setOf(Agent.QuestMaster)
-        else -> emptySet()
-    }
-    Glass(modifier.fillMaxWidth(), radius = 20.dp) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val blink by rememberInfiniteTransition(label = "live").animateFloat(0.3f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "b")
-                Box(Modifier.size(8.dp).clip(CircleShape).background(Rosetta.Ember.copy(alpha = blink)))
-                Spacer(Modifier.width(8.dp))
-                Text("AGENT CREW · LIVE", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
-                Spacer(Modifier.weight(1f))
-                Text("${quest.log.size} steps", style = MaterialTheme.typography.labelMedium, color = Rosetta.Mist)
-            }
-            AgentGraph(active = active, done = quest.log.map { it.agent }.toSet(), modifier = Modifier.fillMaxWidth().height(graphHeight))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
-            AgentFeed(quest.log, Modifier.fillMaxWidth().padding(top = 6.dp), max = 4)
+/** One line of what Rosetta did with the kid's photo, in words a 6-year-old can read. ✦ marks the AI's own work. */
+private enum class StepState { Done, Now, Later }
+
+private data class Step(val text: String, val ai: Boolean, val state: StepState)
+
+private fun st(done: Boolean, now: Boolean) = if (done) StepState.Done else if (now) StepState.Now else StepState.Later
+
+private fun stepsFor(q: Quest, name: String): List<Step> {
+    val s = q.stage
+    val photo = q.beforePhoto != null && s != QuestStage.Ready && s != QuestStage.AwaitingBefore
+    return if (q.isStudy) buildList {
+        val hw = q.homework
+        add(Step(if (photo) "Got $name's homework photo" else "Waiting for $name's homework photo", false, st(photo, !photo)))
+        add(Step(if (hw != null) "Checked ${hw.items.size} answers: ${hw.right} right" else "Reading every answer", true, st(hw != null, s == QuestStage.Scanning)))
+        if (hw?.items?.any { it.checkedBy == "math" } == true) add(Step("Double-checked the maths", true, StepState.Done))
+        if (hw != null) {
+            if (hw.items.any { !it.correct }) add(Step("Made a practice round on what to fix", true, st(q.practice.isNotEmpty(), q.practice.isEmpty() && s != QuestStage.Done)))
+            else add(Step("All right! No practice needed", false, StepState.Done))
         }
+        if (q.practice.isNotEmpty()) {
+            val all = q.answers.size >= q.practice.size
+            add(Step(if (all) "Practice: ${q.practiceRight} of ${q.practice.size} right" else "Practice: ${q.answers.size} of ${q.practice.size} answered", false, st(all, s == QuestStage.Practising)))
+        }
+        if (q.needsParent || s == QuestStage.Checking) add(Step("Mom or Dad takes a look", false, st(s == QuestStage.Done, s == QuestStage.Checking)))
+        add(Step("Done!", false, st(s == QuestStage.Done, false)))
+    } else buildList {
+        val tidyAlready = s == QuestStage.Done && q.things.isEmpty()
+        val after = s == QuestStage.Verifying || s == QuestStage.Partial || s == QuestStage.Done || s == QuestStage.Checking
+        add(Step(if (photo) "Got $name's room photo" else "Waiting for $name's room photo", false, st(photo, !photo)))
+        when {
+            tidyAlready -> add(Step("The room already looks tidy!", true, StepState.Done))
+            q.things.isNotEmpty() -> add(Step("Found ${q.found} ${if (q.found == 1) "thing" else "things"} out of place", true, StepState.Done))
+            else -> add(Step("Looking for things out of place", true, st(false, s == QuestStage.Scanning)))
+        }
+        if (!tidyAlready) {
+            add(Step("Put them back where they belong", false, st(after, s == QuestStage.Found || s == QuestStage.AwaitingAfter)))
+            add(Step("Comparing the before and after photos", true, st(s == QuestStage.Partial || s == QuestStage.Done || s == QuestStage.Checking, s == QuestStage.Verifying)))
+            if (s == QuestStage.Partial) add(Step("${q.home} of ${q.found} back home. Almost!", false, StepState.Now))
+            if (s == QuestStage.Done && q.found > 0) add(Step("All ${q.found} back home", false, StepState.Done))
+        }
+        if (q.needsParent || s == QuestStage.Checking) add(Step("Mom or Dad takes a look", false, st(s == QuestStage.Done, s == QuestStage.Checking)))
+        add(Step("Done!", false, st(s == QuestStage.Done, false)))
+    }
+}
+
+/** What Rosetta did, step by step, plus the AI's honest note when a photo didn't fit the task. */
+@Composable
+internal fun AiSteps(quest: Quest, name: String, modifier: Modifier) {
+    Glass(modifier.fillMaxWidth(), radius = 20.dp) {
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✦", fontSize = 16.sp, color = Rosetta.Gold)
+                Spacer(Modifier.width(8.dp))
+                Text("WHAT ROSETTA DID", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
+            }
+            if (quest.whatISee.isNotBlank()) {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Rosetta.Rose.copy(alpha = 0.14f))
+                        .border(1.dp, Rosetta.Rose.copy(alpha = 0.6f), RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text("✦", fontSize = 15.sp, color = Rosetta.Rose)
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("What the photo showed", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Rosetta.Rose)
+                        Text(quest.whatISee, fontSize = 16.sp, lineHeight = 21.sp, color = Rosetta.Cream, maxLines = 3)
+                    }
+                }
+            }
+            stepsFor(quest, name).forEach { StepRow(it) }
+        }
+    }
+}
+
+@Composable
+private fun StepRow(step: Step) {
+    val pulse by rememberInfiniteTransition(label = "step").animateFloat(0.35f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "p")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
+            when (step.state) {
+                StepState.Done -> Box(Modifier.size(20.dp).clip(CircleShape).background(Rosetta.Lime), contentAlignment = Alignment.Center) {
+                    Text("✓", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Rosetta.Night)
+                }
+                StepState.Now -> Box(Modifier.size(14.dp).clip(CircleShape).background(Rosetta.Sky.copy(alpha = pulse)))
+                StepState.Later -> Box(Modifier.size(14.dp).clip(CircleShape).border(2.dp, Color.White.copy(alpha = 0.25f), CircleShape))
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        if (step.ai) Text("✦ ", fontSize = 15.sp, color = Rosetta.Gold)
+        Text(
+            step.text + if (step.state == StepState.Now && step.ai) "…" else "",
+            fontSize = 16.sp,
+            fontWeight = if (step.state == StepState.Now) FontWeight.Bold else FontWeight.Normal,
+            color = when (step.state) { StepState.Done -> Rosetta.Cream; StepState.Now -> Rosetta.Sky; StepState.Later -> Rosetta.Mist.copy(alpha = 0.7f) },
+            maxLines = 1,
+        )
     }
 }
 
@@ -297,10 +372,11 @@ private fun LostThingsStrip(quest: Quest) {
 private fun NextStepHint(quest: Quest, name: String) {
     val text = when (quest.stage) {
         QuestStage.Ready, QuestStage.AwaitingBefore -> "Waiting for $name's photo…"
-        QuestStage.Scanning -> "Scout is reading the room…"
-        QuestStage.Found, QuestStage.AwaitingAfter -> "Bring them home, then snap the room again."
-        QuestStage.Verifying -> "Judge is comparing before and after…"
-        QuestStage.Partial -> "Almost! Snap again when the last ones are home."
+        QuestStage.Scanning -> "✦ Rosetta is looking at the room…"
+        QuestStage.Found, QuestStage.AwaitingAfter -> "Put them back, then snap the room again."
+        QuestStage.Verifying -> "✦ Rosetta is comparing your two photos…"
+        QuestStage.Partial -> "Almost! Snap again when the last ones are back."
+        QuestStage.Checking -> "Waiting for Mom or Dad to take a look…"
         QuestStage.Checked, QuestStage.Practising, QuestStage.Done -> ""
     }
     val dots by rememberInfiniteTransition(label = "dots").animateFloat(0.4f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "d")

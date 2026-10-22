@@ -106,17 +106,17 @@ internal fun QuestionBlock(question: Question, answered: Int?, onPick: (Int) -> 
 }
 
 /**
- * Family Quiz Battle: questions the Quizmaster agent built from this week's homework, pitched at each kid in turn.
- * Every right answer lights one glyph on the Stone Trial. Co-op only: the team total, never a ranking.
+ * Family Quiz Night: ✦ questions the AI writes for each child's class, subjects and upcoming tests, taking turns.
+ * Every right answer lights a star on the board. Co-op only: the team total, never a ranking.
  */
 @Composable
 fun QuizScreen(household: Household, onAnswer: (questionId: String, kidId: String, choice: Int) -> Unit, onDone: () -> Unit) {
     val quiz = household.quiz
     if (quiz == null) {
-        // Live mode: the Quizmaster agent is writing tonight's questions from this week's homework.
+        // Live mode: the AI is writing tonight's questions.
         Box(Modifier.fillMaxSize().background(Rosetta.Night), contentAlignment = Alignment.Center) {
             val a by rememberInfiniteTransition(label = "w").animateFloat(0.4f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "a")
-            Text("✦ The Quizmaster is writing tonight's questions…", fontSize = 26.sp, color = Rosetta.Gold.copy(alpha = a))
+            Text("✦ Rosetta is writing tonight's questions…", fontSize = 26.sp, color = Rosetta.Gold.copy(alpha = a))
         }
         return
     }
@@ -130,16 +130,16 @@ fun QuizScreen(household: Household, onAnswer: (questionId: String, kidId: Strin
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1B2552), Rosetta.Night), radius = 1600f))) {
         Row(Modifier.fillMaxSize().padding(start = 36.dp, end = 30.dp, top = 24.dp, bottom = 22.dp)) {
-            // ---------- Left: the Stone Trial ----------
+            // ---------- Left: the star board ----------
             Column(Modifier.width(400.dp).fillMaxHeight()) {
-                Text("FAMILY QUIZ BATTLE", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.5.sp), color = Rosetta.Gold)
-                Text("The Stone Trial", style = MaterialTheme.typography.displaySmall.copy(fontSize = 32.sp), color = Rosetta.Cream)
-                Text("Built from this week's homework. Every right answer lights a glyph.", fontSize = 14.sp, color = Rosetta.Mist)
+                Text("TONIGHT", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.5.sp), color = Rosetta.Gold)
+                Text("Family Quiz Night", style = MaterialTheme.typography.displaySmall.copy(fontSize = 32.sp), color = Rosetta.Cream)
+                Text("Questions for each child's class. Every right answer lights a star.", fontSize = 14.sp, color = Rosetta.Mist)
                 Spacer(Modifier.height(8.dp))
                 val bySkill = quiz.questions.filter { it.forKid.isNotBlank() }.groupBy { it.forKid }
                     .map { (k, qs) -> "${household.kids.firstOrNull { it.id == k }?.name ?: k}: ${qs.map { it.skill }.distinct().joinToString(", ").lowercase()}" }
                 Text(
-                    "✦ Quizmaster agent · " + bySkill.joinToString(" · "),
+                    "✦ Made by AI · " + bySkill.joinToString(" · "),
                     fontSize = 13.sp, color = Rosetta.Gold, maxLines = 2,
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Rosetta.Gold.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 6.dp),
                 )
@@ -148,7 +148,7 @@ fun QuizScreen(household: Household, onAnswer: (questionId: String, kidId: Strin
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${quiz.lit}", fontSize = 38.sp, fontWeight = FontWeight.Black, color = Rosetta.Gold)
-                    Text(" / ${quiz.goal} glyphs lit · team", fontSize = 18.sp, color = Rosetta.Cream)
+                    Text(" of ${quiz.goal} right, as a team", fontSize = 18.sp, color = Rosetta.Cream)
                 }
             }
             Spacer(Modifier.width(26.dp))
@@ -157,16 +157,16 @@ fun QuizScreen(household: Household, onAnswer: (questionId: String, kidId: Strin
                 Column(Modifier.padding(26.dp)) {
                     if (finished) {
                         Spacer(Modifier.weight(1f))
-                        Text("STONE TRIAL COMPLETE", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.5.sp), color = Rosetta.Gold)
-                        Text("${quiz.lit} of ${quiz.goal} glyphs lit together", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream)
+                        Text("QUIZ COMPLETE!", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.5.sp), color = Rosetta.Gold)
+                        Text("${quiz.lit} of ${quiz.goal} right together", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream)
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            if (quiz.lit > 0) "Everyone gets +${10 * quiz.lit} coins. Teamwork wins. 🏆"
-                            else "Tough round! Tomorrow's trial has new questions. 💪",
+                            if (quiz.lit > 0) "Everyone gets +${5 * quiz.lit} coins. Teamwork wins. 🏆"
+                            else "Tough round! Next quiz has new questions. 💪",
                             fontSize = 20.sp, color = Rosetta.Lime,
                         )
                         Spacer(Modifier.height(24.dp))
-                        RosettaButton("Back to Home Base", onDone, modifier = Modifier.focusRequester(back).fillMaxWidth(), icon = "🏠", tone = ButtonTone.Gold, big = true)
+                        RosettaButton("Back home", onDone, modifier = Modifier.focusRequester(back).fillMaxWidth(), icon = "🏠", tone = ButtonTone.Gold, big = true)
                         Spacer(Modifier.weight(1f))
                     } else if (current != null) {
                         val kid = household.kids.firstOrNull { it.id == current.forKid } ?: household.kids[quiz.answers.size % household.kids.size]
@@ -176,6 +176,7 @@ fun QuizScreen(household: Household, onAnswer: (questionId: String, kidId: Strin
                             Column(Modifier.weight(1f)) {
                                 Text("${kid.name.uppercase()}'S TURN", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Gold)
                                 Text("Question ${quiz.questions.indexOf(current) + 1} of ${quiz.goal} · ${current.skill.ifBlank { "review" }}", fontSize = 14.sp, color = Rosetta.Mist)
+                                if (current.reason.isNotBlank()) Text("✦ ${current.reason}", fontSize = 13.sp, color = Rosetta.Gold, maxLines = 1)
                             }
                         }
                         Spacer(Modifier.height(20.dp))
@@ -196,7 +197,7 @@ fun QuizScreen(household: Household, onAnswer: (questionId: String, kidId: Strin
     }
 }
 
-/** The stone: one carved socket per question, glowing gold when that question was answered right. */
+/** The star board: one slot per question, glowing gold when that question was answered right. */
 @Composable
 private fun StoneTrial(quiz: Quiz, modifier: Modifier) {
     val pulse by rememberInfiniteTransition(label = "st").animateFloat(0.6f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "p")
@@ -219,7 +220,7 @@ private fun StoneTrial(quiz: Quiz, modifier: Modifier) {
                         ) {
                             Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Rosetta.Gold.copy(alpha = 0.75f * lit), Color.Transparent))))
                             Text(
-                                if (a == null) "${quiz.questions.indexOf(q) + 1}" else if (a.correct) "✦" else "·",
+                                if (a == null) "${quiz.questions.indexOf(q) + 1}" else if (a.correct) "★" else "·",
                                 fontSize = if (a?.correct == true) 34.sp else 22.sp, fontWeight = FontWeight.Black,
                                 color = if (a?.correct == true) Color(0xFFFFE7A8) else Rosetta.Mist, textAlign = TextAlign.Center,
                             )

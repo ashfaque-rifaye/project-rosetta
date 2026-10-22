@@ -71,7 +71,7 @@ fun DataRarity.ui() = when (this) {
     DataRarity.Legendary -> Rarity.Legendary
 }
 
-/** The celebration after a quest: each reward lands in sequence, then the glyph is carried to the Stone. */
+/** The celebration after a task: each reward lands in sequence, then the star goes onto the Family Goal. */
 @Composable
 fun RewardScreen(household: Household, reward: QuestReward, onCarve: () -> Unit) {
     val kid = household.kid(reward.kidId)
@@ -117,16 +117,20 @@ fun RewardScreen(household: Household, reward: QuestReward, onCarve: () -> Unit)
             Spacer(Modifier.width(44.dp))
             // ---------- Right: loot ----------
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("QUEST COMPLETE", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 4.sp), color = Rosetta.Gold)
+                Text("TASK COMPLETE", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 4.sp), color = Rosetta.Gold)
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     LootTile(visible = step >= 1, title = "+$xpShown", label = "EXPERIENCE", accent = Rosetta.Lime) { Text("⚡", fontSize = 34.sp) }
                     LootTile(visible = step >= 3, title = "+$coinsShown", label = "COINS", accent = Rosetta.Gold) {
                         AssetImage(Household0.COIN, Modifier.size(52.dp), contentScale = ContentScale.Fit)
                     }
-                    reward.glyph?.let { g ->
-                        LootTile(visible = step >= 3, title = g.name, label = "NEW GLYPH", accent = Rosetta.Ember) {
-                            AssetImage(Household0.glyph(g.asset), Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)))
-                        }
+                    if (reward.money > 0) {
+                        LootTile(visible = step >= 3, title = money(household.currency, reward.money), label = "POCKET MONEY", accent = Rosetta.Lime) { Text("💰", fontSize = 34.sp) }
+                    }
+                    reward.glyph?.let {
+                        LootTile(visible = step >= 3, title = "+1", label = "STAR", accent = Rosetta.Ember) { Text("★", fontSize = 44.sp, color = Rosetta.Gold) }
+                    }
+                    if (reward.streak > 1) {
+                        LootTile(visible = step >= 3, title = "${reward.streak} days", label = "STREAK", accent = Rosetta.Ember) { Text("🔥", fontSize = 34.sp) }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -137,13 +141,16 @@ fun RewardScreen(household: Household, reward: QuestReward, onCarve: () -> Unit)
                 }
                 Spacer(Modifier.height(6.dp))
                 if (step >= 6) RosettaButton(
-                    "Carve it into the Family Stone", onCarve, Modifier.focusRequester(carve),
-                    icon = "🗿", sub = "${household.glyphsEarned + 1} of ${household.glyphs.size} glyphs", tone = ButtonTone.Gold, big = true,
+                    if (reward.glyph != null) "Add your star to the Family Goal" else "Back home", onCarve, Modifier.focusRequester(carve),
+                    icon = if (reward.glyph != null) "⭐" else "🏠", sub = "${household.glyphsEarned} of ${household.glyphs.size} stars", tone = ButtonTone.Gold, big = true,
                 )
             }
         }
     }
 }
+
+/** ₹12 or ₹12.50: whole amounts stay whole. */
+internal fun money(currency: String, v: Double) = currency + if (v % 1.0 == 0.0) v.toLong().toString() else String.format(java.util.Locale.US, "%.2f", v)
 
 @Composable
 private fun XpBar(level: Int, progress: Float, gained: Int) {
@@ -210,7 +217,7 @@ private fun CodexUpgrade(visible: Boolean, character: String, name: String, rari
             RarityRibbon(rarity)
             AssetImage(Household0.thing(character), Modifier.padding(top = 6.dp).size(92.dp).clip(RoundedCornerShape(12.dp)))
             Text(name, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
-            Text("CODEX UPGRADE", fontSize = 9.sp, fontWeight = FontWeight.Black, color = rarity.color, letterSpacing = 1.5.sp)
+            Text("SQUAD UPGRADE", fontSize = 9.sp, fontWeight = FontWeight.Black, color = rarity.color, letterSpacing = 1.5.sp)
         }
     }
 }

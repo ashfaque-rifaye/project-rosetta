@@ -3,7 +3,7 @@
   python assets/voice/make_keeper_voice.py
 Writes tv-app/app/src/main/assets/voice/<hash>.wav and index.json (exact line -> file), which KeeperVoice plays before
 falling back to the device voice. Lines must match the TV code exactly: LocalRepository (offline household) and the
-Family Stone lines in MainActivity. Needs Google ADC for project tesselle-demandfoundry. Re-running skips clips that exist.
+Family Goal lines in MainActivity. Needs Google ADC for project tesselle-demandfoundry. Re-running skips clips that exist.
 """
 import hashlib
 import json
@@ -19,22 +19,22 @@ from rosetta_agents import gemini  # noqa: E402
 OUT = ROOT / "tv-app/app/src/main/assets/voice"
 KIDS = ["Arjun", "Meera"]
 LINES = [
-    # MainActivity: the Family Stone
-    "The last glyph is carved. The Family Stone is complete. Movie night is yours.",
-    "A new glyph is carved into the Family Stone.",
+    # MainActivity: the Family Goal
+    "That's every star. The Family Goal is done. Movie night is yours!",
+    *[f"A new star for the Family Goal. {n} of 9." for n in range(1, 9)],
     # LocalRepository: the offline household
-    *[f"Snap your homework, {k} 📸 Tutor will take a look." for k in KIDS],
+    *[f"Snap your homework, {k} 📸 The AI Tutor will take a look." for k in KIDS],
     *[f"Snap your room, {k} 📸 Let's find the Lost Things." for k in KIDS],
     "Looking… 👀",
     *[f"5 Lost Things spotted! Bring them home, {k} 🏠" for k in KIDS],
-    "Tutor is reading your work… ✏️",
+    "The AI Tutor is reading your work… ✏️",
     "Every answer right. Big brain energy 🧠🏆",
     "4 out of 6, Arjun! Two need another look. Quick practice round? 🎯",
     "4 out of 5, Meera! Two need another look. Quick practice round? 🎯",
     *[f"{right} of {total} in practice. That's how skills level up, {k} ⚡" for k in KIDS for total in (4, 5) for right in range(total + 1)],
     "Checking… ⚖️",
     "4 home! Only the jacket left. Hook it by the window 🧥",
-    "ALL HOME. Absolute legend 🏆 Claim your glyph!",
+    "ALL HOME. Absolute legend 🏆 Claim your star!",
 ]
 EMOJI = re.compile(r"[\U0001F000-\U0001FAFF☀-➿️]")
 
@@ -56,3 +56,6 @@ if __name__ == "__main__":
                 time.sleep(20)
         print("ok " if (OUT / name).exists() else "FAIL", line, flush=True)
     (OUT / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
+    for old in OUT.glob("*.wav"):  # clips for lines the TV no longer says
+        if old.name not in index.values():
+            old.unlink()

@@ -190,3 +190,20 @@ The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) 
 - **Severity:** Minor (wrong-looking marks, verdicts unaffected).
 - **Workaround:** Ask for a tight box around the child's handwritten answer only, in Gemini's native `[ymin, xmin, ymax, xmax]`, and convert in one adapter.
 - **Suggestion:** Document box-prompting guidance for documents (tight targets work better than regions).
+
+### F-022: No way for an app to gate the other apps on Fire TV
+- **Tool:** Fire OS (Fire TV), Amazon Kids
+- **Task:** Let a family's TV time unlock only after today's tasks are done ("no TV until homework is finished").
+- **Actual:** Fire TV doesn't allow replacing the home screen, and there is no API for an app to lock or time-limit other apps. Amazon Kids profiles have time limits, but nothing an app can grant ("earned 45 minutes").
+- **Severity:** Major for this use case (the core promise can only be honoured, not enforced).
+- **Workaround:** Rosetta unlocks TV time inside the app, opens Prime Video, YouTube or Netflix from there and counts the minutes; the parent page walks parents through Fire TV's own parental controls (PIN-protected app launches) for the rest.
+- **Suggestion:** An Amazon Kids "grant screen time" API that a parent-approved app can call.
+
+### F-023: Image models rate-limit hard on a fresh project
+- **Tool:** Vertex AI, `gemini-2.5-flash-image`
+- **Task:** Generate two parent portraits in the kids' art style.
+- **Actual:** 429 `RESOURCE_EXHAUSTED` on the first requests, with no quota shown up front.
+- **Severity:** Minor.
+- **Workaround:** Fall back across image models and wait between attempts (`assets/intro/make_intro.py`).
+- **Suggestion:** Show the per-minute image quota in the console next to the model, and include a retry-after hint in the 429.
+

@@ -11,9 +11,16 @@
         android:name="android.software.leanback"
         android:required="false" />
 
-    <!-- The companion Unity raid arena (arena-unity/), launched for the full 3D boss fight. -->
+    <!-- The companion Unity arena (arena-unity/), and the streaming apps earned TV time opens. -->
     <queries>
         <package android:name="app.rosetta.arena" />
+        <package android:name="com.amazon.avod" />
+        <package android:name="com.amazon.amazonvideo.livingroom" />
+        <package android:name="com.amazon.firetv.youtube" />
+        <package android:name="com.google.android.youtube.tv" />
+        <package android:name="com.google.android.youtube.tvkids" />
+        <package android:name="com.netflix.ninja" />
+        <package android:name="com.netflix.mediaclient" />
     </queries>
 
     <application
