@@ -290,6 +290,10 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
         state.update { it.copy(emotes = (it.emotes + Emote(System.nanoTime(), kidId, emoji, System.currentTimeMillis())).takeLast(12)) }
     }
 
+    internal fun applyRemoteMessage(m: FamilyMessage) {
+        state.update { it.copy(messages = (it.messages + m).takeLast(6)) }
+    }
+
     private var raidHits = 0
     override fun devRaidHit() {
         val h = state.value

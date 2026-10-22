@@ -37,7 +37,7 @@ export class RosettaStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       // Kids' room photos are working data, not an archive.
-      lifecycleRules: [{ prefix: "uploads/", expiration: Duration.days(1) }],
+      lifecycleRules: [{ prefix: "uploads/", expiration: Duration.days(1) }, { prefix: "voice/", expiration: Duration.days(1) }],
       cors: [{ allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET], allowedOrigins: ["*"], allowedHeaders: ["*"] }],
     });
 
@@ -66,6 +66,11 @@ export class RosettaStack extends Stack {
       ROSETTA_WEB_URL: `https://${cdn.distributionDomainName}`,
       ROSETTA_VAPID_PUBLIC: vapid.public, ROSETTA_VAPID_PRIVATE: vapid.private,
       ROSETTA_SES_FROM: this.node.tryGetContext("sesFrom") ?? "",
+      // AI runs on Gemini via Vertex AI for now (-c aiProvider=bedrock switches back). The Lambdas sign in to Google
+      // keylessly: gcp_wif.json (in the bundle, no secrets) lets Google trust these functions' AWS roles.
+      ROSETTA_AI_PROVIDER: this.node.tryGetContext("aiProvider") ?? "vertex",
+      GOOGLE_CLOUD_PROJECT: "tesselle-demandfoundry",
+      GOOGLE_APPLICATION_CREDENTIALS: "/var/task/gcp_wif.json",
     };
 
     const apiFn = new lambda.Function(this, "ApiFn", {

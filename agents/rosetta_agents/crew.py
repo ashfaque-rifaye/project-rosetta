@@ -17,8 +17,9 @@ Every tool writes straight to the household document, so the TV (polling) sees e
 from __future__ import annotations
 
 import logging
+import time
 
-from . import config, notify, store, tutor, vision
+from . import config, notify, store, tutor, vision, voice
 
 log = logging.getLogger(__name__)
 
@@ -152,13 +153,14 @@ def keeper_says(situation: str) -> str:
     _ctx.q["keeperLine"] = line
     _log("Keeper", "Spoke to " + _ctx.kid["name"], tool_name="keeper_says")
     _ctx.save()
+    _voice(line)
     return line
 
 
 @tool
 def mark_homework() -> str:
     """Tutor: read the quest's homework photo, mark every answer and add a hint to each wrong one (never the answer).
-    Returns 'NOT_HOMEWORK', or a summary with the score, the confidence and the skills that went wrong."""
+    Returns 'NOT_HOMEWORK', or a summary with the score, the confidence, the skills that went well and the ones to practise."""
     q = _ctx.q
     _log("QuestMaster", "Homework photo received · routing to Tutor", tool_name="mark_homework")
     marked = tutor.tutor_check(store.photo_bytes(q["beforeKey"]), _ctx.kid["age"])
@@ -174,7 +176,10 @@ def mark_homework() -> str:
         _log("Tutor", f"{by_code} answers double-checked with exact maths", tool_name="mathcheck")
     _ctx.save()
     wrong = sorted({i["skill"] for i in marked["items"] if not i["correct"]})
-    return f"score {right}/{len(marked['items'])}; confidence={marked['confidence']:.2f}; to practise: {', '.join(wrong) or 'none'}"
+    # Only skills with no mistakes count as "went well", so the Keeper never praises what the child just got wrong.
+    well = sorted({i["skill"] for i in marked["items"]} - set(wrong))
+    return (f"score {right}/{len(marked['items'])}; confidence={marked['confidence']:.2f}; "
+            f"went well: {', '.join(well) or 'effort'}; to practise: {', '.join(wrong) or 'none'}")
 
 
 @tool
@@ -281,6 +286,16 @@ def _study_row(q: dict) -> dict:
             "skills": sorted({i["skill"] for i in items if not i["correct"]})}
 
 
+def _master_model():
+    if config.AI_PROVIDER == "vertex":
+        from strands.models.gemini import GeminiModel
+
+        from . import gemini
+        return GeminiModel(client_args=gemini.client_args(), model_id=config.GEMINI_MODEL,
+                           params={"temperature": 0.1, "labels": gemini.labels("quest-master"), "thinking_config": gemini.thinking()})
+    return BedrockModel(model_id=config.MODEL_ID, region_name=config.REGION, temperature=0.1)
+
+
 def run(code: str, quest_id: str, phase: str) -> None:
     """Entry point from the S3-upload Lambda: phase is 'before' or 'after'."""
     global _ctx
@@ -289,7 +304,7 @@ def run(code: str, quest_id: str, phase: str) -> None:
         _deterministic(phase)
         return
     master = Agent(
-        model=BedrockModel(model_id=config.MODEL_ID, region_name=config.REGION, temperature=0.1),
+        model=_master_model(),
         system_prompt=QUEST_MASTER_PROMPT,
         tools=[mark_homework, make_practice, ask_parent, complete_quest, keeper_says] if _ctx.q.get("kind") == "study"
         else [scout_room, check_after, ask_parent, complete_quest, keeper_says],
@@ -299,3 +314,20 @@ def run(code: str, quest_id: str, phase: str) -> None:
     kind = "HOMEWORK" if _ctx.q.get("kind") == "study" else "tidy-up"
     master(f"New {phase.upper()} photo for {kid['name']} (age {kid['age']}), {kind} quest '{_ctx.q['title']}'. "
            f"Current stage: {_ctx.q['stage']}.")
+
+
+def _voice(line: str) -> None:
+    """The Keeper's line as Gemini audio, made as soon as the line is (the text is already on the TV). It's written to
+    a freshly loaded household, so answers given in the few seconds it takes are never overwritten."""
+    if config.AI_PROVIDER != "vertex" or not line:
+        return
+    try:
+        from . import gemini
+        key = f"voice/{_ctx.code}/{_ctx.quest_id}-{int(time.time())}.wav"
+        store.put_voice(key, gemini.speak(line))
+        _ctx.h = store.load(_ctx.code)
+        if _ctx.q.get("keeperLine") == line:
+            voice.set_line(_ctx.q, line, key)
+            _ctx.save()
+    except Exception:  # the TV falls back to its own voice
+        log.exception("keeper voice failed")

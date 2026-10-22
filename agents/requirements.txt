@@ -1,4 +1,8 @@
 # Lambda runtime: python3.12. boto3 is provided by Lambda but pinned here for local runs.
 boto3>=1.40
-strands-agents>=1.0
+# strands-agents 1.62+ has the Gemini provider
+strands-agents>=1.62
 pywebpush>=2.0
+# Gemini on Vertex AI (default AI provider), as in Project Tesselle
+google-genai>=1.40
+google-auth>=2.40

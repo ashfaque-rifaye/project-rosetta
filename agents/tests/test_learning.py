@@ -8,8 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rosetta_agents import mathcheck, store, tutor  # noqa: E402
-from test_flow import DB, PHOTOS, SENT, _install_fakes, call, upload  # noqa: E402
+from rosetta_agents import gemini, mathcheck, store, tutor  # noqa: E402
+from test_flow import DB, PHOTOS, SENT, VOICES, _install_fakes, call, upload  # noqa: E402
 
 ITEMS = [
     {"id": "q1", "n": 1, "question": "1/2 + 1/4 =", "kidAnswer": "3/4", "correct": True, "box": [0, 0, 1, 1], "skill": "Adding fractions", "hint": "", "checkedBy": "math"},
@@ -103,6 +103,49 @@ class ParentPage(unittest.TestCase):
         self.assertNotIn("email", [k for p in call("GET", "/household/R4KX")[1]["parents"] for k in p])  # never public
         st, r = call("POST", "/household/R4KX/parents/mom/test", pin="2468")
         self.assertEqual(r["delivered"], ["push:mom", "email:mom"])
+
+
+class KeeperVoice(unittest.TestCase):
+    """Gemini voice for the Keeper's line and for parents' messages (TTS stubbed)."""
+
+    def setUp(self):
+        _install_fakes()
+        _tutor_fakes()
+        DB.clear(); PHOTOS.clear(); VOICES.clear()
+        store.seed("R4KX")
+
+    def test_keeper_line_gets_a_voice_after_the_text(self):
+        call("POST", "/household/R4KX/quests/q_arjun_homework/open")
+        call("POST", "/household/R4KX/upload", {"questId": "q_arjun_homework"})
+        upload("R4KX", "q_arjun_homework", "before", 0, b"worksheet")
+        q = store.quest(store.load("R4KX"), "q_arjun_homework")
+        key = q["keeperVoice"]["key"]
+        self.assertTrue(key.startswith("voice/R4KX/q_arjun_homework-"))
+        self.assertEqual(VOICES[key], b"RIFF:" + q["keeperLine"].encode())
+        view = next(x for x in call("GET", "/household/R4KX")[1]["quests"] if x["id"] == "q_arjun_homework")
+        self.assertNotIn("keeperVoice", view)
+        self.assertIn(key, view["keeperAudioUrl"])
+        # a newer line without its own clip must not borrow the old one
+        h = store.load("R4KX"); store.quest(h, "q_arjun_homework")["keeperLine"] = "Something new"; store.save(h)
+        view = next(x for x in call("GET", "/household/R4KX")[1]["quests"] if x["id"] == "q_arjun_homework")
+        self.assertNotIn("keeperAudioUrl", view)
+
+    def test_parent_message_carries_its_voice(self):
+        st, ev = call("POST", "/household/R4KX/message", {"from": "mom", "text": "Proud of you!"}, pin="2468")
+        self.assertEqual(st, 200)
+        self.assertEqual(VOICES[ev["data"]["audioKey"]], b"RIFF:A message from Mom. Proud of you!")
+        feed = call("GET", "/household/R4KX")[1]["feed"]
+        self.assertIn("audioUrl", feed[-1]["data"])
+
+
+class GeminiAdapter(unittest.TestCase):
+    def test_boxes_are_asked_in_gemini_order_and_returned_as_x1_y1_x2_y2(self):
+        schema = gemini._gemini_schema(tutor.TUTOR_TOOL["toolSpec"]["inputSchema"]["json"])
+        box = schema["properties"]["items"]["items"]["properties"]["box"]
+        self.assertTrue(box["description"].startswith("[ymin, xmin, ymax, xmax]"))
+        self.assertTrue(box["description"].endswith("around the question and its answer"))
+        out = gemini._boxes_back({"items": [{"box": [100, 200, 300, 400], "n": 1}]})
+        self.assertEqual(out["items"][0]["box"], [200, 100, 400, 300])
 
 
 class QuizBattle(unittest.TestCase):

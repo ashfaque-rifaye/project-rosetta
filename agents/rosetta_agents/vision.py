@@ -1,4 +1,5 @@
-"""The crew's eyes: Bedrock Converse calls with images and forced JSON tool schemas.
+"""The crew's eyes: model calls with images and forced JSON tool schemas (Gemini on Vertex by default, see gemini.py;
+Bedrock Converse when ROSETTA_AI_PROVIDER=bedrock).
 
 Each function is one specialist:
   scout()  - finds out-of-place items in the "before" photo, with boxes
@@ -19,6 +20,9 @@ _rt = boto3.client("bedrock-runtime", region_name=config.REGION)
 
 
 def _converse(content: list[dict], tool: dict, system: str, max_tokens: int = 1500) -> dict[str, Any]:
+    if config.AI_PROVIDER == "vertex":
+        from . import gemini
+        return gemini.structured(content, tool, system, purpose=tool["toolSpec"]["name"])
     resp = _rt.converse(
         modelId=config.MODEL_ID,
         system=[{"text": system}],
@@ -154,7 +158,8 @@ KEEPER_TOOL = {
 KEEPER_SYSTEM = (
     "You are the Keeper of the Family Stone in Rosetta: a calm, warm storyteller voice on the family TV. "
     "Write ONE sentence (max 24 words) for a {age}-year-old named {name}. For a tidy-up, messy objects are 'Lost Things' "
-    "that miss their homes. For homework, name what went well and the skill they are building; never give an answer "
+    "that miss their homes. For homework, praise only a skill listed under 'went well'; skills under 'to practise' are "
+    "the ones they got wrong, so call them what the practice round is for and never praise them. Never give an answer "
     "and never mention Lost Things. Be specific about what happened, encouraging, a little magical, never shaming, "
     "never sarcastic, never about the child's character. No emojis."
 )

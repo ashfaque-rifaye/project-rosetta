@@ -136,6 +136,9 @@ fun HomeScreen(
             Spacer(Modifier.weight(1f))
             household.kids.forEach { KidChip(it, Modifier.padding(start = 12.dp)) }
             Spacer(Modifier.width(12.dp))
+            // Says whether the agent crew on AWS is driving the household or the TV's own engine is.
+            Pill(if (household.live) "● AGENTS LIVE" else "● ON-DEVICE", if (household.live) Rosetta.Moss else Rosetta.Mist)
+            Spacer(Modifier.width(8.dp))
             Pill("JOIN ${household.pairingCode}", Rosetta.Gold)
         }
 

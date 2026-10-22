@@ -34,6 +34,7 @@ class CloudRepository(
     private val local = LocalRepository(scope).also { it.setLive(code) }
     private val http = OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS).build()
     private val photoDir = File(context.cacheDir, "photos").apply { mkdirs() }
+    private val voiceDir = File(context.cacheDir, "voice").apply { mkdirs() }
     override val household: StateFlow<Household> = local.household
     override val rewards: SharedFlow<QuestReward> = local.rewards
 
@@ -65,6 +66,8 @@ class CloudRepository(
         post("/household/$code/quiz/answer", JSONObject().put("questionId", questionId).put("kidId", kidId).put("choice", choice))
     }
     private val seenEmotes = mutableSetOf<String>()
+    private val seenMessages = mutableSetOf<String>()
+    private var primed = false // messages already in the feed when the TV starts aren't replayed
 
     private fun post(path: String, body: JSONObject = JSONObject()) {
         scope.launch(Dispatchers.IO) {
@@ -84,6 +87,13 @@ class CloudRepository(
             val id = e.optString("id")
             if (id.isNotBlank() && seenEmotes.add(id)) local.emote(e.getString("kidId"), e.getString("emoji"))
         }
+        json.optJSONArray("feed")?.objects()?.filter { it.optString("kind") == "message" }?.forEach { m ->
+            if (seenMessages.add(m.getString("id")) && primed) {
+                val audio = m.optJSONObject("data")?.optString("audioUrl")?.ifBlank { null }?.let(::cacheVoice)
+                local.applyRemoteMessage(FamilyMessage(m.getString("id"), m.optString("title"), m.optString("body"), System.currentTimeMillis(), audio))
+            }
+        }
+        primed = true
         val quests = json.getJSONArray("quests")
         for (i in 0 until quests.length()) local.applyRemoteQuest(parseQuest(quests.getJSONObject(i)))
         json.optJSONObject("quiz")?.let { z ->
@@ -113,6 +123,7 @@ class CloudRepository(
             )
         } ?: emptyList(),
         keeperLine = q.optString("keeperLine"),
+        keeperAudio = q.optString("keeperAudioUrl").ifBlank { null }?.let(::cacheVoice),
         confidence = q.optDouble("confidence", 1.0).toFloat(),
         needsParent = q.optBoolean("needsParent"),
         kind = if (q.optString("kind") == "study") QuestKind.Study else QuestKind.Tidy,
@@ -146,11 +157,24 @@ class CloudRepository(
     /** Presigned URLs change on every poll; cache by logical name so each photo downloads once. */
     private fun cachePhoto(name: String, url: String): String {
         val f = File(photoDir, "$name.jpg")
-        if (!f.exists()) http.newCall(Request.Builder().url(url).build()).execute().use { r ->
-            check(r.isSuccessful) { "photo HTTP ${r.code}" }
-            f.outputStream().use { out -> r.body!!.byteStream().copyTo(out) }
-        }
+        if (!f.exists()) download(url, f)
         return f.absolutePath
+    }
+
+    /** Gemini voice clips: the S3 key (the URL's path) names each clip, so it downloads once. */
+    private fun cacheVoice(url: String): String? = runCatching {
+        val f = File(voiceDir, url.substringBefore('?').substringAfterLast('/'))
+        if (!f.exists()) download(url, f)
+        f.absolutePath
+    }.onFailure { Log.w(TAG, "voice clip failed: ${it.message}") }.getOrNull()
+
+    private fun download(url: String, f: File) {
+        val tmp = File(f.parentFile, f.name + ".part")
+        http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+            check(r.isSuccessful) { "HTTP ${r.code}" }
+            tmp.outputStream().use { out -> r.body!!.byteStream().copyTo(out) }
+        }
+        tmp.renameTo(f)
     }
 
     private fun questions(a: JSONArray?) = a?.objects()?.map {

@@ -77,6 +77,8 @@ data class Quest(
     val afterPhoto: String? = null,
     val things: List<LostThing> = emptyList(),
     val keeperLine: String = "",
+    /** The Keeper's line in the Gemini voice (a cached audio file), when the agents sent one. */
+    val keeperAudio: String? = null,
     val confidence: Float = 1f,
     val xpReward: Int = 60,
     val coinReward: Int = 25,
@@ -199,6 +201,8 @@ data class Household(
     val quiz: Quiz? = null,
     /** Hype emotes sent from family phones; the TV bursts the newest ones. */
     val emotes: List<Emote> = emptyList(),
+    /** Messages Mom and Dad send from the parent page; the TV shows the newest and the Keeper reads it out. */
+    val messages: List<FamilyMessage> = emptyList(),
     /** 4-week habit history per kid, for the Growth tracker. */
     val growth: Map<String, Growth> = emptyMap(),
     val pairingCode: String,
@@ -257,6 +261,9 @@ data class Raid(val boss: Boss, val hits: List<Hit> = emptyList(), val endsAt: S
 
 /** A hype emote sent from a phone (🔥 💀 🫶 …) that bursts onto the TV. */
 data class Emote(val id: Long, val kidId: String, val emoji: String, val atMs: Long)
+
+/** A message from a parent's phone ("Proud of you!") that the TV shows on any screen. [atMs] is when the TV got it. */
+data class FamilyMessage(val id: String, val from: String, val text: String, val atMs: Long, val audio: String? = null)
 
 /* ----------------------------- Growth tracker ----------------------------- */
 

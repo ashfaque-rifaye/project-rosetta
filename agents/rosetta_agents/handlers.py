@@ -12,7 +12,7 @@ import re
 import time
 import urllib.parse
 
-from . import crew, learning, notify, store, vision
+from . import config, crew, learning, notify, store, vision, voice
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -22,6 +22,20 @@ ALLOWED_EMOTES = {"🔥", "💀", "🫶", "⚡", "🏆", "😭"}
 
 KEEPER_OPEN = "Snap the room with your phone, {name}. Let's see who got lost today."
 KEEPER_OPEN_STUDY = "Snap your homework with your phone, {name}. Tutor will take a look."
+
+
+def _message_voice(code: str, sender: str, text: str) -> str | None:
+    """A parent's message in the Keeper's voice (Gemini TTS), stored next to the household's other audio."""
+    if config.AI_PROVIDER != "vertex" or not text:
+        return None
+    try:
+        from . import gemini
+        key = f"voice/{code}/msg-{int(time.time() * 1000)}.wav"
+        store.put_voice(key, gemini.speak(f"A message from {sender}. {text}", purpose="message-voice"))
+        return key
+    except Exception:  # the TV reads it with its own voice instead
+        log.exception("message voice failed")
+        return None
 
 
 CORS = {"access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS",
@@ -68,19 +82,28 @@ def api(event, _context):
                 return _resp(403, {"error": "parent PIN required"})
             if action == "open" and q["stage"] == "Ready":
                 opener = KEEPER_OPEN_STUDY if q.get("kind") == "study" else KEEPER_OPEN
-                q.update(stage="AwaitingBefore", openedAtMs=int(time.time() * 1000),
-                         keeperLine=opener.format(name=store.kid(h, q["kidId"])["name"]))
+                line = opener.format(name=store.kid(h, q["kidId"])["name"])
+                audio = voice.fixed(line)
+                h = store.load(code)  # fresh after the voice (only slow the first time a line is heard)
+                q = store.quest(h, qid)
+                q.update(stage="AwaitingBefore", openedAtMs=int(time.time() * 1000))
+                voice.set_line(q, line, audio)
             elif action == "reject":  # parent says "not yet": back to tidying, kid gets a kind nudge
-                q.update(stage="Partial", needsParent=False, keeperLine="A grown-up says almost! One more look around 👀")
+                line = "A grown-up says almost! One more look around 👀"
+                audio = voice.fixed(line)
+                h = store.load(code)
+                q = store.quest(h, qid)
+                q.update(stage="Partial", needsParent=False)
+                voice.set_line(q, line, audio)
                 notify.emit(h, "parent_reply", "Not quite yet", f"{store.kid(h, q['kidId'])['name']}, a grown-up wants one more look.", by="parent", notify=False)
             elif action == "close" and q["stage"] == "Done":
                 h["quests"] = [x for x in h["quests"] if x["id"] != qid]
             elif action == "approve":  # parent overrides a low-confidence Judge or Tutor verdict
                 for t in q.get("things", []):
                     t["returned"] = True
-                q.update(stage="Done", needsParent=False,
-                         keeperLine="A grown-up checked your homework. Well done!" if q.get("kind") == "study"
-                         else "A grown-up checked it: every Lost Thing is home!")
+                q.update(stage="Done", needsParent=False)
+                voice.set_line(q, "A grown-up checked your homework. Well done!" if q.get("kind") == "study"
+                               else "A grown-up checked it: every Lost Thing is home!")
                 for g in h["glyphs"]:
                     if g["id"] == q["glyphId"]:
                         g["earnedBy"] = q["kidId"]
@@ -115,7 +138,10 @@ def api(event, _context):
             if parent:
                 if not _is_parent(event, h):
                     return _resp(403, {"error": "parent PIN required"})
-                ev = notify.emit(h, "message", parent["name"], text, by=parent["id"], data={"to": body.get("to", "all")}, notify=False)
+                audio = _message_voice(m[1], parent["name"], text)
+                h = store.load(m[1])  # fresh after the few seconds the voice takes, so nothing saved meanwhile is lost
+                data = {"to": body.get("to", "all"), **({"audioKey": audio} if audio else {})}
+                ev = notify.emit(h, "message", parent["name"], text, by=parent["id"], data=data, notify=False)
             else:  # kids may only send the fixed cheers (no free text from kid phones)
                 kid = next((k for k in h["kids"] if k["id"] == sender), None)
                 if not kid or text not in QUICK_CHEERS:
@@ -230,11 +256,14 @@ def on_upload(event, _context):
         h = store.load(code)
         q = store.quest(h, qid)
         if q.get("kind") == "study":
-            q.update(stage="Scanning", beforeKey=key, homework=None, practice=[], answers={}, keeperLine="Tutor is reading your work…")
+            q.update(stage="Scanning", beforeKey=key, homework=None, practice=[], answers={})
+            voice.set_line(q, "Tutor is reading your work…")
         elif phase == "before":
-            q.update(stage="Scanning", beforeKey=key, afterKey=None, things=[], attempt=0, keeperLine="Looking closely…")
+            q.update(stage="Scanning", beforeKey=key, afterKey=None, things=[], attempt=0)
+            voice.set_line(q, "Looking closely…")
         else:
-            q.update(stage="Verifying", afterKey=key, attempt=n, keeperLine="Checking on everyone…")
+            q.update(stage="Verifying", afterKey=key, attempt=n)
+            voice.set_line(q, "Checking on everyone…")
         store.save(h)
         log.info("crew run %s %s %s", code, qid, phase)
         crew.run(code, qid, phase)

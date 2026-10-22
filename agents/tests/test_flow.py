@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rosetta_agents import crew, handlers, store, vision  # noqa: E402
+from rosetta_agents import crew, gemini, handlers, store, vision  # noqa: E402
 
 DB: dict = {}
 PHOTOS: dict = {}
@@ -18,6 +18,9 @@ def _install_fakes():
     store.load = lambda code: json.loads(DB[code])
     store.save = lambda h: DB.__setitem__(h["code"], json.dumps(h))
     store.photo_bytes = lambda key: PHOTOS[key]
+    store.put_voice = lambda key, wav: VOICES.__setitem__(key, wav)
+    store.voice_exists = lambda key: key in VOICES
+    gemini.speak = lambda text, **kw: b"RIFF:" + text.encode()  # never call Google from tests
     store.presign_get = lambda key: f"https://example/{key}?sig"
     store.presign_put = lambda key: f"https://example/put/{key}?sig"
     crew.Agent = None  # exercise the deterministic policy (same rules as the Strands prompt)
@@ -43,6 +46,7 @@ def _install_fakes():
 
 
 SENT = []
+VOICES = {}
 
 
 def call(method, path, body=None, pin=None):

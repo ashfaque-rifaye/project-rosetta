@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from . import crew, notify, store, tutor
+from . import crew, notify, store, tutor, voice
 
 
 def _now() -> int:
@@ -31,7 +31,8 @@ def answer_practice(h: dict, quest_id: str, question_id: str, choice: int) -> di
     if done:
         right = sum(1 for a in answers.values() if a["correct"])
         kid = store.kid(h, q["kidId"])
-        q.update(stage="Done", keeperLine=f"{right} of {len(q['practice'])} in practice. That's how skills grow, {kid['name']}!")
+        q.update(stage="Done")
+        voice.set_line(q, f"{right} of {len(q['practice'])} in practice. That's how skills grow, {kid['name']}!")
         for g in h["glyphs"]:
             if g["id"] == q["glyphId"]:
                 g["earnedBy"] = q["kidId"]

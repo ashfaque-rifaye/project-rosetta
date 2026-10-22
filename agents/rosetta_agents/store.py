@@ -56,6 +56,18 @@ def presign_put(key: str) -> str:
     )
 
 
+def put_voice(key: str, wav: bytes) -> None:
+    _s3.put_object(Bucket=config.BUCKET, Key=key, Body=wav, ContentType="audio/wav")
+
+
+def voice_exists(key: str) -> bool:
+    try:
+        _s3.head_object(Bucket=config.BUCKET, Key=key)
+        return True
+    except _s3.exceptions.ClientError:
+        return False
+
+
 def public_view(h: dict) -> dict:
     """What the TV and phones receive: photo keys swapped for short-lived URLs."""
     v = copy.deepcopy(h)
@@ -67,6 +79,12 @@ def public_view(h: dict) -> dict:
             q["beforeUrl"] = presign_get(q.pop("beforeKey"))
         if q.get("afterKey"):
             q["afterUrl"] = presign_get(q.pop("afterKey"))
+        voice = q.pop("keeperVoice", None)  # a clip only counts for the exact line it speaks
+        if voice and voice["line"] == q.get("keeperLine"):
+            q["keeperAudioUrl"] = presign_get(voice["key"])
+    for ev in v.get("feed", []):
+        if ev.get("data", {}).get("audioKey"):
+            ev["data"]["audioUrl"] = presign_get(ev["data"].pop("audioKey"))
     return v
 
 

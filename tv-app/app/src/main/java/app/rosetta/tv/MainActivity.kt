@@ -17,6 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 import app.rosetta.tv.data.QuestReward
 import app.rosetta.tv.data.RosettaRepository
 import app.rosetta.tv.ui.collection.CodexScreen
@@ -33,6 +36,7 @@ import app.rosetta.tv.ui.stone.StoneScreen
 import app.rosetta.tv.ui.theme.RosettaTheme
 import app.rosetta.tv.ui.raid.RaidScreen
 import app.rosetta.tv.ui.raid.EmoteLayer
+import app.rosetta.tv.ui.common.MessageBanner
 import app.rosetta.tv.ui.study.QuizScreen
 import app.rosetta.tv.ui.study.StudyScreen
 import app.rosetta.tv.ui.raid.ArenaLauncher
@@ -126,7 +130,14 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                         is Screen.Quest -> household.quests.firstOrNull { it.id == s.id }?.let { quest ->
-                            LaunchedEffect(quest.keeperLine) { keeper.speak(quest.keeperLine) }
+                            LaunchedEffect(quest.keeperLine) {
+                                // Live: the text lands first and the agents' Gemini voice a few seconds later, so wait for it.
+                                val audio = if (!household.live) null else withTimeoutOrNull(25_000) {
+                                    repo.household.map { h -> h.quests.firstOrNull { it.id == quest.id }?.takeIf { it.keeperLine == quest.keeperLine }?.keeperAudio }
+                                        .first { it != null }
+                                }
+                                keeper.speak(quest.keeperLine, audio)
+                            }
                             if (quest.isStudy) StudyScreen(
                                 household = household,
                                 quest = quest,
@@ -167,6 +178,8 @@ class MainActivity : ComponentActivity() {
                 }
                 // Phone hype emotes burst over every screen.
                 EmoteLayer(household)
+                // Mom and Dad's messages from the parent page drop in on any screen; the Keeper reads them out.
+                MessageBanner(household, onShow = { keeper.speak("Message from ${it.from}. ${it.text}", it.audio) })
                 }
             }
         }
