@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 /**
- * One object a vision model found, in normalized 0..1 image coordinates.
- * Models that use 0–1000 grounding (e.g. Amazon Nova) divide by 1000.
+ * One object a vision model found, in normalized 0..1 image coordinates (left/top/right/bottom).
+ * Use [fromXyxy1000] or [fromYxyx1000] to convert a model's raw box.
  */
 data class Detection(
     val id: String,
@@ -39,24 +39,69 @@ data class Detection(
     val top: Float,
     val right: Float,
     val bottom: Float,
-    /** Resolved detections animate out (e.g. an item that was put away). */
+    /** Resolved detections animate out (e.g. an item that was put away, a question that was answered). */
     val resolved: Boolean = false,
-)
+    /** Optional short label drawn by the caller in the badge slot. */
+    val label: String = "",
+) {
+    val width get() = right - left
+    val height get() = bottom - top
+
+    companion object {
+        /**
+         * From `[x1, y1, x2, y2]` on a 0–1000 grid (Amazon Nova grounding, many OCR and detection APIs).
+         * Corners may come in any order and values outside the image are clamped.
+         */
+        fun fromXyxy1000(id: String, box: List<Number>, resolved: Boolean = false, label: String = ""): Detection {
+            require(box.size == 4) { "box must have 4 numbers, got ${box.size}" }
+            val (x1, y1, x2, y2) = box.map { it.toFloat() }
+            return normalized(id, x1, y1, x2, y2, 1000f, resolved, label)
+        }
+
+        /** From `[ymin, xmin, ymax, xmax]` on a 0–1000 grid (Google Gemini's detection convention). */
+        fun fromYxyx1000(id: String, box: List<Number>, resolved: Boolean = false, label: String = ""): Detection {
+            require(box.size == 4) { "box must have 4 numbers, got ${box.size}" }
+            val (y1, x1, y2, x2) = box.map { it.toFloat() }
+            return normalized(id, x1, y1, x2, y2, 1000f, resolved, label)
+        }
+
+        /** From pixel coordinates `[x1, y1, x2, y2]` of an image of the given size. */
+        fun fromPixels(id: String, box: List<Number>, imageWidth: Int, imageHeight: Int, resolved: Boolean = false, label: String = ""): Detection {
+            require(box.size == 4) { "box must have 4 numbers, got ${box.size}" }
+            require(imageWidth > 0 && imageHeight > 0) { "image size must be positive" }
+            val (x1, y1, x2, y2) = box.map { it.toFloat() }
+            return normalized(id, x1 / imageWidth, y1 / imageHeight, x2 / imageWidth, y2 / imageHeight, 1f, resolved, label)
+        }
+
+        private fun normalized(id: String, x1: Float, y1: Float, x2: Float, y2: Float, scale: Float, resolved: Boolean, label: String): Detection {
+            fun c(v: Float) = (v / scale).coerceIn(0f, 1f)
+            return Detection(id, c(minOf(x1, x2)), c(minOf(y1, y2)), c(maxOf(x1, x2)), c(maxOf(y1, y2)), resolved, label)
+        }
+    }
+}
+
+/** Where the optional badge sits: above the box (objects in a photo) or after it (lines in a document, like a tick). */
+enum class BadgePlacement { Above, End }
 
 /** Visual tuning for [VisionOverlay]. Defaults read well on a TV at 3 m. */
 data class VisionOverlayStyle(
     val outline: Color = Color(0xFFF4C56A),
     val fill: Color = Color(0x14F4C56A),
+    val resolvedOutline: Color = Color(0xFF9BE37A),
     val strokeWidth: Dp = 2.dp,
     val corner: Dp = 12.dp,
     val padding: Dp = 4.dp,
     val badgeSize: Dp = 54.dp,
     val staggerMillis: Long = 220,
+    /** Smallest box drawn, so tiny detections (a single digit, a button) stay visible from the sofa. */
+    val minBoxSize: Dp = 18.dp,
+    val badgePlacement: BadgePlacement = BadgePlacement.Above,
 )
 
 /**
  * Draws AI detection boxes over an image on Android TV / Fire TV: boxes pop in one by one, unresolved ones
  * can pulse for attention, and an optional circular [badge] (e.g. an icon or character) perches above each box.
+ * It is purely visual and never takes D-pad focus.
  *
  * Place it in a Box with exactly the same bounds as the image it annotates:
  * ```
@@ -81,6 +126,17 @@ fun VisionOverlay(
             key(d.id) { DetectionMarker(d, index, w, h, pulseUnresolved, style, badge) }
         }
     }
+}
+
+/** Where a detection is drawn inside a [width] x [height] overlay, after padding and the minimum size. */
+internal data class MarkerBounds(val x: Dp, val y: Dp, val width: Dp, val height: Dp)
+
+internal fun markerBounds(d: Detection, width: Dp, height: Dp, style: VisionOverlayStyle): MarkerBounds {
+    val bw = maxOf(width * d.width + style.padding * 2, style.minBoxSize)
+    val bh = maxOf(height * d.height + style.padding * 2, style.minBoxSize)
+    val cx = width * (d.left + d.right) / 2
+    val cy = height * (d.top + d.bottom) / 2
+    return MarkerBounds(cx - bw / 2, cy - bh / 2, bw, bh)
 }
 
 @Composable
@@ -108,25 +164,25 @@ private fun DetectionMarker(
         animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
         label = "scale",
     )
-    val x = w * d.left
-    val y = h * d.top
-    val bw = w * (d.right - d.left)
-    val bh = h * (d.bottom - d.top)
+    val b = markerBounds(d, w, h, style)
     val shape = RoundedCornerShape(style.corner)
     Box(
         Modifier
-            .offset(x - style.padding, y - style.padding)
-            .size(bw + style.padding * 2, bh + style.padding * 2)
+            .offset(b.x, b.y)
+            .size(b.width, b.height)
             .graphicsLayer { alpha = presence.value; scaleX = pulse; scaleY = pulse }
-            .border(style.strokeWidth, style.outline, shape)
+            .border(style.strokeWidth, if (d.resolved) style.resolvedOutline else style.outline, shape)
             .background(style.fill, shape),
     )
     if (badge != null) {
         val s = style.badgeSize
-        val by = (y - s - 6.dp).let { if (it < 4.dp) 4.dp else it }
+        val (bx, by) = when (style.badgePlacement) {
+            BadgePlacement.Above -> (b.x + b.width / 2 - s / 2) to (b.y - s - 6.dp).let { if (it < 4.dp) 4.dp else it }
+            BadgePlacement.End -> (b.x + b.width + 8.dp) to (b.y + b.height / 2 - s / 2)
+        }
         Box(
             Modifier
-                .offset(x + bw / 2 - s / 2, by)
+                .offset(bx, by)
                 .size(s)
                 .graphicsLayer {
                     val p = presence.value * pulse
