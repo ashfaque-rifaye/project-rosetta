@@ -11,7 +11,7 @@ _Superseded explorations, kept for history: `IDEA.md` (family-story channel), `S
 > "parents nag about chores *and homework*"). New: Homework Check (Tutor agent + exact maths checks), Practice on the
 > skills that slipped, and the family Quiz Battle ("Stone Trial", Unity) that replaced the Mess Boss raids. Chores stay
 > as one quest type. The AWS stack is **deployed** (owner approved on 22 Oct). The sections below are the original
-> chores-first spec, kept for the reasoning and prior-art work; current status and decisions are in `HANDOFF.md`.
+> chores-first spec, kept for the reasoning and prior-art work; current status is in `README.md` and `SUBMISSION.md`.
 
 ---
 

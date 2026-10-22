@@ -27,11 +27,14 @@ both SIL Open Font License 1.1, from the Google Fonts repository; licenses in `a
 
 ## Software
 Kotlin, Jetpack Compose for TV, AndroidX, ZXing (Apache-2.0), OkHttp (Apache-2.0), Strands Agents SDK (Apache-2.0),
-AWS SDKs and CDK (Apache-2.0). The raid arena is built with Unity 6 (Unity Personal license) and its Universal Render
+AWS SDKs and CDK (Apache-2.0), Google Gen AI SDK for Python (Apache-2.0). The raid arena is built with Unity 6 (Unity Personal license) and its Universal Render
 Pipeline. See each package for its license.
 
 ## Sound
 All sound effects are original and synthesized from code (`assets/sfx/make_sfx.py`, `assets/sfx/make_arena_sfx.py`); no samples.
+
+## Voice
+The Keeper's voice is generated with Google Gemini text-to-speech on Vertex AI (prebuilt voice "Sulafat") from lines written by our agents or by us (`agents/rosetta_agents/voice.py`, `assets/voice/make_keeper_voice.py`).
 
 ## Demo video
 Footage is screen recordings of the app running on the Android TV emulator plus the phone pages. Any staged scene is

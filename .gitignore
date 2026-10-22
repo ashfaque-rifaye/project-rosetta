@@ -38,3 +38,7 @@ infra/build/
 infra/.vapid.json
 infra/cdk-outputs.json
 infra/deploy.log
+
+# Private working notes (owner and AI-agent handoff): kept on disk, never published
+HANDOFF.md
+docs/history/

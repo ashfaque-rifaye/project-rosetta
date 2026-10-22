@@ -140,3 +140,53 @@ The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) 
 - **Severity:** Major for an education product (a wrong mark can mislead a child).
 - **Workaround:** Exact checking in code for arithmetic (Python `Fraction`), server-side shuffling and validation of generated questions, and retrying generation when too few pass.
 - **Suggestion:** A Bedrock sample showing "model reads, code verifies" for education use cases; and an optional calculator tool in Nova's built-in tool set.
+
+### F-016: On Android TV, Compose spends the first Back press on clearing focus
+- **Tool:** Jetpack Compose for TV (`tv-material`), Android TV API 36 image
+- **Task:** Leave a screen with one press of the remote's Back button.
+- **Steps:** Screen with a focused card and a `BackHandler`; press Back.
+- **Expected:** The `BackHandler` runs on the first press.
+- **Actual:** The first press only removed focus from the focused card; the second press navigated. On a phone image at TV resolution it behaved as expected, so we only saw it on a real TV image.
+- **Severity:** Minor (judges pressing Back once think the app is stuck).
+- **Workaround:** Intercept `KEYCODE_BACK` in a root `onPreviewKeyEvent` and navigate on key-up.
+- **Suggestion:** Document the TV focus-on-Back behaviour next to `BackHandler`, or offer an opt-out.
+
+### F-017: `pip --platform` silently installs an old Strands for Lambda when building on Windows
+- **Tool:** Strands Agents SDK packaging for AWS Lambda (pip `--platform manylinux2014_x86_64 --only-binary=:all:`)
+- **Task:** Bundle strands-agents 1.62 (with the Gemini provider) into a Lambda zip without Docker.
+- **Actual:** pip evaluates environment markers for the build machine, so `mcp`'s `pywin32; sys_platform == "win32"` dependency had no Linux wheel and pip backtracked to strands-agents 1.1.0 without any error. The Lambda then failed with `No module named 'strands.models.gemini'`.
+- **Severity:** Major (silent, only visible at runtime).
+- **Workaround:** `uv pip install --python-platform x86_64-manylinux2014 --python-version 3.12 --only-binary :all:`, which resolves markers for the target.
+- **Suggestion:** A "package Strands for Lambda" page (or an official Lambda layer) that warns about cross-platform resolution.
+
+### F-018: A phone image at TV resolution hides Fire TV's real density
+- **Tool:** Android emulator (`android-36;google_apis_playstore` with the `tv_1080p` profile vs `android-36;android-tv;x86_64`)
+- **Task:** Check the 10-foot layouts at Fire TV's real screen size.
+- **Actual:** On the phone image the app laid out on a larger dp canvas; on a true Android TV image (1920 × 1080 at 320 dpi = 960 × 540 dp, like a 1080p Fire TV) the homework screen overflowed and Home showed one quest card.
+- **Severity:** Major (the demo would have looked broken on a real Fire TV).
+- **Workaround:** Draw every screen on a fixed 1440 × 810 canvas and scale it to the display (`LocalDensity` override); identical on 720p, 1080p and 4K.
+- **Suggestion:** State Fire TV's dp size and density on the "Use an Android TV emulator" page, and recommend an x86_64 TV image.
+
+### F-019: Workload Identity Federation from AWS Lambda fails on the default subject mapping
+- **Tool:** Google Cloud Workload Identity Federation (AWS provider), called from AWS Lambda roles
+- **Task:** Let Lambda call Vertex AI without any key.
+- **Actual:** `invalid_request: The size of mapped attribute google.subject exceeds the 127 bytes limit`: the default mapping uses the full assumed-role ARN, and CDK-generated role names plus the function session name exceed it.
+- **Severity:** Minor (clear error, easy fix once found).
+- **Workaround:** `google.subject=assertion.userid`, keeping `attribute.aws_role` for the bindings.
+- **Suggestion:** Use a shorter default subject for AWS providers, or note the limit in the AWS-provider guide.
+
+### F-020: Gemini TTS per-minute quota is small by default
+- **Tool:** Vertex AI, `gemini-2.5-flash-tts`
+- **Task:** Pre-generate about 70 short Keeper voice clips.
+- **Actual:** Four parallel requests returned `429 RESOURCE_EXHAUSTED` (per-minute, per-base-model quota).
+- **Severity:** Minor
+- **Workaround:** Generate one at a time with back-off, and cache every repeating line in S3 so live use needs few calls.
+- **Suggestion:** Show the default TTS quota on the model card.
+
+### F-021: Gemini anchored every homework box at the page margin
+- **Tool:** Vertex AI, `gemini-2.5-flash` (structured output with a JSON response schema, image input)
+- **Task:** Get a bounding box per homework question for the TV's ticks and crosses.
+- **Actual:** Asked for a box "around the question and its answer", the model returned `xmin = 40` (of 1000) for every item across runs, far left of the questions; adding the tool description to the system prompt made it consistent. Coordinates are also y-x ordered, unlike Nova's x-y.
+- **Severity:** Minor (wrong-looking marks, verdicts unaffected).
+- **Workaround:** Ask for a tight box around the child's handwritten answer only, in Gemini's native `[ymin, xmin, ymax, xmax]`, and convert in one adapter.
+- **Suggestion:** Document box-prompting guidance for documents (tight targets work better than regions).
