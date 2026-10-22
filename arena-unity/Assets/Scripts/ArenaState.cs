@@ -17,6 +17,27 @@ namespace Rosetta.Arena
         public bool crit;
     }
 
+    [Serializable]
+    public class QuizQuestion
+    {
+        public string id;
+        public string prompt;
+        public List<string> choices = new List<string>();
+        public int answer;
+        public string why;
+        public string skill;
+        public string forKid;
+    }
+
+    [Serializable]
+    public class QuizAnswer
+    {
+        public string questionId;
+        public string kidId;
+        public int choice;
+        public bool correct;
+    }
+
     /// <summary>What the TV app hands the arena (Intent extra "raid", JSON) or what the Rosetta API returns.</summary>
     [Serializable]
     public class RaidInfo
@@ -31,6 +52,10 @@ namespace Rosetta.Arena
         /// <summary>When set, the arena polls the live household for new verified put-aways.</summary>
         public string apiUrl = "";
         public string code = "R4KX";
+        /// <summary>"quiz" = the Stone Trial (family Quiz Battle); "raid" = the retired Mess Boss fight.</summary>
+        public string mode = "quiz";
+        public List<QuizQuestion> questions = new List<QuizQuestion>();
+        public List<QuizAnswer> answers = new List<QuizAnswer>();
     }
 
     /// <summary>
@@ -61,7 +86,7 @@ namespace Rosetta.Arena
 
         void Start()
         {
-            if (!string.IsNullOrEmpty(Raid.apiUrl)) StartCoroutine(PollLive());
+            if (Raid.mode == "raid" && !string.IsNullOrEmpty(Raid.apiUrl)) StartCoroutine(PollLive());
         }
 
         public int DealtBy(string kidId)
@@ -148,11 +173,20 @@ namespace Rosetta.Arena
             Application.Quit();
         }
 
+        /// <summary>Launched on its own (no TV intent): a sample Stone Trial from the demo family's homework.</summary>
         static RaidInfo Fallback()
         {
             var r = new RaidInfo();
             r.kids.Add(new KidInfo { id = "arjun", name = "Arjun", avatar = "avatar_arjun" });
             r.kids.Add(new KidInfo { id = "meera", name = "Meera", avatar = "avatar_meera_crown" });
+            void Q(string id, string kid, string prompt, int answer, string why, string skill, params string[] choices) =>
+                r.questions.Add(new QuizQuestion { id = id, forKid = kid, prompt = prompt, answer = answer, why = why, skill = skill, choices = new List<string>(choices) });
+            Q("z1", "meera", "What is 5 - 2?", 3, "Count back 2 from 5.", "Subtraction", "2", "4", "1", "3");
+            Q("z2", "arjun", "Simplify 4/8.", 2, "Divide the top and bottom by 4.", "Simplifying fractions", "2/4", "2/8", "1/2", "1/4");
+            Q("z3", "meera", "What is 7 - 3?", 1, "Count back 3 from 7.", "Subtraction", "5", "4", "3", "2");
+            Q("z4", "arjun", "What is 1/4 + 2/4?", 0, "Add the tops, keep the bottom.", "Adding fractions", "3/4", "3/8", "1/2", "2/4");
+            Q("z5", "meera", "What is 10 - 5?", 1, "Half of 10 is 5.", "Subtraction", "4", "5", "7", "6");
+            Q("z6", "arjun", "Simplify 6/12.", 2, "Divide the top and bottom by 6.", "Simplifying fractions", "1/3", "3/6", "1/2", "2/4");
             return r;
         }
     }

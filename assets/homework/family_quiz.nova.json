@@ -1,0 +1,128 @@
+[
+  {
+    "id": "z1",
+    "prompt": "What is 5 - 2?",
+    "choices": [
+      "2",
+      "4",
+      "1",
+      "3"
+    ],
+    "answer": 3,
+    "why": "Subtraction means taking one number away from another.",
+    "skill": "Subtraction",
+    "forKid": "meera"
+  },
+  {
+    "id": "z2",
+    "prompt": "Simplify 4/8.",
+    "choices": [
+      "2/4",
+      "2/8",
+      "1/2",
+      "1/4"
+    ],
+    "answer": 2,
+    "why": "Simplifying fractions means finding the simplest form.",
+    "skill": "Simplifying fractions",
+    "forKid": "arjun"
+  },
+  {
+    "id": "z3",
+    "prompt": "What is 7 - 3?",
+    "choices": [
+      "5",
+      "4",
+      "3",
+      "2"
+    ],
+    "answer": 1,
+    "why": "Subtraction means taking one number away from another.",
+    "skill": "Subtraction",
+    "forKid": "meera"
+  },
+  {
+    "id": "z4",
+    "prompt": "What is 1/3 + 1/6?",
+    "choices": [
+      "2/3",
+      "1/2",
+      "1/6",
+      "1/3"
+    ],
+    "answer": 1,
+    "why": "Adding fractions with different denominators requires finding a common denominator.",
+    "skill": "Adding fractions",
+    "forKid": "arjun"
+  },
+  {
+    "id": "z5",
+    "prompt": "What is 10 - 5?",
+    "choices": [
+      "4",
+      "5",
+      "7",
+      "6"
+    ],
+    "answer": 1,
+    "why": "Subtraction means taking one number away from another.",
+    "skill": "Subtraction",
+    "forKid": "meera"
+  },
+  {
+    "id": "z6",
+    "prompt": "Simplify 6/12.",
+    "choices": [
+      "1/3",
+      "3/6",
+      "1/2",
+      "2/4"
+    ],
+    "answer": 2,
+    "why": "Simplifying fractions means finding the simplest form.",
+    "skill": "Simplifying fractions",
+    "forKid": "arjun"
+  },
+  {
+    "id": "z7",
+    "prompt": "What is 8 - 4?",
+    "choices": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "answer": 2,
+    "why": "Subtraction means taking one number away from another.",
+    "skill": "Subtraction",
+    "forKid": "meera"
+  },
+  {
+    "id": "z8",
+    "prompt": "What is 2/5 + 1/5?",
+    "choices": [
+      "3/10",
+      "2/10",
+      "1/5",
+      "3/5"
+    ],
+    "answer": 3,
+    "why": "Adding fractions with the same denominator means adding the numerators.",
+    "skill": "Adding fractions",
+    "forKid": "arjun"
+  },
+  {
+    "id": "z9",
+    "prompt": "What is 9 - 3?",
+    "choices": [
+      "4",
+      "6",
+      "3",
+      "5"
+    ],
+    "answer": 1,
+    "why": "Subtraction means taking one number away from another.",
+    "skill": "Subtraction",
+    "forKid": "meera"
+  }
+]

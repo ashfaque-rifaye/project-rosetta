@@ -34,6 +34,13 @@ namespace Rosetta.Arena
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
             state = gameObject.AddComponent<ArenaState>();
+            if (state.Raid.mode != "raid")
+            {
+                // The family Quiz Battle (Stone Trial) replaced the Mess Boss raid on 22 Oct.
+                gameObject.AddComponent<StoneTrial>().Init(state);
+                enabled = false;
+                return;
+            }
             BuildCamera();
             BuildWorld();
             BuildParticles();

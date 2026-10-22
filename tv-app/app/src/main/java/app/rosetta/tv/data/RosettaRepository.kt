@@ -29,6 +29,15 @@ interface RosettaRepository {
     /** A phone sent a hype emote. */
     fun emote(kidId: String, emoji: String)
 
+    /** A kid answers a practice question (TV remote or phone). The first answer counts. */
+    fun answerPractice(questId: String, questionId: String, choice: Int)
+
+    /** Start tonight's family Quiz Battle, built by the Quizmaster agent from this week's homework. */
+    fun startQuiz()
+
+    /** One answer in the Quiz Battle (the TV passes the turn between kids). */
+    fun answerQuiz(questionId: String, kidId: String, choice: Int)
+
     /** The Unity arena returned: adopt its hit list (it only ever adds hits) and pay out loot if the boss fell. */
     fun applyArenaHits(hits: List<Hit>)
 

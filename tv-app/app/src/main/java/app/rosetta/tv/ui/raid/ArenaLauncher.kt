@@ -30,6 +30,7 @@ object ArenaLauncher {
         // result immediately, so the arena's hits would never come back.
         val base = Intent().setComponent(launch(context)?.component ?: ComponentName(PACKAGE, ACTIVITY))
         val json = JSONObject()
+            .put("mode", "raid")
             .put("bossId", raid.boss.id)
             .put("bossName", raid.boss.name)
             .put("tagline", raid.boss.tagline)
@@ -40,6 +41,36 @@ object ArenaLauncher {
             .put("kids", JSONArray(h.kids.map { JSONObject().put("id", it.id).put("name", it.name).put("avatar", "avatar_${it.avatar}") }))
             .put("hits", JSONArray(raid.hits.map { JSONObject().put("kidId", it.kidId).put("thing", it.thing).put("damage", it.damage).put("crit", it.crit) }))
         return base.putExtra("raid", json.toString())
+    }
+
+    /** The family Quiz Battle as the Unity "Stone Trial": questions in, answers back (see [quizAnswers]). */
+    fun quizIntent(context: Context, h: Household): Intent? {
+        val quiz = h.quiz ?: return null
+        val base = Intent().setComponent(launch(context)?.component ?: ComponentName(PACKAGE, ACTIVITY))
+        val json = JSONObject()
+            .put("mode", "quiz")
+            .put("code", h.pairingCode)
+            .put("kids", JSONArray(h.kids.map { JSONObject().put("id", it.id).put("name", it.name).put("avatar", "avatar_${it.avatar}") }))
+            .put("questions", JSONArray(quiz.questions.map { q ->
+                JSONObject().put("id", q.id).put("prompt", q.prompt).put("choices", JSONArray(q.choices)).put("answer", q.answer)
+                    .put("why", q.why).put("skill", q.skill).put("forKid", q.forKid)
+            }))
+            .put("answers", JSONArray(quiz.answers.map {
+                JSONObject().put("questionId", it.questionId).put("kidId", it.kidId).put("choice", it.choice).put("correct", it.correct)
+            }))
+        return base.putExtra("raid", json.toString())
+    }
+
+    /** Quiz answers the arena reports back (including any it was given). */
+    fun quizAnswers(result: Intent?): List<app.rosetta.tv.data.QuizAnswer>? {
+        val json = result?.getStringExtra("raid") ?: return null
+        val o = runCatching { JSONObject(json) }.getOrNull() ?: return null
+        if (o.optString("mode") != "quiz") return null
+        val arr = o.optJSONArray("answers") ?: return null
+        return (0 until arr.length()).map { i ->
+            val a = arr.getJSONObject(i)
+            app.rosetta.tv.data.QuizAnswer(a.getString("questionId"), a.getString("kidId"), a.getInt("choice"), a.optBoolean("correct"))
+        }
     }
 
     /** Hits the arena reports back (everything, including the ones it was given). */

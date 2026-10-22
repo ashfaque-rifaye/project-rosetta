@@ -1,0 +1,88 @@
+{
+  "isHomework": true,
+  "subject": "Maths",
+  "topic": "Adding and Taking Away",
+  "items": [
+    {
+      "id": "q1",
+      "n": 1,
+      "question": "7 + 5 =",
+      "kidAnswer": "12",
+      "correct": true,
+      "box": [
+        0.32,
+        0.23,
+        0.42,
+        0.28
+      ],
+      "skill": "Addition",
+      "hint": "",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q2",
+      "n": 2,
+      "question": "15 - 6 =",
+      "kidAnswer": "8",
+      "correct": false,
+      "box": [
+        0.32,
+        0.36,
+        0.42,
+        0.41
+      ],
+      "skill": "Subtraction",
+      "hint": "So close, you're one away. Count it again slowly.",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q3",
+      "n": 3,
+      "question": "9 + 9 =",
+      "kidAnswer": "18",
+      "correct": true,
+      "box": [
+        0.32,
+        0.48,
+        0.42,
+        0.53
+      ],
+      "skill": "Addition",
+      "hint": "",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q4",
+      "n": 4,
+      "question": "20 - 11 =",
+      "kidAnswer": "9",
+      "correct": true,
+      "box": [
+        0.32,
+        0.61,
+        0.42,
+        0.66
+      ],
+      "skill": "Subtraction",
+      "hint": "",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q5",
+      "n": 5,
+      "question": "6 + 8 =",
+      "kidAnswer": "14",
+      "correct": true,
+      "box": [
+        0.32,
+        0.74,
+        0.42,
+        0.79
+      ],
+      "skill": "Addition",
+      "hint": "",
+      "checkedBy": "math"
+    }
+  ],
+  "confidence": 0.95
+}

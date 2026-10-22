@@ -70,7 +70,7 @@ import app.rosetta.tv.ui.kit.RosettaButton
 import app.rosetta.tv.ui.kit.StatChip
 import app.rosetta.tv.ui.theme.Rosetta
 
-enum class HomeTab { Codex, Passport, Shop, Stone, Growth, Raid }
+enum class HomeTab { Codex, Passport, Shop, Stone, Growth, Raid, Quiz }
 
 @Composable
 fun HomeScreen(
@@ -141,7 +141,7 @@ fun HomeScreen(
 
         // ---------- Left column: jackpot + quests ----------
         Column(Modifier.padding(start = 40.dp, top = 92.dp, bottom = 84.dp).width(372.dp).fillMaxHeight()) {
-            household.raid?.takeIf { !it.defeated }?.let { RaidCard(it, onClick = { onTab(HomeTab.Raid) }, onFocus = { focusedQuest = null }) }
+            QuizCard(household, onClick = { onTab(HomeTab.Quiz) }, onFocus = { focusedQuest = null })
             Spacer(Modifier.height(10.dp))
             JackpotCard(household)
             Spacer(Modifier.height(12.dp))
@@ -222,7 +222,7 @@ private fun QuestCard(q: Quest, h: Household, modifier: Modifier, onFocus: () ->
             AvatarRing(Household0.avatar(kid.avatar), kid.levelProgress, 52.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("${kid.name.uppercase()} · ${h.room(q.roomId).name.uppercase()}", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.4.sp), color = Rosetta.Mist, maxLines = 1)
+                Text(if (q.isStudy) "${kid.name.uppercase()} · HOMEWORK ✏️" else "${kid.name.uppercase()} · ${h.room(q.roomId).name.uppercase()}", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.4.sp), color = Rosetta.Mist, maxLines = 1)
                 Text(q.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -240,6 +240,8 @@ private fun status(q: Quest) = when (q.stage) {
     QuestStage.Scanning, QuestStage.Verifying -> "CREW WORKING"
     QuestStage.Found, QuestStage.AwaitingAfter -> "${q.found} LOST"
     QuestStage.Partial -> "${q.home}/${q.found} HOME"
+    QuestStage.Checked -> "MARKED ${q.homework?.right ?: 0}/${q.homework?.items?.size ?: 0}"
+    QuestStage.Practising -> "PRACTICE ${q.answers.size}/${q.practice.size}"
     else -> ""
 }
 
@@ -267,7 +269,36 @@ private fun RoomPin(kid: Kid, at: Offset, w: Float, h: Float, focused: Boolean, 
 }
 
 
-/** Live Mess Boss raid teaser: boss portrait, mini HP bar, one big call to action. */
+/** Tonight's Family Quiz Battle, built from the week's homework. Replaces the Mess Boss raid card (22 Oct). */
+@Composable
+private fun QuizCard(h: Household, onClick: () -> Unit, onFocus: () -> Unit) {
+    val quiz = h.quiz
+    val pulse by rememberInfiniteTransition(label = "qz").animateFloat(0.4f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "p")
+    FocusCard(onClick = onClick, onFocus = onFocus, accent = Rosetta.Gold, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(78.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF2A2116)), contentAlignment = Alignment.Center) {
+                AssetImage(Household0.glyph("scholar"), Modifier.fillMaxSize())
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(Rosetta.Gold.copy(alpha = pulse)))
+                    Text(if (quiz != null && !quiz.done) "  LIVE · QUIZ BATTLE" else "  TONIGHT · QUIZ BATTLE", fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp, color = Rosetta.Gold)
+                }
+                Text("The Stone Trial", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, maxLines = 1)
+                Spacer(Modifier.height(5.dp))
+                if (quiz != null) {
+                    Box(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(50)).background(Color(0x33FFFFFF))) {
+                        Box(Modifier.fillMaxWidth(quiz.lit.toFloat() / quiz.goal.coerceAtLeast(1)).fillMaxHeight().background(Brush.horizontalGradient(listOf(Color(0xFFFFB23F), Rosetta.Gold))))
+                    }
+                    Text("${quiz.lit}/${quiz.goal} glyphs lit · family co-op", fontSize = 12.sp, color = Rosetta.Mist)
+                } else Text("Family quiz from this week's homework", fontSize = 12.sp, color = Rosetta.Mist)
+            }
+        }
+    }
+}
+
+@Suppress("unused") // the Mess Boss raid was retired on 22 Oct; kept for the Unity arena's legacy mode
 @Composable
 private fun RaidCard(raid: app.rosetta.tv.data.Raid, onClick: () -> Unit, onFocus: () -> Unit) {
     val pulse by rememberInfiniteTransition(label = "live").animateFloat(0.4f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "p")

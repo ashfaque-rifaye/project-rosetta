@@ -49,6 +49,7 @@ fun Agent.color(): Color = when (this) {
     Agent.Judge -> Rosetta.Violet
     Agent.Router -> Rosetta.Ember
     Agent.Keeper -> Rosetta.Rose
+    Agent.Tutor -> Rosetta.Moss
 }
 
 fun Agent.glyph(): String = when (this) {
@@ -58,6 +59,7 @@ fun Agent.glyph(): String = when (this) {
     Agent.Judge -> "⚖"
     Agent.Router -> "⇄"
     Agent.Keeper -> "❝"
+    Agent.Tutor -> "✎"
 }
 
 /**
@@ -71,11 +73,12 @@ fun AgentGraph(active: Set<Agent>, done: Set<Agent>, modifier: Modifier = Modifi
     // Node centres in 0..1 of the box.
     val pos = mapOf(
         Agent.QuestMaster to Offset(0.5f, 0.2f),
-        Agent.Scout to Offset(0.1f, 0.72f),
-        Agent.Coach to Offset(0.3f, 0.72f),
-        Agent.Judge to Offset(0.5f, 0.72f),
-        Agent.Router to Offset(0.7f, 0.72f),
-        Agent.Keeper to Offset(0.9f, 0.72f),
+        Agent.Scout to Offset(0.08f, 0.72f),
+        Agent.Tutor to Offset(0.245f, 0.72f),
+        Agent.Coach to Offset(0.41f, 0.72f),
+        Agent.Judge to Offset(0.585f, 0.72f),
+        Agent.Router to Offset(0.75f, 0.72f),
+        Agent.Keeper to Offset(0.92f, 0.72f),
     )
     BoxWithConstraints(modifier) {
         val w = maxWidth

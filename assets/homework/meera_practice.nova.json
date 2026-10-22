@@ -1,0 +1,72 @@
+[
+  {
+    "id": "p1",
+    "prompt": "What is 12 - 5?",
+    "choices": [
+      "7",
+      "6",
+      "8",
+      "17"
+    ],
+    "answer": 0,
+    "why": "Count down from 12, 5 times.",
+    "skill": "Subtraction",
+    "forKid": ""
+  },
+  {
+    "id": "p2",
+    "prompt": "What is 10 - 3?",
+    "choices": [
+      "8",
+      "7",
+      "6",
+      "13"
+    ],
+    "answer": 1,
+    "why": "Count down from 10, 3 times.",
+    "skill": "Subtraction",
+    "forKid": ""
+  },
+  {
+    "id": "p3",
+    "prompt": "What is 14 - 4?",
+    "choices": [
+      "9",
+      "11",
+      "10",
+      "18"
+    ],
+    "answer": 2,
+    "why": "Count down from 14, 4 times.",
+    "skill": "Subtraction",
+    "forKid": ""
+  },
+  {
+    "id": "p4",
+    "prompt": "What is 18 - 7?",
+    "choices": [
+      "10",
+      "11",
+      "12",
+      "25"
+    ],
+    "answer": 1,
+    "why": "Count down from 18, 7 times.",
+    "skill": "Subtraction",
+    "forKid": ""
+  },
+  {
+    "id": "p5",
+    "prompt": "What is 20 - 9?",
+    "choices": [
+      "11",
+      "10",
+      "29",
+      "12"
+    ],
+    "answer": 0,
+    "why": "Count down from 20, 9 times.",
+    "skill": "Subtraction",
+    "forKid": ""
+  }
+]

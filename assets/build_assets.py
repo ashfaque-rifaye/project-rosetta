@@ -38,3 +38,7 @@ for folder in ("things", "avatars", "stamps"):
         Image.open(f).convert("RGB").resize((256, 256)).save(out / f.name, "WEBP", quality=85)
 Image.open(SRC / "ui" / "coin.webp").resize((96, 96)).save(ROOT / "web" / "coin.webp", "WEBP")
 print(f"copied {len(MAP)} assets to {DST.relative_to(ROOT)} (+ web/)")
+
+# Homework sheets and the recorded agent outputs (the folder above was just cleared).
+import runpy  # noqa: E402
+runpy.run_path(str(ROOT / "assets" / "homework" / "export_tv.py"), run_name="__main__")

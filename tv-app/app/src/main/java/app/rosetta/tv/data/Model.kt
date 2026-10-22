@@ -48,7 +48,10 @@ data class LostThing(
     val returned: Boolean = false,
 )
 
-enum class QuestStage { Ready, AwaitingBefore, Scanning, Found, AwaitingAfter, Verifying, Partial, Done }
+enum class QuestStage { Ready, AwaitingBefore, Scanning, Found, AwaitingAfter, Verifying, Partial, Checked, Practising, Done }
+
+/** Tidy: a room photo becomes Lost Things. Study: a homework photo is marked, then practised. */
+enum class QuestKind { Tidy, Study }
 
 enum class Agent(val label: String, val role: String) {
     QuestMaster("Quest Master", "orchestrates"),
@@ -57,6 +60,7 @@ enum class Agent(val label: String, val role: String) {
     Judge("Judge", "verifies"),
     Router("Router", "escalates"),
     Keeper("Keeper", "speaks"),
+    Tutor("Tutor", "marks"),
 }
 
 /** One line in the live Mission Control feed: which agent did what, when, and how sure it was. */
@@ -78,12 +82,67 @@ data class Quest(
     val coinReward: Int = 25,
     val log: List<AgentEvent> = emptyList(),
     val needsParent: Boolean = false,
+    val kind: QuestKind = QuestKind.Tidy,
+    /** Study quests: Tutor's marking of the homework photo ([beforePhoto]). */
+    val homework: Homework? = null,
+    /** Study quests: practice questions on the skills that went wrong, and the first answer to each. */
+    val practice: List<Question> = emptyList(),
+    val answers: Map<String, Answer> = emptyMap(),
 ) {
+    val isStudy get() = kind == QuestKind.Study
+    val practiceRight get() = answers.values.count { it.correct }
     val found get() = things.size
     val home get() = things.count { it.returned }
     val starsEarned get() = things.filter { it.returned }.sumOf { it.stars }
     val working get() = stage == QuestStage.Scanning || stage == QuestStage.Verifying
 }
+
+/** One marked question from a homework photo. [checkedBy] is "math" when exact arithmetic confirmed the verdict. */
+data class HomeworkItem(
+    val id: String,
+    val n: Int,
+    val question: String,
+    val kidAnswer: String,
+    val correct: Boolean,
+    val box: NormRect,
+    val skill: String,
+    /** Only for wrong answers: points at the method, never the answer. */
+    val hint: String,
+    val checkedBy: String,
+)
+
+data class Homework(val subject: String, val topic: String, val items: List<HomeworkItem>, val confidence: Float) {
+    val right get() = items.count { it.correct }
+    val needsWork get() = items.filterNot { it.correct }.map { it.skill }.distinct()
+}
+
+/** A multiple-choice question (practice or quiz). [forKid] is set for quiz questions pitched at one child. */
+data class Question(
+    val id: String,
+    val prompt: String,
+    val choices: List<String>,
+    val answer: Int,
+    val why: String,
+    val skill: String,
+    val forKid: String = "",
+)
+
+data class Answer(val choice: Int, val correct: Boolean)
+
+/** The family Quiz Battle: co-op, every right answer lights one glyph of the Stone Trial. */
+data class Quiz(
+    val id: String,
+    val title: String,
+    val questions: List<Question>,
+    val answers: List<QuizAnswer> = emptyList(),
+) {
+    val lit get() = answers.count { it.correct }
+    val goal get() = questions.size
+    val done get() = answers.size >= questions.size
+    val current get() = questions.firstOrNull { q -> answers.none { it.questionId == q.id } }
+}
+
+data class QuizAnswer(val questionId: String, val kidId: String, val choice: Int, val correct: Boolean)
 
 data class Glyph(val id: String, val name: String, val asset: String, val earnedBy: String? = null) {
     val earned get() = earnedBy != null
@@ -134,8 +193,10 @@ data class Household(
     /** Decor bought for the house, shown on the miniature. */
     val decor: Set<String>,
     val today: List<DayEvent>,
-    /** This week's Mess Boss raid (co-op), if one is running. */
+    /** This week's Mess Boss raid (co-op), if one is running. Superseded by [quiz] on 22 Oct; kept for old saves. */
     val raid: Raid? = null,
+    /** The family Quiz Battle built from this week's homework, if one is running. */
+    val quiz: Quiz? = null,
     /** Hype emotes sent from family phones; the TV bursts the newest ones. */
     val emotes: List<Emote> = emptyList(),
     /** 4-week habit history per kid, for the Growth tracker. */

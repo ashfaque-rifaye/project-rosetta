@@ -1,0 +1,72 @@
+{
+  "subject": "Maths",
+  "title": "Adding and Taking Away",
+  "kid": "Meera",
+  "items": [
+    {
+      "n": 1,
+      "question": "7 + 5 =",
+      "kid_answer": "12",
+      "correct_answer": "12",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.2,
+        0.472,
+        0.259
+      ]
+    },
+    {
+      "n": 2,
+      "question": "15 - 6 =",
+      "kid_answer": "8",
+      "correct_answer": "9",
+      "is_correct": false,
+      "box_0_1": [
+        0.065,
+        0.345,
+        0.482,
+        0.405
+      ]
+    },
+    {
+      "n": 3,
+      "question": "9 + 9 =",
+      "kid_answer": "18",
+      "correct_answer": "18",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.491,
+        0.472,
+        0.55
+      ]
+    },
+    {
+      "n": 4,
+      "question": "20 - 11 =",
+      "kid_answer": "9",
+      "correct_answer": "9",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.636,
+        0.497,
+        0.696
+      ]
+    },
+    {
+      "n": 5,
+      "question": "6 + 8 =",
+      "kid_answer": "14",
+      "correct_answer": "14",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.782,
+        0.472,
+        0.841
+      ]
+    }
+  ]
+}

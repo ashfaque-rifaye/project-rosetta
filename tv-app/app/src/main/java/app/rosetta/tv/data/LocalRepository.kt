@@ -1,5 +1,6 @@
 package app.rosetta.tv.data
 
+import app.rosetta.tv.ui.kit.Sfx
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,13 +29,18 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
     override fun openQuest(questId: String) = update(questId) {
         if (it.stage != QuestStage.Ready) it else it.copy(
             stage = QuestStage.AwaitingBefore,
-            keeperLine = "Snap your room, ${kid(it).name} 📸 Let's find the Lost Things.",
+            keeperLine = if (it.isStudy) "Snap your homework, ${kid(it).name} 📸 Tutor will take a look."
+            else "Snap your room, ${kid(it).name} 📸 Let's find the Lost Things.",
             log = it.log + ev(Agent.QuestMaster, "Quest opened on the TV · waiting for ${kid(it).name}'s phone"),
         )
     }
 
     override fun devPhoneUpload(questId: String) {
         val q = state.value.quest(questId)
+        if (q.isStudy) {
+            if (q.stage == QuestStage.Ready || q.stage == QuestStage.AwaitingBefore) homework(questId)
+            return
+        }
         when (q.stage) {
             QuestStage.Ready, QuestStage.AwaitingBefore -> before(questId)
             QuestStage.Found, QuestStage.AwaitingAfter -> after(questId, final = false)
@@ -62,6 +68,82 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
                     log = it.log + ev(Agent.Keeper, "Spoke to ${kid(it).name}", tool = "keeper_says"),
                 )
             }
+        }
+    }
+
+    /** Tutor marks the sheet (replaying the real Nova Pro output for the demo sheets), then Practice takes over. */
+    private fun homework(id: String) {
+        val q = state.value.quest(id)
+        val (sheet, marked, practice) =
+            if (q.kidId == "meera") Triple(HomeworkDemo.MEERA_SHEET, HomeworkDemo.meera, HomeworkDemo.meeraPractice)
+            else Triple(HomeworkDemo.ARJUN_SHEET, HomeworkDemo.arjun, HomeworkDemo.arjunPractice)
+        update(id) {
+            it.copy(
+                stage = QuestStage.Scanning, beforePhoto = sheet, keeperLine = "Tutor is reading your work… ✏️",
+                log = it.log + ev(Agent.QuestMaster, "Homework photo received · routing to Tutor", tool = "mark_homework"),
+            )
+        }
+        scope.launch {
+            delay(900); log(id, Agent.Tutor, "Reading the sheet · ${marked.subject}, ${marked.items.size} questions")
+            delay(1300)
+            update(id) { it.copy(homework = marked, stage = QuestStage.Checked, confidence = marked.confidence) }
+            log(id, Agent.Tutor, "${marked.right} of ${marked.items.size} right · ${marked.topic}", conf = marked.confidence)
+            delay(700)
+            val exact = marked.items.count { it.checkedBy == "math" }
+            if (exact > 0) log(id, Agent.Tutor, "$exact answers double-checked with exact maths", tool = "mathcheck")
+            delay(800)
+            if (marked.needsWork.isEmpty()) {
+                update(id) { it.copy(stage = QuestStage.Done, keeperLine = "Every answer right. Big brain energy 🧠🏆") }
+                rewardFlow.tryEmit(grantRewards(id))
+                return@launch
+            }
+            log(id, Agent.Coach, "${practice.size} practice questions on ${marked.needsWork.joinToString(", ")}", tool = "make_practice")
+            update(id) { it.copy(stage = QuestStage.Practising, practice = practice, answers = emptyMap()) }
+            delay(500)
+            update(id) {
+                it.copy(
+                    keeperLine = "${marked.right} out of ${marked.items.size}, ${kid(it).name}! Two need another look. Quick practice round? 🎯",
+                    log = it.log + ev(Agent.Keeper, "Cheered and set up practice", tool = "keeper_says"),
+                )
+            }
+        }
+    }
+
+    override fun answerPractice(questId: String, questionId: String, choice: Int) {
+        val q = state.value.quest(questId)
+        if (q.stage != QuestStage.Practising || q.answers.containsKey(questionId)) return
+        val pq = q.practice.first { it.id == questionId }
+        val answers = q.answers + (questionId to Answer(choice, choice == pq.answer))
+        update(questId) { it.copy(answers = answers) }
+        Sfx.play(if (choice == pq.answer) Sfx.Home else Sfx.Move)
+        if (answers.size == q.practice.size) scope.launch {
+            delay(1600)
+            val right = answers.values.count { it.correct }
+            update(questId) {
+                it.copy(
+                    stage = QuestStage.Done,
+                    keeperLine = "$right of ${q.practice.size} in practice. That's how skills level up, ${kid(it).name} ⚡",
+                    log = it.log + ev(Agent.QuestMaster, "Practice finished · carving glyph", tool = "complete_quest"),
+                )
+            }
+            rewardFlow.tryEmit(grantRewards(questId))
+        }
+    }
+
+    override fun startQuiz() {
+        if (state.value.quiz?.done == false) return
+        state.update { it.copy(quiz = Quiz("quiz_${System.currentTimeMillis()}", "Family Quiz Battle", HomeworkDemo.familyQuiz)) }
+    }
+
+    override fun answerQuiz(questionId: String, kidId: String, choice: Int) {
+        val quiz = state.value.quiz ?: return
+        if (quiz.done || quiz.answers.any { it.questionId == questionId }) return
+        val q = quiz.questions.first { it.id == questionId }
+        val next = quiz.copy(answers = quiz.answers + QuizAnswer(questionId, kidId, choice, choice == q.answer))
+        state.update { it.copy(quiz = next) }
+        if (next.done) state.update { hh ->
+            // Co-op loot: every glyph lit is 10 coins for everyone; nobody is ranked.
+            hh.copy(kids = hh.kids.map { k -> k.copy(coins = k.coins + 10 * next.lit) })
         }
     }
 
@@ -131,7 +213,12 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
                 kids = it.kids.map { k -> if (k.id == kid.id) k.copy(xp = xp, level = level, coins = k.coins + q.coinReward, streak = k.streak + 1) else k },
                 codex = codex,
                 stamps = stamps,
-                today = it.today + DayEvent(time, kid.id, "${q.title} · ${q.found} Lost Things home", stampId),
+                today = it.today + DayEvent(
+                    time, kid.id,
+                    if (q.isStudy) "${q.title} · ${q.homework?.right ?: 0}/${q.homework?.items?.size ?: 0} right, practice ${q.practiceRight}/${q.practice.size}"
+                    else "${q.title} · ${q.found} Lost Things home",
+                    stampId,
+                ),
             )
         }
         return QuestReward(id, kid.id, q.xpReward, q.coinReward, leveled, level, glyph, stamp, upgrades)
@@ -148,6 +235,15 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
             h.copy(quests = if (exists) h.quests.map { if (it.id == remote.id) remote.copy(xpReward = it.xpReward, coinReward = it.coinReward) else it } else h.quests + remote)
         }
         if (before != null && before.stage != QuestStage.Done && remote.stage == QuestStage.Done) rewardFlow.tryEmit(grantRewards(remote.id))
+    }
+
+    /** Cloud mode: the Quizmaster runs the quiz; pay the co-op coins once when it finishes. */
+    internal fun applyRemoteQuiz(remote: Quiz) {
+        val before = state.value.quiz
+        state.update { it.copy(quiz = remote) }
+        if (remote.done && (before == null || before.id != remote.id || !before.done)) state.update { hh ->
+            hh.copy(kids = hh.kids.map { k -> k.copy(coins = k.coins + 10 * remote.lit) })
+        }
     }
 
     internal fun setLive(code: String) = state.update { it.copy(live = true, pairingCode = code) }
@@ -313,7 +409,7 @@ object Household0 {
         ),
     )
 
-    fun stampFor(q: Quest) = when (q.roomId) {
+    fun stampFor(q: Quest) = if (q.isStudy) "s_homework" else when (q.roomId) {
         "balcony" -> "s_garden"
         "kitchen" -> "s_kitchen"
         else -> "s_rescue"
@@ -335,7 +431,9 @@ object Household0 {
         ),
         rooms = rooms,
         quests = listOf(
-            Quest("q_arjun_room", "arjun", "arjun_room", "Rescue the Lost Things", "g_rescuer", xpReward = 75, coinReward = 30),
+            Quest("q_arjun_homework", "arjun", "arjun_room", "Fractions homework", "g_scholar", xpReward = 80, coinReward = 35, kind = QuestKind.Study),
+            Quest("q_meera_homework", "meera", "meera_room", "Adding and taking away", "next_counter", xpReward = 60, coinReward = 25, kind = QuestKind.Study),
+            Quest("q_arjun_room", "arjun", "arjun_room", "Rescue the Lost Things", "next_rescue", xpReward = 75, coinReward = 30),
             Quest("q_balcony", "meera", "balcony", "Water the balcony garden", "next_garden", xpReward = 40, coinReward = 15),
             Quest("q_kitchen", "arjun", "kitchen", "Kitchen crew: clear the table", "next_crew", xpReward = 50, coinReward = 20),
             Quest("q_meera_room", "meera", "meera_room", "Make the bed, feed the bookshelf", "next_bed", xpReward = 45, coinReward = 20),
@@ -345,7 +443,7 @@ object Household0 {
             Glyph("g_shirt", "Fold Master", "shirt", "meera"), Glyph("g_plant", "Plant Guardian", "plant", "arjun"),
             Glyph("g_broom", "Sweep Hero", "broom", "arjun"), Glyph("g_dish", "Dish Hero", "dish", "meera"),
             Glyph("g_package", "Package Detective", "package", "arjun"), Glyph("g_shoes", "Shoe Parade", "shoes", "meera"),
-            Glyph("g_rescuer", "Room Rescuer", "sock", null),
+            Glyph("g_scholar", "Homework Hero", "scholar", null),
         ),
         codex = listOf(
             CodexEntry("sock", "The Lonely Sock", "Always one step from its pair. Loves the laundry basket.", 4, "arjun"),
@@ -364,6 +462,7 @@ object Household0 {
             Stamp("s_kitchen", "Kitchen Crew", "kitchen", "15 Oct", "meera"),
             Stamp("s_parcel", "Package Detective", "parcel", "18 Oct", "arjun"),
             Stamp("s_night", "Night Owl", "night", null, null),
+            Stamp("s_homework", "Homework Hero", "homework", null, null),
         ),
         shop = listOf(
             ShopItem("hat", "Explorer hat", "hat", 60, ItemKind.Avatar, "arjun", "arjun_hat"),
@@ -378,7 +477,7 @@ object Household0 {
             ShopItem("popcorn", "Popcorn machine", "popcorn", 200, ItemKind.Decor, spot = NormRect(0.66f, 0.68f, 0.72f, 0.80f)),
         ),
         decor = setOf("lemon"),
-        raid = Raid(bosses.first()),
+        raid = null,
         growth = seedGrowth(),
         today = listOf(DayEvent("4:10 PM", "meera", "Shoe Parade · 2 Lost Things home", "s_parcel")),
         pairingCode = "R4KX",

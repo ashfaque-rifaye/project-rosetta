@@ -1,0 +1,85 @@
+{
+  "subject": "Maths",
+  "title": "Fractions Practice",
+  "kid": "Arjun",
+  "items": [
+    {
+      "n": 1,
+      "question": "1/2 + 1/4 =",
+      "kid_answer": "3/4",
+      "correct_answer": "3/4",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.2,
+        0.515,
+        0.259
+      ]
+    },
+    {
+      "n": 2,
+      "question": "Which is bigger: 2/3 or 3/5 ?",
+      "kid_answer": "2/3",
+      "correct_answer": "2/3",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.321,
+        0.478,
+        0.436
+      ]
+    },
+    {
+      "n": 3,
+      "question": "3/8 + 2/8 =",
+      "kid_answer": "5/16",
+      "correct_answer": "5/8",
+      "is_correct": false,
+      "box_0_1": [
+        0.065,
+        0.442,
+        0.515,
+        0.502
+      ]
+    },
+    {
+      "n": 4,
+      "question": "Half of 12 is",
+      "kid_answer": "6",
+      "correct_answer": "6",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.564,
+        0.528,
+        0.623
+      ]
+    },
+    {
+      "n": 5,
+      "question": "Write 4/8 in its simplest form.",
+      "kid_answer": "2/4",
+      "correct_answer": "1/2",
+      "is_correct": false,
+      "box_0_1": [
+        0.065,
+        0.685,
+        0.493,
+        0.8
+      ]
+    },
+    {
+      "n": 6,
+      "question": "2/5 + 1/5 =",
+      "kid_answer": "3/5",
+      "correct_answer": "3/5",
+      "is_correct": true,
+      "box_0_1": [
+        0.065,
+        0.806,
+        0.515,
+        0.865
+      ]
+    }
+  ]
+}

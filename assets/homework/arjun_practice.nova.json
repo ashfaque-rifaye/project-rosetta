@@ -1,0 +1,72 @@
+[
+  {
+    "id": "p1",
+    "prompt": "What is 3/6 in its simplest form?",
+    "choices": [
+      "1/2",
+      "1/3",
+      "2/3",
+      "3/3"
+    ],
+    "answer": 0,
+    "why": "Divide both the numerator and the denominator by 3.",
+    "skill": "Simplifying fractions",
+    "forKid": ""
+  },
+  {
+    "id": "p2",
+    "prompt": "What is 1/4 + 2/4?",
+    "choices": [
+      "3/8",
+      "3/4",
+      "1/2",
+      "3/16"
+    ],
+    "answer": 1,
+    "why": "Add the numerators, keep the denominator.",
+    "skill": "Adding fractions",
+    "forKid": ""
+  },
+  {
+    "id": "p3",
+    "prompt": "Simplify 6/8.",
+    "choices": [
+      "3/4",
+      "3/2",
+      "6/4",
+      "2/3"
+    ],
+    "answer": 0,
+    "why": "Divide both the numerator and the denominator by 2.",
+    "skill": "Simplifying fractions",
+    "forKid": ""
+  },
+  {
+    "id": "p4",
+    "prompt": "What is 3/7 + 2/7?",
+    "choices": [
+      "5/7",
+      "5/14",
+      "14/7",
+      "1"
+    ],
+    "answer": 0,
+    "why": "Add the numerators, keep the denominator.",
+    "skill": "Adding fractions",
+    "forKid": ""
+  },
+  {
+    "id": "p5",
+    "prompt": "Simplify 8/10.",
+    "choices": [
+      "4/5",
+      "8/5",
+      "2/5",
+      "4/10"
+    ],
+    "answer": 0,
+    "why": "Divide both the numerator and the denominator by 2.",
+    "skill": "Simplifying fractions",
+    "forKid": ""
+  }
+]

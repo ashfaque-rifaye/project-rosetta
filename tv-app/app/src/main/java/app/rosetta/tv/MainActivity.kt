@@ -33,6 +33,8 @@ import app.rosetta.tv.ui.stone.StoneScreen
 import app.rosetta.tv.ui.theme.RosettaTheme
 import app.rosetta.tv.ui.raid.RaidScreen
 import app.rosetta.tv.ui.raid.EmoteLayer
+import app.rosetta.tv.ui.study.QuizScreen
+import app.rosetta.tv.ui.study.StudyScreen
 import app.rosetta.tv.ui.raid.ArenaLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import app.rosetta.tv.ui.growth.GrowthScreen
@@ -56,6 +58,7 @@ sealed interface Screen {
     data object Passport : Screen
     data object Shop : Screen
     data object Raid : Screen
+    data object Quiz : Screen
     data object Growth : Screen
 }
 
@@ -65,7 +68,10 @@ class MainActivity : ComponentActivity() {
 
     // The Unity arena hands back the raid's hits when the family presses Back.
     private val arena = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        ArenaLauncher.hits(r.data)?.let(repo::applyArenaHits)
+        ArenaLauncher.quizAnswers(r.data)?.let { answers ->
+            val known = repo.household.value.quiz?.answers?.map { it.questionId }?.toSet().orEmpty()
+            answers.filter { it.questionId !in known }.forEach { repo.answerQuiz(it.questionId, it.kidId, it.choice) }
+        } ?: ArenaLauncher.hits(r.data)?.let(repo::applyArenaHits)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +112,13 @@ class MainActivity : ComponentActivity() {
                                     HomeTab.Stone -> Screen.Stone()
                                     HomeTab.Growth -> Screen.Growth
                                     // Full 3D fight in the Unity arena when installed; the native raid screen otherwise.
+                                    // The Stone Trial runs in the Unity arena when it's installed, natively otherwise.
+                                    HomeTab.Quiz -> {
+                                        if (household.quiz == null || household.quiz?.done == true) repo.startQuiz()
+                                        val q = repo.household.value
+                                        ArenaLauncher.quizIntent(this@MainActivity, q)?.takeIf { ArenaLauncher.isInstalled(this@MainActivity) }
+                                            ?.let { arena.launch(it); Screen.Quiz } ?: Screen.Quiz
+                                    }
                                     HomeTab.Raid -> ArenaLauncher.intent(this@MainActivity, household)
                                         ?.takeIf { ArenaLauncher.isInstalled(this@MainActivity) }
                                         ?.let { arena.launch(it); screen } ?: Screen.Raid
@@ -114,7 +127,14 @@ class MainActivity : ComponentActivity() {
                         )
                         is Screen.Quest -> household.quests.firstOrNull { it.id == s.id }?.let { quest ->
                             LaunchedEffect(quest.keeperLine) { keeper.speak(quest.keeperLine) }
-                            QuestScreen(
+                            if (quest.isStudy) StudyScreen(
+                                household = household,
+                                quest = quest,
+                                joinUrl = RosettaConfig.joinUrl(household.pairingCode),
+                                onAnswer = { qid, choice -> repo.answerPractice(quest.id, qid, choice) },
+                                onClaim = { pendingReward?.takeIf { it.questId == quest.id }?.let { screen = Screen.Reward(it) } },
+                                onDevPhone = { repo.devPhoneUpload(quest.id) },
+                            ) else QuestScreen(
                                 household = household,
                                 quest = quest,
                                 joinUrl = RosettaConfig.joinUrl(household.pairingCode),
@@ -142,6 +162,7 @@ class MainActivity : ComponentActivity() {
                         Screen.Shop -> ShopScreen(household, onBuy = repo::buy, onEquip = repo::equip)
                         Screen.Raid -> RaidScreen(household, onDevHit = repo::devRaidHit, onDone = { screen = Screen.Home })
                         Screen.Growth -> GrowthScreen(household)
+                        Screen.Quiz -> QuizScreen(household, onAnswer = repo::answerQuiz, onDone = { screen = Screen.Home })
                     }
                 }
                 // Phone hype emotes burst over every screen.

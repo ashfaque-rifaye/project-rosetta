@@ -179,6 +179,7 @@ private fun stageLabel(s: QuestStage) = when (s) {
     QuestStage.Found, QuestStage.AwaitingAfter -> "TIDY TIME"
     QuestStage.Verifying -> "VERIFYING"
     QuestStage.Partial -> "ALMOST"
+    QuestStage.Checked, QuestStage.Practising -> "PRACTICE"
     QuestStage.Done -> "COMPLETE"
 }
 
@@ -189,7 +190,7 @@ private fun photoFor(q: Quest): String? = when (q.stage) {
 }
 
 @Composable
-private fun JoinPanel(code: String, kidName: String, joinUrl: String) {
+internal fun JoinPanel(code: String, kidName: String, joinUrl: String, what: String = "the room") {
     val pulse by rememberInfiniteTransition(label = "ph").animateFloat(0.92f, 1.06f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "s")
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1C2A57), Color(0xFF0E1630)))), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -199,7 +200,7 @@ private fun JoinPanel(code: String, kidName: String, joinUrl: String) {
             Spacer(Modifier.width(26.dp))
             Column {
                 Text("📱  $kidName, grab your phone", style = MaterialTheme.typography.headlineSmall, color = Rosetta.Cream)
-                Text("Scan, then snap the room.", style = MaterialTheme.typography.bodyLarge, color = Rosetta.Mist)
+                Text("Scan, then snap $what.", style = MaterialTheme.typography.bodyLarge, color = Rosetta.Mist)
                 Spacer(Modifier.height(10.dp))
                 Text("CODE", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 3.sp), color = Rosetta.Mist)
                 Text(code, style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 6.sp), color = Rosetta.Gold)
@@ -227,7 +228,7 @@ private fun androidx.compose.foundation.layout.BoxScope.DoneBurst() {
 }
 
 @Composable
-private fun KeeperCard(line: String) {
+internal fun KeeperCard(line: String) {
     Glass(Modifier.fillMaxWidth(), radius = 18.dp) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(Rosetta.Rose.copy(alpha = 0.2f)).border(1.dp, Rosetta.Rose, CircleShape), contentAlignment = Alignment.Center) {
@@ -246,7 +247,7 @@ private fun KeeperCard(line: String) {
 }
 
 @Composable
-private fun MissionControl(quest: Quest, modifier: Modifier) {
+internal fun MissionControl(quest: Quest, modifier: Modifier, graphHeight: androidx.compose.ui.unit.Dp = 140.dp) {
     val recent = quest.log.lastOrNull()
     val active: Set<Agent> = when {
         quest.working && recent != null -> setOf(recent.agent, Agent.QuestMaster)
@@ -263,7 +264,7 @@ private fun MissionControl(quest: Quest, modifier: Modifier) {
                 Spacer(Modifier.weight(1f))
                 Text("${quest.log.size} steps", style = MaterialTheme.typography.labelMedium, color = Rosetta.Mist)
             }
-            AgentGraph(active = active, done = quest.log.map { it.agent }.toSet(), modifier = Modifier.fillMaxWidth().height(140.dp))
+            AgentGraph(active = active, done = quest.log.map { it.agent }.toSet(), modifier = Modifier.fillMaxWidth().height(graphHeight))
             Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
             AgentFeed(quest.log, Modifier.fillMaxWidth().padding(top = 6.dp), max = 4)
         }
@@ -300,7 +301,7 @@ private fun NextStepHint(quest: Quest, name: String) {
         QuestStage.Found, QuestStage.AwaitingAfter -> "Bring them home, then snap the room again."
         QuestStage.Verifying -> "Judge is comparing before and after…"
         QuestStage.Partial -> "Almost! Snap again when the last ones are home."
-        QuestStage.Done -> ""
+        QuestStage.Checked, QuestStage.Practising, QuestStage.Done -> ""
     }
     val dots by rememberInfiniteTransition(label = "dots").animateFloat(0.4f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "d")
     Row(

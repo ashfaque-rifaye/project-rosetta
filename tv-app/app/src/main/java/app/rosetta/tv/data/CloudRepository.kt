@@ -55,12 +55,21 @@ class CloudRepository(
     override fun emote(kidId: String, emoji: String) = local.emote(kidId, emoji)
     override fun devRaidHit() = local.devRaidHit()
     override fun applyArenaHits(hits: List<Hit>) = local.applyArenaHits(hits)
+    override fun answerPractice(questId: String, questionId: String, choice: Int) {
+        local.answerPractice(questId, questionId, choice)
+        post("/household/$code/quests/$questId/answer", JSONObject().put("questionId", questionId).put("choice", choice))
+    }
+    override fun startQuiz() = post("/household/$code/quiz/start", JSONObject().put("count", 8))
+    override fun answerQuiz(questionId: String, kidId: String, choice: Int) {
+        local.answerQuiz(questionId, kidId, choice)
+        post("/household/$code/quiz/answer", JSONObject().put("questionId", questionId).put("kidId", kidId).put("choice", choice))
+    }
     private val seenEmotes = mutableSetOf<String>()
 
-    private fun post(path: String) {
+    private fun post(path: String, body: JSONObject = JSONObject()) {
         scope.launch(Dispatchers.IO) {
             runCatching {
-                http.newCall(Request.Builder().url(apiUrl.trimEnd('/') + path).post("{}".toRequestBody("application/json".toMediaType())).build()).execute().close()
+                http.newCall(Request.Builder().url(apiUrl.trimEnd('/') + path).post(body.toString().toRequestBody("application/json".toMediaType())).build()).execute().close()
             }.onFailure { Log.w(TAG, "POST $path failed: ${it.message}") }
         }
     }
@@ -77,6 +86,14 @@ class CloudRepository(
         }
         val quests = json.getJSONArray("quests")
         for (i in 0 until quests.length()) local.applyRemoteQuest(parseQuest(quests.getJSONObject(i)))
+        json.optJSONObject("quiz")?.let { z ->
+            local.applyRemoteQuiz(Quiz(
+                z.getString("id"), z.optString("title", "Family Quiz Battle"), questions(z.optJSONArray("questions")),
+                z.optJSONArray("answers")?.objects()?.map {
+                    QuizAnswer(it.getString("questionId"), it.getString("kidId"), it.getInt("choice"), it.optBoolean("correct"))
+                } ?: emptyList(),
+            ))
+        }
     }
 
     private fun parseQuest(q: JSONObject) = Quest(
@@ -98,6 +115,23 @@ class CloudRepository(
         keeperLine = q.optString("keeperLine"),
         confidence = q.optDouble("confidence", 1.0).toFloat(),
         needsParent = q.optBoolean("needsParent"),
+        kind = if (q.optString("kind") == "study") QuestKind.Study else QuestKind.Tidy,
+        homework = q.optJSONObject("homework")?.let { h ->
+            Homework(
+                h.optString("subject"), h.optString("topic"),
+                h.optJSONArray("items")?.objects()?.map {
+                    HomeworkItem(
+                        it.getString("id"), it.optInt("n"), it.optString("question"), it.optString("kidAnswer"), it.optBoolean("correct"),
+                        rect(it.getJSONArray("box")), it.optString("skill"), it.optString("hint"), it.optString("checkedBy", "ai"),
+                    )
+                } ?: emptyList(),
+                h.optDouble("confidence", 1.0).toFloat(),
+            )
+        },
+        practice = questions(q.optJSONArray("practice")),
+        answers = q.optJSONObject("answers")?.let { a ->
+            a.keys().asSequence().associateWith { k -> a.getJSONObject(k).let { Answer(it.getInt("choice"), it.optBoolean("correct")) } }
+        } ?: emptyMap(),
         log = q.optJSONArray("log")?.objects()?.map {
             AgentEvent(
                 agent = runCatching { Agent.valueOf(it.getString("agent")) }.getOrDefault(Agent.QuestMaster),
@@ -118,6 +152,13 @@ class CloudRepository(
         }
         return f.absolutePath
     }
+
+    private fun questions(a: JSONArray?) = a?.objects()?.map {
+        Question(
+            it.getString("id"), it.getString("prompt"), (0 until it.getJSONArray("choices").length()).map { i -> it.getJSONArray("choices").getString(i) },
+            it.getInt("answer"), it.optString("why"), it.optString("skill"), it.optString("forKid"),
+        )
+    } ?: emptyList()
 
     private fun rect(a: JSONArray) = NormRect(a.getDouble(0).toFloat(), a.getDouble(1).toFloat(), a.getDouble(2).toFloat(), a.getDouble(3).toFloat())
     private fun JSONArray.objects() = (0 until length()).map { getJSONObject(it) }

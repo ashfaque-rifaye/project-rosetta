@@ -1,0 +1,104 @@
+{
+  "isHomework": true,
+  "subject": "Maths",
+  "topic": "Fractions Practice",
+  "items": [
+    {
+      "id": "q1",
+      "n": 1,
+      "question": "1/2 + 1/4 =",
+      "kidAnswer": "3/4",
+      "correct": true,
+      "box": [
+        0.3,
+        0.257,
+        0.45,
+        0.297
+      ],
+      "skill": "Adding fractions",
+      "hint": "",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q2",
+      "n": 2,
+      "question": "Which is bigger: 2/3 or 3/5?",
+      "kidAnswer": "2/3",
+      "correct": true,
+      "box": [
+        0.3,
+        0.357,
+        0.48,
+        0.447
+      ],
+      "skill": "Comparing fractions",
+      "hint": "",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q3",
+      "n": 3,
+      "question": "3/8 + 2/8 =",
+      "kidAnswer": "5/16",
+      "correct": false,
+      "box": [
+        0.3,
+        0.467,
+        0.49,
+        0.507
+      ],
+      "skill": "Adding fractions",
+      "hint": "You added the bottom numbers too. When the bottoms match, add the tops and keep the bottom.",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q4",
+      "n": 4,
+      "question": "Half of 12 is",
+      "kidAnswer": "6",
+      "correct": true,
+      "box": [
+        0.3,
+        0.567,
+        0.51,
+        0.607
+      ],
+      "skill": "Finding half",
+      "hint": "",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q5",
+      "n": 5,
+      "question": "Write 4/8 in its simplest form.",
+      "kidAnswer": "2/4",
+      "correct": false,
+      "box": [
+        0.3,
+        0.667,
+        0.5,
+        0.757
+      ],
+      "skill": "Simplifying fractions",
+      "hint": "That's equal, but it can be simplified more. Find a number that divides both the top and the bottom.",
+      "checkedBy": "math"
+    },
+    {
+      "id": "q6",
+      "n": 6,
+      "question": "2/5 + 1/5 =",
+      "kidAnswer": "3/5",
+      "correct": true,
+      "box": [
+        0.3,
+        0.777,
+        0.51,
+        0.817
+      ],
+      "skill": "Adding fractions",
+      "hint": "",
+      "checkedBy": "math"
+    }
+  ],
+  "confidence": 0.95
+}
