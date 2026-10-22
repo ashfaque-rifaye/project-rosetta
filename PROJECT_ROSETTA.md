@@ -1,13 +1,17 @@
 # Project Rosetta
 
-### The TV that translates "clean your room" into an adventure.
+### The TV that translates "do your homework" and "clean your room" into a family adventure.
 
 _Master spec · v2 · 2026-10-21 · **Single source of truth** for the build and the submission._
 _Amazon "Build, Ship, Shape" hackathon · **Fire TV track** + **AWS Builder** + **Open Source** mini challenges._
 _Deadline **Fri 2026-10-23, 12:00 PM PT** (= Sat 00:30 IST). Concept from the user's Playbook v4, slide 27 ("Quest Board"), expanded here._
 _Superseded explorations, kept for history: `IDEA.md` (family-story channel), `SHOWRUNNER.md`, `GLANCE.md`, `QUEST_BOARD.md`._
 
-> **AWS: ON HOLD.** The backend is written, tested offline and synthesizes; nothing is deployed until the user says so.
+> **22 Oct 2026 update: education first.** The owner moved the focus to learning (their original slide already said
+> "parents nag about chores *and homework*"). New: Homework Check (Tutor agent + exact maths checks), Practice on the
+> skills that slipped, and the family Quiz Battle ("Stone Trial", Unity) that replaced the Mess Boss raids. Chores stay
+> as one quest type. The AWS stack is **deployed** (owner approved on 22 Oct). The sections below are the original
+> chores-first spec, kept for the reasoning and prior-art work; current status and decisions are in `HANDOFF.md`.
 
 ---
 

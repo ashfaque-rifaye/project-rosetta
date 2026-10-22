@@ -10,15 +10,20 @@ Where it shows on screen, it sits in a corner or behind UI.
 |---|---|---|
 | Home Base miniature (key art) | `assets/flow/production/rosetta_home_base_*.webp` | Home screen background |
 | Family Stone tablet | `assets/flow/production/stone*.webp` | Stone screen; glyphs are composited by the app |
-| Glyph tiles (9) | `assets/flow/glyphs/*.webp` | bed, books, shirt, plant, broom, dish, package, shoes, sock |
+| Glyph tiles (10) | `assets/flow/glyphs/*.webp` | bed, books, shirt, plant, broom, dish, package, shoes, sock, scholar (Homework Hero, 22 Oct) |
+| Passport stamps | `assets/flow/stamps/*.webp` | includes Homework Hero (22 Oct) |
 | Lost Things characters (8) | `assets/flow/things/*.webp` | sock, books, dino, bricks, jacket, sneakers, mug, teddy |
 | Demo room photos | `assets/flow/production/room_*.webp` | **AI-generated sample photos** of a fictional child's room used by the demo household; no real child or home is shown |
+| Demo homework sheets | `assets/homework/*.jpg` | **Rendered from code** (`make_worksheets.py`): a fictional worksheet with handwritten-style answers on a drawn desk; not AI-generated, no real child's work |
 | Concept frames | `assets/flow/concepts/*.webp` | Exploration; `concept_stone_2` is the Movie Night backdrop |
 
 ## Fonts
 System fonts only in the TV app (Android serif/sans). Launcher banner text set in Georgia / Segoe UI (rendered to PNG).
 The Unity raid arena uses **Fredoka**, © 2016 The Fredoka Project Authors (SIL Open Font License 1.1, from the Google Fonts
 repository); the license ships beside it in `arena-unity/Assets/Resources/Fonts/Fredoka-OFL.txt`.
+
+Demo worksheets use **Patrick Hand** (© 2010–2012 Patrick Wagesreiter) and **Nunito** (© The Nunito Project Authors),
+both SIL Open Font License 1.1, from the Google Fonts repository; licenses in `assets/homework/fonts/`.
 
 ## Software
 Kotlin, Jetpack Compose for TV, AndroidX, ZXing (Apache-2.0), OkHttp (Apache-2.0), Strands Agents SDK (Apache-2.0),

@@ -108,3 +108,35 @@ Severity: **Blocker** · **Major** · **Minor** · **Papercut**
 
 ### Note: host memory (not an Amazon issue)
 The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) and the emulator could not run together, so we switched to `kotlin.compiler.execution.strategy=in-process`, a 1.25 GB guest, and stopped idle daemons. Recorded here so the numbers in this log make sense.
+
+### F-012: Unity Hub's silent install fails without an interactive admin prompt
+- **Tool:** Unity Hub CLI (`--headless install`), Unity 6000.3 LTS, Windows 11
+- **Task:** Install the Unity editor and Android Build Support on a second drive for the Fire OS companion app.
+- **Actual:** The download completed (about 7 GB staged on C:), then the install failed with "The Windows elevation prompt was cancelled or timed out" because no one was there to accept UAC.
+- **Severity:** Major. It cost about 30 minutes and nearly filled the system drive.
+- **Workaround:** Run the downloaded, signed installers as the current user (`__COMPAT_LAYER=RunAsInvoker`, `/S /D=E:\Unity\Editors\...`), and unpack the NDK/JDK zips by hand.
+- **Suggestion (to Amazon, for Fire TV game developers):** Document the minimum Unity setup for Fire OS (modules, x86_64 vs ARM64) on the Fire TV game docs page.
+
+### F-013: Unity 6 can't target the Android TV image we used for Fire OS
+- **Tool:** Unity 6 Android player, Android TV emulator `android-30;android-tv;x86`
+- **Actual:** Unity 6 supports ARM64, ARMv7 and x86_64 only, and the recommended Fire OS 8-like TV image is 32-bit x86, so the Unity APK can't run there.
+- **Severity:** Minor
+- **Workaround:** A second, x86_64 AVD (API 36, 1080p) for testing the Unity companion; ARM64 for real Fire TV devices.
+- **Suggestion:** Pairs with F-002: an official x86_64 Fire OS emulator image would cover native and Unity apps.
+
+### F-014: HTTP API catch-all route swallows CORS preflight
+- **Tool:** Amazon API Gateway HTTP API (CDK `corsPreflight` + `ANY /{proxy+}` route)
+- **Task:** Let the phone page (CloudFront origin) call the API.
+- **Expected:** With `corsPreflight` configured, API Gateway answers `OPTIONS` itself.
+- **Actual:** The `ANY` route also matches `OPTIONS`, so the preflight went to the Lambda, which returned 404, and every browser call failed. The console only says "CORS policy".
+- **Severity:** Minor
+- **Workaround:** The Lambda answers `OPTIONS` with 204 and the CORS headers.
+- **Suggestion:** A warning in the CDK `HttpApi` docs (or a synth-time warning) when an `ANY` route coexists with `corsPreflight`.
+
+### F-015: Amazon Nova Pro arithmetic when marking homework
+- **Tool:** Amazon Bedrock, Amazon Nova Pro (Converse, image + forced tool schema)
+- **Task:** Mark a child's handwritten fractions worksheet.
+- **Actual:** Transcription of every handwritten answer was correct, but one verdict was wrong ("which is bigger, 2/3 or 3/5?" marked incorrect). Asking for step-by-step working first did not fully fix it. Generated quiz options were also biased to option A and once contained two correct choices.
+- **Severity:** Major for an education product (a wrong mark can mislead a child).
+- **Workaround:** Exact checking in code for arithmetic (Python `Fraction`), server-side shuffling and validation of generated questions, and retrying generation when too few pass.
+- **Suggestion:** A Bedrock sample showing "model reads, code verifies" for education use cases; and an optional calculator tool in Nova's built-in tool set.
