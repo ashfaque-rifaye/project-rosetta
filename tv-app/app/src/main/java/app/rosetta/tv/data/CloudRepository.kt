@@ -54,6 +54,7 @@ class CloudRepository(
     override fun startRaid() = local.startRaid()
     override fun emote(kidId: String, emoji: String) = local.emote(kidId, emoji)
     override fun devRaidHit() = local.devRaidHit()
+    override fun applyArenaHits(hits: List<Hit>) = local.applyArenaHits(hits)
     private val seenEmotes = mutableSetOf<String>()
 
     private fun post(path: String) {

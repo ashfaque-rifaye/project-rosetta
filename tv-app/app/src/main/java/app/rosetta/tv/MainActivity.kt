@@ -33,6 +33,8 @@ import app.rosetta.tv.ui.stone.StoneScreen
 import app.rosetta.tv.ui.theme.RosettaTheme
 import app.rosetta.tv.ui.raid.RaidScreen
 import app.rosetta.tv.ui.raid.EmoteLayer
+import app.rosetta.tv.ui.raid.ArenaLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import app.rosetta.tv.ui.growth.GrowthScreen
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.layout.Box
@@ -60,6 +62,11 @@ sealed interface Screen {
 class MainActivity : ComponentActivity() {
     private lateinit var keeper: KeeperVoice
     private lateinit var repo: RosettaRepository
+
+    // The Unity arena hands back the raid's hits when the family presses Back.
+    private val arena = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        ArenaLauncher.hits(r.data)?.let(repo::applyArenaHits)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,7 +105,10 @@ class MainActivity : ComponentActivity() {
                                     HomeTab.Shop -> Screen.Shop
                                     HomeTab.Stone -> Screen.Stone()
                                     HomeTab.Growth -> Screen.Growth
-                                    HomeTab.Raid -> Screen.Raid
+                                    // Full 3D fight in the Unity arena when installed; the native raid screen otherwise.
+                                    HomeTab.Raid -> ArenaLauncher.intent(this@MainActivity, household)
+                                        ?.takeIf { ArenaLauncher.isInstalled(this@MainActivity) }
+                                        ?.let { arena.launch(it); screen } ?: Screen.Raid
                                 }
                             },
                         )

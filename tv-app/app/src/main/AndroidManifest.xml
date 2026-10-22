@@ -11,6 +11,11 @@
         android:name="android.software.leanback"
         android:required="false" />
 
+    <!-- The companion Unity raid arena (arena-unity/), launched for the full 3D boss fight. -->
+    <queries>
+        <package android:name="app.rosetta.arena" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:banner="@drawable/banner"

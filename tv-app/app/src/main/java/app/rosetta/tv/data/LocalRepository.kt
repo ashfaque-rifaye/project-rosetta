@@ -206,9 +206,21 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
         val combo = raid.combo + 1
         val dmg = ((if (crit) base * 2 else base) * (1f + 0.1f * (combo - 1).coerceAtMost(5))).toInt()
         raidHits++
-        val next = raid.copy(hits = raid.hits + Hit(kid.id, things[raidHits % things.size], dmg, crit, System.currentTimeMillis()))
+        setRaidHits(raid.hits + Hit(kid.id, things[raidHits % things.size], dmg, crit, System.currentTimeMillis()))
+        // Siblings cheer from their phones now and then.
+        if (raidHits % 3 == 0) emote(h.kids[(raidHits + 1) % h.kids.size].id, listOf("🔥", "💀", "🫶", "⚡", "🏆")[raidHits % 5])
+    }
+
+    override fun applyArenaHits(hits: List<Hit>) {
+        val raid = state.value.raid ?: return
+        if (hits.size > raid.hits.size) setRaidHits(hits)
+    }
+
+    private fun setRaidHits(hits: List<Hit>) {
+        val wasDefeated = state.value.raid?.defeated == true
+        val next = state.value.raid?.copy(hits = hits) ?: return
         state.update { it.copy(raid = next) }
-        if (next.defeated) state.update { hh ->
+        if (next.defeated && !wasDefeated) state.update { hh ->
             // Raid loot: everyone on the team gets it (co-op, not competitive).
             hh.copy(kids = hh.kids.map { k ->
                 var xp = k.xp + 150; var lvl = k.level
@@ -216,8 +228,6 @@ class LocalRepository(private val scope: CoroutineScope) : RosettaRepository {
                 k.copy(coins = k.coins + 200, xp = xp, level = lvl)
             })
         }
-        // Siblings cheer from their phones now and then.
-        if (raidHits % 3 == 0) emote(h.kids[(raidHits + 1) % h.kids.size].id, listOf("🔥", "💀", "🫶", "⚡", "🏆")[raidHits % 5])
     }
 
     private fun kid(q: Quest) = state.value.kid(q.kidId)

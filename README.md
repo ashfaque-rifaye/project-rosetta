@@ -25,6 +25,7 @@ instead of being the prize everyone fights over.
 | **Room Scan → Lost Things** | Scout finds what's out of place in a phone photo; each item becomes a stop-motion character pinned to the real object. |
 | **Live agent Mission Control** | Watch Quest Master route work to Scout, Coach, Judge, Router and Keeper, with confidence scores. |
 | **Mess Boss raids** | Weekly co-op boss (Sock Kraken, Laundry Golem, Toy Tornado). Every AI-verified put-away deals damage; combos, crits, team contribution. |
+| **Raid Arena (Unity)** | The boss fight in a real game engine: URP bloom and chromatic aberration, particle hit sparks, physics debris, camera shake, slow-motion crits, victory confetti. Launched from the TV app; hits sync back. |
 | **Phone hype emotes** | Siblings send 🔥 💀 🫶 from their phones; they burst onto the TV (allow-listed, kid-safe). |
 | **Progression** | Levels, XP, coins, streaks, reward reveal, passport stamps, Codex of collectibles whose rarity is earned, shop for outfits and house decor. |
 | **Family Stone → Movie Night** | Every quest carves a glyph; a full stone unlocks movie night. |
@@ -82,7 +83,18 @@ cd ../tv-app && ./gradlew installDebug -ProsettaApiUrl=<ApiUrl> -ProsettaWebUrl=
 ```
 Then open the quest on the TV and scan the QR with a phone. To use a Claude model instead: `npx cdk deploy -c modelId=<bedrock-model-id>`.
 
-### 3. Tests
+### 3. Raid Arena (Unity, optional)
+The TV app opens the boss fight in the companion Unity app when it is installed, and falls back to its native raid screen
+otherwise. The source lives in `arena-unity/`; the scene is built entirely from code, so it builds headlessly.
+
+```bash
+bash arena-unity/sync.sh --build     # mirrors the source into a Unity 6 project and builds Builds/RosettaArena.apk
+adb install -r /e/Unity/Projects/RosettaArena/Builds/RosettaArena.apk
+```
+APK targets ARM64 (Fire TV hardware) and x86_64 (emulators). On the raid, MENU stands in for a verified put-away and
+BACK returns to Home Base with the new hits.
+
+### 4. Tests
 ```bash
 python -m unittest discover -s agents/tests     # offline flow: API + uploads + crew policy (stubbed vision)
 python -m rosetta_agents.cli scout room.jpg     # (from agents/, needs Bedrock) try Scout on your own photo
@@ -112,6 +124,7 @@ python -m rosetta_agents.cli scout room.jpg     # (from agents/, needs Bedrock) 
 | Path | |
 |---|---|
 | `tv-app/` | Fire TV app (Kotlin, Compose for TV) |
+| `arena-unity/` | Raid Arena companion app (Unity 6, URP, C#) |
 | `agents/` | Agent crew (Python, Strands, Bedrock) + offline tests |
 | `infra/` | AWS CDK stack |
 | `web/` | Kid and parent phone pages |

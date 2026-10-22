@@ -29,6 +29,9 @@ interface RosettaRepository {
     /** A phone sent a hype emote. */
     fun emote(kidId: String, emoji: String)
 
+    /** The Unity arena returned: adopt its hit list (it only ever adds hits) and pay out loot if the boss fell. */
+    fun applyArenaHits(hits: List<Hit>)
+
     /** Developer hook (remote MENU on the raid screen): one verified put-away hits the boss. */
     fun devRaidHit()
 
