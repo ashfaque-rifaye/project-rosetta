@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as path from "path";
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -7,6 +8,8 @@ import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
@@ -19,6 +22,8 @@ import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations
  *                                                                          + Scout/Coach/Judge/Keeper on Bedrock)
  *   TV / phones ──HTTP API──► API Lambda ──► DynamoDB (household doc) ◄──────────────┘
  *   phone pages ◄── CloudFront ◄── S3 web/
+ *   EventBridge ──► Scheduled Lambda: evening streak nudge, weekly Growth digest (Digest agent)
+ *   parent alerts: Web Push (VAPID) · SES email · SNS SMS (each optional, per parent)
  */
 export class RosettaStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -43,32 +48,9 @@ export class RosettaStack extends Stack {
     });
 
     const code = lambda.Code.fromAsset(path.join(__dirname, "..", "..", "agents", "dist"));
-    const env = { ROSETTA_BUCKET: uploads.bucketName, ROSETTA_TABLE: table.tableName, ROSETTA_MODEL_ID: modelId };
-
-    const apiFn = new lambda.Function(this, "ApiFn", {
-      runtime: lambda.Runtime.PYTHON_3_12, handler: "rosetta_agents.handlers.api", code, environment: env,
-      memorySize: 512, timeout: Duration.seconds(15),
-    });
-    const agentFn = new lambda.Function(this, "AgentCrewFn", {
-      runtime: lambda.Runtime.PYTHON_3_12, handler: "rosetta_agents.handlers.on_upload", code, environment: env,
-      memorySize: 1024, timeout: Duration.seconds(120),
-    });
-
-    for (const fn of [apiFn, agentFn]) {
-      table.grantReadWriteData(fn);
-      uploads.grantReadWrite(fn);
-    }
-    agentFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:Converse", "bedrock:ConverseStream"],
-      resources: ["*"],
-    }));
-    uploads.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(agentFn), { prefix: "uploads/" });
-
-    const api = new apigw.HttpApi(this, "Api", {
-      corsPreflight: { allowOrigins: ["*"], allowMethods: [apigw.CorsHttpMethod.ANY], allowHeaders: ["content-type"] },
-    });
-    api.addRoutes({ path: "/{proxy+}", methods: [apigw.HttpMethod.ANY], integration: new HttpLambdaIntegration("ApiInt", apiFn) });
-
+    // Web-push keys live in infra/.vapid.json (git-ignored); SES sender is optional context (-c sesFrom=...).
+    const vapidFile = path.join(__dirname, "..", ".vapid.json");
+    const vapid = fs.existsSync(vapidFile) ? JSON.parse(fs.readFileSync(vapidFile, "utf8")) : { public: "", private: "" };
     const site = new s3.Bucket(this, "Web", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, removalPolicy: RemovalPolicy.DESTROY, autoDeleteObjects: true,
     });
@@ -79,6 +61,49 @@ export class RosettaStack extends Stack {
       },
       defaultRootObject: "kid.html",
     });
+    const env = {
+      ROSETTA_BUCKET: uploads.bucketName, ROSETTA_TABLE: table.tableName, ROSETTA_MODEL_ID: modelId,
+      ROSETTA_WEB_URL: `https://${cdn.distributionDomainName}`,
+      ROSETTA_VAPID_PUBLIC: vapid.public, ROSETTA_VAPID_PRIVATE: vapid.private,
+      ROSETTA_SES_FROM: this.node.tryGetContext("sesFrom") ?? "",
+    };
+
+    const apiFn = new lambda.Function(this, "ApiFn", {
+      runtime: lambda.Runtime.PYTHON_3_12, handler: "rosetta_agents.handlers.api", code, environment: env,
+      memorySize: 512, timeout: Duration.seconds(30),  // quiz/start asks the Quizmaster agent
+    });
+    const agentFn = new lambda.Function(this, "AgentCrewFn", {
+      runtime: lambda.Runtime.PYTHON_3_12, handler: "rosetta_agents.handlers.on_upload", code, environment: env,
+      memorySize: 1024, timeout: Duration.seconds(120),
+    });
+
+    const scheduledFn = new lambda.Function(this, "ScheduledFn", {
+      runtime: lambda.Runtime.PYTHON_3_12, handler: "rosetta_agents.handlers.scheduled", code, environment: env,
+      memorySize: 512, timeout: Duration.seconds(60),
+    });
+
+    for (const fn of [apiFn, agentFn, scheduledFn]) {
+      table.grantReadWriteData(fn);
+      uploads.grantReadWrite(fn);
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:Converse", "bedrock:ConverseStream"],
+        resources: ["*"],
+      }));
+      // Parent alerts: email (only from a verified SES sender) and SMS for urgent alerts.
+      fn.addToRolePolicy(new iam.PolicyStatement({ actions: ["ses:SendEmail", "sns:Publish"], resources: ["*"] }));
+    }
+    // 18:30 IST every evening: streak-at-risk nudges. Sunday 18:00 IST: the weekly Growth digest.
+    new events.Rule(this, "StreakNudge", { schedule: events.Schedule.cron({ minute: "0", hour: "13" }) })
+      .addTarget(new targets.LambdaFunction(scheduledFn, { event: events.RuleTargetInput.fromObject({ job: "streak" }) }));
+    new events.Rule(this, "WeeklyDigest", { schedule: events.Schedule.cron({ minute: "30", hour: "12", weekDay: "SUN" }) })
+      .addTarget(new targets.LambdaFunction(scheduledFn, { event: events.RuleTargetInput.fromObject({ job: "digest" }) }));
+    uploads.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(agentFn), { prefix: "uploads/" });
+
+    const api = new apigw.HttpApi(this, "Api", {
+      corsPreflight: { allowOrigins: ["*"], allowMethods: [apigw.CorsHttpMethod.ANY], allowHeaders: ["content-type", "x-parent-pin"] },
+    });
+    api.addRoutes({ path: "/{proxy+}", methods: [apigw.HttpMethod.ANY], integration: new HttpLambdaIntegration("ApiInt", apiFn) });
+
     new s3deploy.BucketDeployment(this, "WebDeploy", {
       destinationBucket: site,
       distribution: cdn,

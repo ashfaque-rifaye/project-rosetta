@@ -35,10 +35,23 @@
         <button data-e="⚡">⚡</button><button data-e="🏆">🏆</button><button data-e="😭">😭</button>
       </div>
     </div>
+    <div class="card" id="markCard" hidden>
+      <div class="eyebrow" id="markTitle">Tutor's marking</div>
+      <div id="marks"></div>
+    </div>
+    <div class="card" id="practiceCard" hidden>
+      <div class="eyebrow" id="practiceTitle">Practice</div>
+      <div id="practice"></div>
+    </div>
     <div class="card" id="thingsCard" hidden>
       <div class="eyebrow">Lost Things</div>
       <div id="things"></div>
     </div>
+  </section>
+
+  <section id="quizCard" class="card" hidden>
+    <div class="eyebrow" id="quizTitle">Family Quiz Battle</div>
+    <div id="quiz"></div>
   </section>
 </main>
 <script src="config.js"></script>
@@ -48,13 +61,14 @@ const $ = (id) => document.getElementById(id);
 let questId = null, busy = false;
 
 function activeQuest(h) {
-  const order = ["Scanning", "Verifying", "Partial", "Found", "AwaitingAfter", "AwaitingBefore", "Done"];
+  const order = ["Scanning", "Verifying", "Practising", "Checked", "Partial", "Found", "AwaitingAfter", "AwaitingBefore", "Done"];
   return h.quests.slice().sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage)).find((q) => order.includes(q.stage));
 }
 
 async function refresh() {
   try {
     const h = await getHousehold();
+    renderQuiz(h);
     const q = activeQuest(h);
     if (!q) { $("title").textContent = h.name; $("sub").textContent = "Pick a quest on the TV to start."; $("quest").hidden = true; return; }
     questId = q.id;
@@ -63,12 +77,20 @@ async function refresh() {
     $("title").textContent = q.title;
     $("sub").textContent = `${kid.name}'s quest`;
     $("quest").hidden = false;
-    $("stage").textContent = STAGE_TEXT[q.stage] || q.stage;
+    const study = q.kind === "study";
+    $("stage").textContent = (study ? STUDY_TEXT : STAGE_TEXT)[q.stage] || q.stage;
     $("keeper").textContent = q.keeperLine ? `“${q.keeperLine}”` : "";
-    $("crew").innerHTML = crewHtml(q.stage);
+    $("crew").innerHTML = crewHtml(q.stage, study);
+    $("markCard").hidden = !(study && q.homework);
+    if (study && q.homework) {
+      $("markTitle").textContent = `Tutor's marking · ${q.homework.items.filter((i) => i.correct).length}/${q.homework.items.length} right`;
+      $("marks").innerHTML = markingHtml(q.homework);
+    }
+    renderPractice(q);
     const working = q.stage === "Scanning" || q.stage === "Verifying";
     $("snapLabel").style.opacity = working || q.stage === "Done" ? 0.4 : 1;
-    $("snapLabel").textContent = q.stage === "AwaitingBefore" || q.stage === "Ready" ? "📷 Snap the room" : "📷 Snap again";
+    $("snapLabel").textContent = study ? "📷 Snap your homework" : q.stage === "AwaitingBefore" || q.stage === "Ready" ? "📷 Snap the room" : "📷 Snap again";
+    $("snapLabel").style.display = study && ["Checked", "Practising", "Done"].includes(q.stage) ? "none" : "block";
     $("thingsCard").hidden = !q.things.length;
     $("things").innerHTML = thingsHtml(q.things);
   } catch (e) { $("status").textContent = "Can't reach the TV yet… " + e.message; }
@@ -86,6 +108,46 @@ $("photo").addEventListener("change", async (ev) => {
 });
 
 let myKid = null;
+// Polling refreshes every 1.5 s; only rebuild a question when it actually changes, so taps aren't lost mid-press.
+const shown = { practice: "", quiz: "" };
+let justAnswered = null; // { id, until }: keep the answered question (and its explanation) on screen for a moment
+
+function renderPractice(q) {
+  const open = q.kind === "study" && q.stage === "Practising" && (q.practice || []).length;
+  $("practiceCard").hidden = !open;
+  if (!open) return;
+  const answers = q.answers || {};
+  const held = justAnswered && Date.now() < justAnswered.until && q.practice.find((p) => p.id === justAnswered.id);
+  const cur = held || q.practice.find((p) => !(p.id in answers)) || q.practice[q.practice.length - 1];
+  $("practiceTitle").textContent = `Practice · ${Object.keys(answers).length}/${q.practice.length}`;
+  const key = `${q.id}:${cur.id}:${answers[cur.id] ? answers[cur.id].choice : "-"}`;
+  if (shown.practice === key) return;
+  shown.practice = key;
+  $("practice").innerHTML = questionHtml(cur, answers[cur.id] ? answers[cur.id].choice : null);
+  $("practice").querySelectorAll("button.choice").forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    justAnswered = { id: cur.id, until: Date.now() + 2500 };
+    try { await post(`/household/${CODE}/quests/${q.id}/answer`, { questionId: cur.id, choice: +b.dataset.i }); refresh(); } catch (e) {}
+  });
+}
+
+function renderQuiz(h) {
+  const z = h.quiz;
+  const live = z && !z.done && z.questions.length;
+  $("quizCard").hidden = !live;
+  if (!live) return;
+  const done = new Set(z.answers.map((a) => a.questionId));
+  const cur = z.questions.find((q) => !done.has(q.id));
+  const kid = h.kids.find((k) => k.id === cur.forKid) || h.kids[z.answers.length % h.kids.length];
+  $("quizTitle").textContent = `Quiz Battle · ${z.lit}/${z.goal} glyphs lit · ${kid.name}'s turn`;
+  if (shown.quiz === `${z.id}:${cur.id}`) return;
+  shown.quiz = `${z.id}:${cur.id}`;
+  $("quiz").innerHTML = questionHtml(cur, null);
+  $("quiz").querySelectorAll("button.choice").forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { await post(`/household/${CODE}/quiz/answer`, { questionId: cur.id, kidId: kid.id, choice: +b.dataset.i }); refresh(); } catch (e) {}
+  });
+}
 document.querySelectorAll(".emotes button").forEach((b) => b.onclick = async () => {
   b.classList.add("pop"); setTimeout(() => b.classList.remove("pop"), 300);
   try { await post(`/household/${CODE}/emote`, { kidId: myKid || "arjun", emoji: b.dataset.e }); } catch (e) {}

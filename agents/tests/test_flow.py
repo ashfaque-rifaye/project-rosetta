@@ -87,7 +87,7 @@ class QuestFlow(unittest.TestCase):
         upload("R4KX", "q_arjun_room", "after", 2, b"after-done")
         h = store.load("R4KX")
         self.assertEqual(store.quest(h, "q_arjun_room")["stage"], "Done")
-        self.assertEqual(sum(1 for g in h["glyphs"] if g["earnedBy"]), 9)
+        self.assertEqual(sum(1 for g in h["glyphs"] if g["earnedBy"]), 8)  # homework carves the 9th (test_learning)
 
         _, view = call("GET", "/household/R4KX")
         self.assertTrue(store.quest(view, "q_arjun_room")["afterUrl"].startswith("https://"))
@@ -118,7 +118,7 @@ class QuestFlow(unittest.TestCase):
         self.assertIn(("push", "needs_approval"), SENT)
         call("POST", "/household/R4KX/quests/q_arjun_room/approve", pin="2468")
         self.assertEqual(self.q()["stage"], "Done")
-        self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 9)
+        self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 8)
 
     def test_emotes_are_allow_listed(self):
         self.assertEqual(call("POST", "/household/R4KX/emote", {"kidId": "meera", "emoji": "🔥"})[0], 200)

@@ -12,7 +12,7 @@ import re
 import time
 import urllib.parse
 
-from . import crew, notify, store, vision
+from . import crew, learning, notify, store, vision
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -21,14 +21,15 @@ log.setLevel(logging.INFO)
 ALLOWED_EMOTES = {"🔥", "💀", "🫶", "⚡", "🏆", "😭"}
 
 KEEPER_OPEN = "Snap the room with your phone, {name}. Let's see who got lost today."
+KEEPER_OPEN_STUDY = "Snap your homework with your phone, {name}. Tutor will take a look."
+
+
+CORS = {"access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS",
+        "access-control-allow-headers": "content-type,x-parent-pin"}
 
 
 def _resp(status: int, body) -> dict:
-    return {
-        "statusCode": status,
-        "headers": {"content-type": "application/json", "access-control-allow-origin": "*"},
-        "body": json.dumps(body),
-    }
+    return {"statusCode": status, "headers": {"content-type": "application/json", **CORS}, "body": json.dumps(body)}
 
 
 def _is_parent(event, h) -> bool:
@@ -42,6 +43,8 @@ QUICK_CHEERS = {"Proud of you! 🫶", "Great job! 🏆", "Snack time after this 
 
 def api(event, _context):
     method = event["requestContext"]["http"]["method"]
+    if method == "OPTIONS":  # the catch-all route also receives browser preflights
+        return {"statusCode": 204, "headers": CORS, "body": ""}
     path = event["rawPath"].rstrip("/")
     body = json.loads(event.get("body") or "{}") if event.get("body") else {}
     try:
@@ -64,17 +67,20 @@ def api(event, _context):
             if action in ("approve", "reject") and not _is_parent(event, h):
                 return _resp(403, {"error": "parent PIN required"})
             if action == "open" and q["stage"] == "Ready":
+                opener = KEEPER_OPEN_STUDY if q.get("kind") == "study" else KEEPER_OPEN
                 q.update(stage="AwaitingBefore", openedAtMs=int(time.time() * 1000),
-                         keeperLine=KEEPER_OPEN.format(name=store.kid(h, q["kidId"])["name"]))
+                         keeperLine=opener.format(name=store.kid(h, q["kidId"])["name"]))
             elif action == "reject":  # parent says "not yet": back to tidying, kid gets a kind nudge
                 q.update(stage="Partial", needsParent=False, keeperLine="A grown-up says almost! One more look around 👀")
                 notify.emit(h, "parent_reply", "Not quite yet", f"{store.kid(h, q['kidId'])['name']}, a grown-up wants one more look.", by="parent", notify=False)
             elif action == "close" and q["stage"] == "Done":
                 h["quests"] = [x for x in h["quests"] if x["id"] != qid]
-            elif action == "approve":  # parent overrides a low-confidence Judge verdict
-                for t in q["things"]:
+            elif action == "approve":  # parent overrides a low-confidence Judge or Tutor verdict
+                for t in q.get("things", []):
                     t["returned"] = True
-                q.update(stage="Done", needsParent=False, keeperLine="A grown-up checked it: every Lost Thing is home!")
+                q.update(stage="Done", needsParent=False,
+                         keeperLine="A grown-up checked your homework. Well done!" if q.get("kind") == "study"
+                         else "A grown-up checked it: every Lost Thing is home!")
                 for g in h["glyphs"]:
                     if g["id"] == q["glyphId"]:
                         g["earnedBy"] = q["kidId"]
@@ -91,6 +97,7 @@ def api(event, _context):
             n = len(h["quests"]) + 1
             q = {
                 "id": f"q_custom_{n}", "kidId": body["kidId"], "roomId": body.get("roomId", "living"),
+                "kind": "study" if body.get("kind") == "study" else "tidy",
                 "title": body["title"][:60], "glyphId": f"next_custom_{n}", "stage": "Ready", "things": [],
                 "keeperLine": "", "confidence": 1.0, "attempt": 0,
             }
@@ -160,12 +167,30 @@ def api(event, _context):
             store.save(h)
             return _resp(200, em)
 
+        m = re.fullmatch(r"/household/(\w+)/quests/(\w+)/answer", path)
+        if m and method == "POST":  # kid answers a practice question (TV remote or phone)
+            h = store.load(m[1])
+            r = learning.answer_practice(h, m[2], body["questionId"], int(body["choice"]))
+            store.save(h)
+            return _resp(200, r)
+
+        m = re.fullmatch(r"/household/(\w+)/quiz/(start|answer)", path)
+        if m and method == "POST":  # family Quiz Battle
+            h = store.load(m[1])
+            if m[2] == "start":
+                r = learning.start_quiz(h, int(body.get("count", 8)))
+            else:
+                r = learning.answer_quiz(h, body["questionId"], body["kidId"], int(body["choice"]))
+            store.save(h)
+            return _resp(200, r)
+
         m = re.fullmatch(r"/household/(\w+)/upload", path)
         if m and method == "POST":  # kid's phone asks where to put the next photo
             code = m[1]
             h = store.load(code)
             q = store.quest(h, body["questId"])
-            phase = "before" if q["stage"] in ("Ready", "AwaitingBefore") else "after"
+            # A homework photo is always marked afresh; a room needs a before and then after photos.
+            phase = "before" if q.get("kind") == "study" or q["stage"] in ("Ready", "AwaitingBefore") else "after"
             n = q.get("attempt", 0) + (1 if phase == "after" else 0)
             key = f"uploads/{code}/{q['id']}/{phase}-{n}.jpg"
             return _resp(200, {"uploadUrl": store.presign_put(key), "key": key, "phase": phase})
@@ -173,6 +198,8 @@ def api(event, _context):
         return _resp(404, {"error": "not found"})
     except KeyError as e:
         return _resp(404, {"error": f"unknown {e}"})
+    except (StopIteration, ValueError) as e:
+        return _resp(400, {"error": str(e) or "bad request"})
     except Exception as e:  # noqa: BLE001
         log.exception("api error")
         return _resp(500, {"error": str(e)})
@@ -187,7 +214,9 @@ def on_upload(event, _context):
         code, qid, phase, n = m[1], m[2], m[3], int(m[4])
         h = store.load(code)
         q = store.quest(h, qid)
-        if phase == "before":
+        if q.get("kind") == "study":
+            q.update(stage="Scanning", beforeKey=key, homework=None, practice=[], answers={}, keeperLine="Tutor is reading your work…")
+        elif phase == "before":
             q.update(stage="Scanning", beforeKey=key, afterKey=None, things=[], attempt=0, keeperLine="Looking closely…")
         else:
             q.update(stage="Verifying", afterKey=key, attempt=n, keeperLine="Checking on everyone…")

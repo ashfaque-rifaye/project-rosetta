@@ -20,10 +20,38 @@ const STAGE_TEXT = {
   Found: "Bring them home, then snap again", AwaitingAfter: "Snap again when done", Verifying: "Checking on everyone…",
   Partial: "Almost! Snap again when done", Done: "All home! 🎉",
 };
+const STUDY_TEXT = {
+  Ready: "Not started", AwaitingBefore: "Snap your homework", Scanning: "Tutor is reading your work…",
+  Checked: "Tutor marked your work", Practising: "Practice round: answer here or on the TV", Done: "Homework done! 🎉",
+};
 
-function crewHtml(stage) {
-  const on = { Scanning: ["Scout", "Coach"], Found: ["Keeper"], Verifying: ["Judge"], Partial: ["Judge", "Keeper"], Done: ["Judge", "Keeper"] }[stage] || [];
-  return `<div class="crew">${["Scout", "Coach", "Judge", "Keeper"].map((n) => `<span class="${on.includes(n) ? "on" : ""}">${n}</span>`).join("")}</div>`;
+function crewHtml(stage, study = false) {
+  const on = (study
+    ? { Scanning: ["Tutor"], Checked: ["Tutor", "Coach"], Practising: ["Coach", "Keeper"], Done: ["Keeper"] }
+    : { Scanning: ["Scout", "Coach"], Found: ["Keeper"], Verifying: ["Judge"], Partial: ["Judge", "Keeper"], Done: ["Judge", "Keeper"] })[stage] || [];
+  const crew = study ? ["Tutor", "Coach", "Keeper"] : ["Scout", "Coach", "Judge", "Keeper"];
+  return `<div class="crew">${crew.map((n) => `<span class="${on.includes(n) ? "on" : ""}">${n}</span>`).join("")}</div>`;
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/** Tutor's marking: a tick or cross per question, with the hint (never the answer) for the ones to fix. */
+function markingHtml(hw) {
+  return hw.items.map((i) => `
+    <div class="mark ${i.correct ? "ok" : "fix"}">
+      <span class="tick">${i.correct ? "✓" : "✗"}</span>
+      <div><div>${i.n}. ${esc(i.question)} <b>${esc(i.kidAnswer)}</b></div>${i.correct ? "" : `<div class="hint">${esc(i.hint)}</div>`}</div>
+    </div>`).join("");
+}
+
+/** One multiple-choice question; `answered` is the chosen index once answered. */
+function questionHtml(q, answered) {
+  const btn = (c, i) => {
+    const cls = answered == null ? "" : i === q.answer ? "right" : i === answered ? "wrong" : "";
+    return `<button class="choice ${cls}" data-i="${i}" ${answered == null ? "" : "disabled"}>${"ABCD"[i]} · ${esc(c)}</button>`;
+  };
+  return `<div class="q">${esc(q.prompt)}</div><div class="choices">${q.choices.map(btn).join("")}</div>` +
+    (answered == null ? "" : `<p class="why">${answered === q.answer ? "Yes! " : "Nearly. "}${esc(q.why)}</p>`);
 }
 
 function thingsHtml(things) {

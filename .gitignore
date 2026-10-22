@@ -33,3 +33,8 @@ __pycache__/
 # Build outputs
 agents/dist/
 infra/build/
+
+# Web-push key pair (private key: never commit)
+infra/.vapid.json
+infra/cdk-outputs.json
+infra/deploy.log

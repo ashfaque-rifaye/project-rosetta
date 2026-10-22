@@ -77,7 +77,7 @@ def seed(code: str = "R4KX") -> dict:
         ("g_shirt", "Fold Master", "shirt", "meera"), ("g_plant", "Plant Guardian", "plant", "arjun"),
         ("g_broom", "Sweep Hero", "broom", "arjun"), ("g_dish", "Dish Hero", "dish", "meera"),
         ("g_package", "Package Detective", "package", "arjun"), ("g_shoes", "Shoe Parade", "shoes", "meera"),
-        ("g_rescuer", "Room Rescuer", "sock", ""),
+        ("g_scholar", "Homework Hero", "scholar", ""),
     ]
     h = {
         "code": code,
@@ -91,7 +91,9 @@ def seed(code: str = "R4KX") -> dict:
             {"id": "balcony", "name": "Balcony", "rect": [0.736, 0.378, 0.807, 0.540]},
         ],
         "quests": [
-            {"id": "q_arjun_room", "kidId": "arjun", "roomId": "arjun_room", "title": "Rescue the Lost Things", "glyphId": "g_rescuer"},
+            {"id": "q_arjun_homework", "kind": "study", "kidId": "arjun", "roomId": "arjun_room", "title": "Fractions homework", "glyphId": "g_scholar"},
+            {"id": "q_meera_homework", "kind": "study", "kidId": "meera", "roomId": "meera_room", "title": "Adding and taking away", "glyphId": "next_counter"},
+            {"id": "q_arjun_room", "kidId": "arjun", "roomId": "arjun_room", "title": "Rescue the Lost Things", "glyphId": "next_rescue"},
             {"id": "q_balcony", "kidId": "meera", "roomId": "balcony", "title": "Water the balcony garden", "glyphId": "next_garden"},
             {"id": "q_kitchen", "kidId": "arjun", "roomId": "kitchen", "title": "Kitchen crew: clear the table", "glyphId": "next_crew"},
         ],
@@ -105,6 +107,7 @@ def seed(code: str = "R4KX") -> dict:
         "feed": [], "emotes": [], "history": [],
     }
     for q in h["quests"]:
+        q.setdefault("kind", "tidy")
         q.update(stage="Ready", things=[], keeperLine="", confidence=1.0, attempt=0)
     save(h)
     return h

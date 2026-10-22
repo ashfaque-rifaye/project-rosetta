@@ -9,6 +9,8 @@ no change, low confidence, everything done). Specialists are plain functions wra
   ask_parent      Router: low confidence goes to the parent instead of auto-approving
   complete_quest  Carve the glyph when every Lost Thing is home
   keeper_says     Keeper: the one sentence the TV speaks
+  mark_homework   Tutor: read a homework photo, mark each answer (maths double-checked in code), hint, never answer
+  make_practice   Practice: write practice questions on exactly the skills that went wrong
 
 Every tool writes straight to the household document, so the TV (polling) sees each step land.
 """
@@ -16,7 +18,7 @@ from __future__ import annotations
 
 import logging
 
-from . import config, notify, store, vision
+from . import config, notify, store, tutor, vision
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +129,7 @@ def ask_parent(reason: str) -> str:
 def complete_quest() -> str:
     """Carve the quest's glyph into the Family Stone. Only call when every Lost Thing is home."""
     q = _ctx.q
-    if any(not t["returned"] for t in q["things"]):
+    if q.get("kind") != "study" and any(not t["returned"] for t in q["things"]):
         return "REFUSED: some Lost Things are still lost"
     q["stage"] = "Done"
     for g in _ctx.h["glyphs"]:
@@ -135,7 +137,7 @@ def complete_quest() -> str:
             g["earnedBy"] = q["kidId"]
     record_finish(_ctx.h, q)
     notify.emit(_ctx.h, "quest_done", f"{_ctx.kid['name']} finished “{q['title']}” ✅",
-                f"{len(q['things'])} Lost Things are home. A glyph was carved into the Family Stone.",
+                f"{_done_detail(q)} A glyph was carved into the Family Stone.",
                 by="QuestMaster", data={"questId": q["id"], "kidId": q["kidId"]})
     _ctx.save()
     done = sum(1 for g in _ctx.h["glyphs"] if g.get("earnedBy"))
@@ -153,6 +155,44 @@ def keeper_says(situation: str) -> str:
     return line
 
 
+@tool
+def mark_homework() -> str:
+    """Tutor: read the quest's homework photo, mark every answer and add a hint to each wrong one (never the answer).
+    Returns 'NOT_HOMEWORK', or a summary with the score, the confidence and the skills that went wrong."""
+    q = _ctx.q
+    _log("QuestMaster", "Homework photo received · routing to Tutor", tool_name="mark_homework")
+    marked = tutor.tutor_check(store.photo_bytes(q["beforeKey"]), _ctx.kid["age"])
+    if not marked["isHomework"] or not marked["items"]:
+        q["stage"] = "AwaitingBefore"
+        _ctx.save()
+        return "NOT_HOMEWORK"
+    right = sum(1 for i in marked["items"] if i["correct"])
+    q.update(stage="Checked", homework=marked, confidence=marked["confidence"])
+    by_code = sum(1 for i in marked["items"] if i["checkedBy"] == "math")
+    _log("Tutor", f"{right} of {len(marked['items'])} right · {marked['topic']}", confidence=marked["confidence"])
+    if by_code:
+        _log("Tutor", f"{by_code} answers double-checked with exact maths", tool_name="mathcheck")
+    _ctx.save()
+    wrong = sorted({i["skill"] for i in marked["items"] if not i["correct"]})
+    return f"score {right}/{len(marked['items'])}; confidence={marked['confidence']:.2f}; to practise: {', '.join(wrong) or 'none'}"
+
+
+@tool
+def make_practice() -> str:
+    """Practice: write 5 practice questions on the skills the child got wrong, and put them on the TV and phone.
+    Only call after mark_homework found at least one wrong answer."""
+    q = _ctx.q
+    mistakes = [i for i in q["homework"]["items"] if not i["correct"]]
+    if not mistakes:
+        return "NOTHING_TO_PRACTISE"
+    qs = tutor.practice(_ctx.kid["age"], q["homework"]["topic"], mistakes)
+    q.update(stage="Practising", practice=qs, answers={})
+    _log("Coach", f"{len(qs)} practice questions on " + ", ".join(sorted({m['skill'] for m in mistakes}))[:80],
+         tool_name="make_practice")
+    _ctx.save()
+    return f"{len(qs)} practice questions ready"
+
+
 QUEST_MASTER_PROMPT = f"""You are Quest Master, the coordinator of Rosetta's agent crew on a family Fire TV.
 A child's phone just uploaded a photo for a tidy-up quest. Decide which tools to call, then stop.
 
@@ -164,11 +204,32 @@ A child's phone just uploaded a photo for a tidy-up quest. Decide which tools to
     will take a look.
   - nothing still lost: call complete_quest, then keeper_says celebrating and mentioning the Family Stone.
   - otherwise: keeper_says naming exactly what is still lost and where it belongs.
+For a HOMEWORK quest (a photo of a worksheet):
+  - call mark_homework. If it returns NOT_HOMEWORK, keeper_says asking kindly for a clear photo of the whole sheet.
+  - confidence below {config.AUTO_APPROVE_CONFIDENCE}: call ask_parent (the handwriting may have been misread), then keeper_says.
+  - every answer right: call complete_quest, then keeper_says celebrating something specific.
+  - otherwise call make_practice, then keeper_says praising what went well and inviting them to the practice round.
+    Never tell the child a correct answer.
 Always finish with exactly one keeper_says call. Never invent items the tools did not report."""
 
 
 def _deterministic(phase: str) -> None:
     """Same policy without the LLM orchestrator (used when Strands isn't available)."""
+    if _ctx.q.get("kind") == "study":
+        r = mark_homework()
+        if r == "NOT_HOMEWORK":
+            keeper_says("The photo didn't show a homework sheet clearly; ask kindly for a clear photo of the whole page.")
+        elif _ctx.q["confidence"] < config.AUTO_APPROVE_CONFIDENCE:
+            ask_parent(f"Tutor is only {_ctx.q['confidence']:.0%} sure it read the handwriting")
+            keeper_says("Say a grown-up will take a quick look at the homework.")
+        elif all(i["correct"] for i in _ctx.q["homework"]["items"]):
+            complete_quest()
+            keeper_says(f"Tutor result: {r}. Everything is right; celebrate and mention the Family Stone.")
+        else:
+            make_practice()
+            keeper_says(f"Tutor result: {r}. Praise what went well and invite them to a short practice round. "
+                        "Do not give any answers.")
+        return
     if phase == "before":
         r = scout_room()
         keeper_says("The photo didn't show the room clearly; ask for another photo." if r.startswith("NO")
@@ -189,15 +250,35 @@ def _deterministic(phase: str) -> None:
         keeper_says(f"Judge result: {r}. Name what is still lost and where it belongs.")
 
 
+def _done_detail(q: dict) -> str:
+    if q.get("kind") == "study" and q.get("homework"):
+        items = q["homework"]["items"]
+        return f"Homework {sum(1 for i in items if i['correct'])}/{len(items)} right."
+    return f"{len(q.get('things', []))} Lost Things are home."
+
+
 def record_finish(h: dict, q: dict) -> None:
     """Habit history for Growth and the Digest agent: one row per finished quest."""
     import time
     opened = q.get("openedAtMs") or int(time.time() * 1000)
     h["history"] = (h.get("history", []) + [{
-        "kidId": q["kidId"], "questId": q["id"], "roomId": q["roomId"], "atMs": int(time.time() * 1000),
+        "kidId": q["kidId"], "questId": q["id"], "roomId": q.get("roomId", ""), "atMs": int(time.time() * 1000),
         "minutes": max(1, (int(time.time() * 1000) - opened) // 60000), "selfStarted": bool(q.get("selfStarted")),
         "items": len(q.get("things", [])),
+        **_study_row(q),
     }])[-500:]
+
+
+def _study_row(q: dict) -> dict:
+    """Learning fields for Growth: score, practice result and the skills that needed work."""
+    if q.get("kind") != "study" or not q.get("homework"):
+        return {"kind": "tidy"}
+    items = q["homework"]["items"]
+    return {"kind": "study", "subject": q["homework"]["subject"], "topic": q["homework"]["topic"],
+            "right": sum(1 for i in items if i["correct"]), "total": len(items),
+            "practiceRight": sum(1 for v in q.get("answers", {}).values() if v.get("correct")),
+            "practiceTotal": len(q.get("practice", [])),
+            "skills": sorted({i["skill"] for i in items if not i["correct"]})}
 
 
 def run(code: str, quest_id: str, phase: str) -> None:
@@ -210,9 +291,11 @@ def run(code: str, quest_id: str, phase: str) -> None:
     master = Agent(
         model=BedrockModel(model_id=config.MODEL_ID, region_name=config.REGION, temperature=0.1),
         system_prompt=QUEST_MASTER_PROMPT,
-        tools=[scout_room, check_after, ask_parent, complete_quest, keeper_says],
+        tools=[mark_homework, make_practice, ask_parent, complete_quest, keeper_says] if _ctx.q.get("kind") == "study"
+        else [scout_room, check_after, ask_parent, complete_quest, keeper_says],
         callback_handler=None,
     )
     kid = _ctx.kid
-    master(f"New {phase.upper()} photo for {kid['name']} (age {kid['age']}), quest '{_ctx.q['title']}'. "
+    kind = "HOMEWORK" if _ctx.q.get("kind") == "study" else "tidy-up"
+    master(f"New {phase.upper()} photo for {kid['name']} (age {kid['age']}), {kind} quest '{_ctx.q['title']}'. "
            f"Current stage: {_ctx.q['stage']}.")
