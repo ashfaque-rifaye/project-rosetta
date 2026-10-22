@@ -38,7 +38,7 @@ TUTOR_TOOL = {
                             "expected": {"type": "string", "description": "The correct answer from your working. Never shown to the child."},
                             "correct": {"type": "boolean", "description": "True only if kid_answer matches expected"},
                             "box": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4,
-                                    "description": "[x1, y1, x2, y2] in 0-1000 image coordinates around the question and its answer"},
+                                    "description": "[x1, y1, x2, y2] in 0-1000 image coordinates around the child's handwritten answer only"},
                             "skill": {"type": "string", "description": "The skill this question practises, 2-5 words"},
                             "hint": {"type": "string",
                                      "description": "Only when wrong: one short hint that names the child's actual slip and the method. Never state the right answer."},
@@ -58,7 +58,7 @@ TUTOR_SYSTEM = (
     "An answer that is right but not in the form the question asks for (for example not "
     "simplified when asked to simplify) is not correct. For each wrong answer give ONE short hint (max 20 words) that "
     "explains the method to use, written for the child. Do not guess what the child did wrong unless it is obvious. NEVER reveal the correct answer, not even partly. "
-    "Be warm and specific; never shame. Boxes must cover the question and the child's answer. Give an honest confidence: "
+    "Be warm and specific; never shame. Each box must tightly cover the child's handwritten answer only. Give an honest confidence: "
     "lower it if handwriting is unclear or the photo is cut off."
 )
 

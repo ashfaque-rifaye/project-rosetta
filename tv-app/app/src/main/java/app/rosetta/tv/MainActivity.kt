@@ -90,14 +90,31 @@ class MainActivity : ComponentActivity() {
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
                 var pendingReward by remember { mutableStateOf<QuestReward?>(null) }
 
+                var arenaQuizPending by remember { mutableStateOf(false) }
+
                 LaunchedEffect(Unit) { repo.rewards.collect { pendingReward = it } }
                 BackHandler(enabled = screen != Screen.Home && screen !is Screen.Reward) { screen = Screen.Home }
+                LaunchedEffect(arenaQuizPending, household.quiz) {
+                    val quiz = household.quiz
+                    if (arenaQuizPending && quiz != null && !quiz.done && quiz.questions.isNotEmpty()) {
+                        arenaQuizPending = false
+                        ArenaLauncher.quizIntent(this@MainActivity, household)?.let(arena::launch)
+                    }
+                }
 
                 Box(Modifier.fillMaxSize().onPreviewKeyEvent {
-                    // Hidden developer hook: fast-forward stands in for a sibling's phone sending an emote.
-                    if (it.type == KeyEventType.KeyDown && it.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
-                        repo.emote(household.kids.random().id, listOf("🔥", "💀", "🫶", "⚡", "🏆", "😭").random()); true
-                    } else false
+                    when {
+                        // Hidden developer hook: fast-forward stands in for a sibling's phone sending an emote.
+                        it.type == KeyEventType.KeyDown && it.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                            repo.emote(household.kids.random().id, listOf("🔥", "💀", "🫶", "⚡", "🏆", "😭").random()); true
+                        }
+                        // One Back press goes Home: on TV, Compose otherwise spends the first press clearing focus.
+                        it.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_BACK && screen != Screen.Home && screen !is Screen.Reward -> {
+                            if (it.type == KeyEventType.KeyUp) { arenaQuizPending = false; screen = Screen.Home }
+                            true
+                        }
+                        else -> false
+                    }
                 }) {
                 AnimatedContent(
                     targetState = screen,
@@ -119,9 +136,10 @@ class MainActivity : ComponentActivity() {
                                     // The Stone Trial runs in the Unity arena when it's installed, natively otherwise.
                                     HomeTab.Quiz -> {
                                         if (household.quiz == null || household.quiz?.done == true) repo.startQuiz()
-                                        val q = repo.household.value
-                                        ArenaLauncher.quizIntent(this@MainActivity, q)?.takeIf { ArenaLauncher.isInstalled(this@MainActivity) }
-                                            ?.let { arena.launch(it); Screen.Quiz } ?: Screen.Quiz
+                                        // On-device the quiz is ready at once; live, the Quizmaster takes a few seconds,
+                                        // so the Stone Trial opens (below) as soon as its questions land.
+                                        arenaQuizPending = ArenaLauncher.isInstalled(this@MainActivity)
+                                        Screen.Quiz
                                     }
                                     HomeTab.Raid -> ArenaLauncher.intent(this@MainActivity, household)
                                         ?.takeIf { ArenaLauncher.isInstalled(this@MainActivity) }

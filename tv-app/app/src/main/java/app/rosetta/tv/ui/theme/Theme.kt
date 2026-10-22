@@ -1,7 +1,11 @@
 package app.rosetta.tv.ui.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -60,7 +64,16 @@ private val typography = Typography(
     labelMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 1.4.sp),
 )
 
+/** Every screen is laid out on a 1440 x 810 dp canvas (16:9). */
+const val CANVAS_WIDTH_DP = 1440f
+
 @Composable
 fun RosettaTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    // Scale the canvas to the screen so a 1080p Fire TV (320 dpi, only 960 x 540 dp), a 720p one and a 4K one all
+    // show the same picture, at any user font size: the 10-foot layout is designed, not reflowed.
+    val metrics = LocalContext.current.resources.displayMetrics
+    val canvas = Density(maxOf(metrics.widthPixels, metrics.heightPixels) / CANVAS_WIDTH_DP, fontScale = 1f)
+    CompositionLocalProvider(LocalDensity provides canvas) {
+        MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    }
 }

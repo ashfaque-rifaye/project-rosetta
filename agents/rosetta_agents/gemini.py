@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import functools
 import io
+import threading
 import time
 import wave
 from typing import Any
@@ -30,8 +31,18 @@ def client_args() -> dict[str, Any]:
     }
 
 
-@functools.lru_cache(maxsize=1)
+_lock = threading.Lock()
+
+
 def client() -> genai.Client:
+    # One shared client, made under a lock: a second, uncached client made in a race is garbage-collected (and its
+    # HTTP connection closed) mid-request. Strands can run tools on several threads at once.
+    with _lock:
+        return _client()
+
+
+@functools.lru_cache(maxsize=1)
+def _client() -> genai.Client:
     c = genai.Client(**client_args())
     api = c._api_client
     base_url = (api._http_options.base_url or "") if api._http_options else ""
@@ -53,7 +64,8 @@ def labels(purpose: str) -> dict[str, str]:
 # ---------------------------------------------------------------- structured output (the crew's tool schemas)
 # The prompts and the rest of the code use boxes as [x1, y1, x2, y2] on a 0-1000 grid. Gemini is trained to detect in
 # [ymin, xmin, ymax, xmax] on the same grid, so ask for that and convert back here.
-GEMINI_BOX = "[ymin, xmin, ymax, xmax] in 0-1000 image coordinates"
+GEMINI_BOX = ("[ymin, xmin, ymax, xmax] in 0-1000 coordinates of the whole photo. Tight: only the printed or written "
+              "content itself, never the empty margin, the table or the background around it")
 
 
 def _gemini_schema(node: Any) -> Any:
@@ -93,7 +105,8 @@ def structured(content: list[dict], tool: dict, system: str, *, purpose: str) ->
         model=config.GEMINI_MODEL,
         contents=[types.Content(role="user", parts=[_part(b) for b in content])],
         config=types.GenerateContentConfig(
-            system_instruction=f"{system}\n\nRespond with the {spec['name']} JSON: {spec['description']}",
+            # The bare agent prompt: adding the tool description here made Gemini anchor every box at the page margin.
+            system_instruction=system,
             response_mime_type="application/json",
             response_json_schema=_gemini_schema(spec["inputSchema"]["json"]),
             temperature=0.2,

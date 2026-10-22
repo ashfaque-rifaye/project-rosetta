@@ -143,7 +143,7 @@ class GeminiAdapter(unittest.TestCase):
         schema = gemini._gemini_schema(tutor.TUTOR_TOOL["toolSpec"]["inputSchema"]["json"])
         box = schema["properties"]["items"]["items"]["properties"]["box"]
         self.assertTrue(box["description"].startswith("[ymin, xmin, ymax, xmax]"))
-        self.assertTrue(box["description"].endswith("around the question and its answer"))
+        self.assertTrue(box["description"].endswith("around the child's handwritten answer only"))
         out = gemini._boxes_back({"items": [{"box": [100, 200, 300, 400], "n": 1}]})
         self.assertEqual(out["items"][0]["box"], [200, 100, 400, 300])
 
