@@ -42,3 +42,8 @@ infra/deploy.log
 # Private working notes (owner and AI-agent handoff): kept on disk, never published
 HANDOFF.md
 docs/history/
+
+# Raw Veo/Lyria/image outputs (reproducible with assets/intro/make_intro.py)
+assets/intro/takes/
+assets/intro/music/
+assets/intro/avatars/

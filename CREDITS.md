@@ -36,6 +36,11 @@ All sound effects are original and synthesized from code (`assets/sfx/make_sfx.p
 ## Voice
 The Keeper's voice is generated with Google Gemini text-to-speech on Vertex AI (prebuilt voice "Sulafat") from lines written by our agents or by us (`agents/rosetta_agents/voice.py`, `assets/voice/make_keeper_voice.py`).
 
+## Intro, music and parent portraits
+- **Intro video:** generated with **Google Veo 3.1** on Vertex AI (8 s, text-free; prompt in `assets/intro/make_intro.py`: a carved stone in a miniature living room whose star sockets ignite one by one, then a golden light sweep). The ROSETTA wordmark is drawn by the TV app.
+- **Music:** the intro sting and the home-screen theme are original instrumental pieces generated with **Google Lyria 2** (`lyria-002`) on Vertex AI, mixed with ffmpeg.
+- **Mom and Dad portraits:** generated with Gemini image models on Vertex AI, using the kids' Flow avatars as style references.
+
 ## Demo video
 Footage is screen recordings of the app running on the Android TV emulator plus the phone pages. Any staged scene is
 labelled "dramatization". No third-party music or trademarks.
