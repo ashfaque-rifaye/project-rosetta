@@ -1,16 +1,16 @@
-"""Answers and the family Quiz Battle. Plain logic over the household document (no model calls except building a quiz).
+"""Answers and Family Quiz Night. Plain logic over the household document (no model calls except building a quiz).
 
 Practice: each homework quest that had mistakes gets practice questions (crew.make_practice). The kid answers on the
-TV remote or the phone; when every question has an answer the quest is done and its glyph is carved.
+TV remote or the phone; when every question has an answer the quest is done and pays out (family.finish).
 
-Quiz Battle: a co-op round for the whole family built from what the kids studied this week. Every right answer lights
-one glyph of the Stone Trial; nobody is ranked.
+Family Quiz Night: a co-op round built from each child's grade, upcoming tests and this week's mistakes. The family
+counts right answers together; nobody is ranked.
 """
 from __future__ import annotations
 
 import time
 
-from . import crew, notify, store, tutor, voice
+from . import family, notify, store, tutor, voice
 
 
 def _now() -> int:
@@ -33,15 +33,12 @@ def answer_practice(h: dict, quest_id: str, question_id: str, choice: int) -> di
         kid = store.kid(h, q["kidId"])
         q.update(stage="Done")
         voice.set_line(q, f"{right} of {len(q['practice'])} in practice. That's how skills grow, {kid['name']}!")
-        for g in h["glyphs"]:
-            if g["id"] == q["glyphId"]:
-                g["earnedBy"] = q["kidId"]
-        crew.record_finish(h, q)
+        family.finish(h, q)
         hw = q["homework"]["items"]
         notify.emit(h, "quest_done", f"{kid['name']} finished “{q['title']}” ✅",
                     f"Homework {sum(1 for i in hw if i['correct'])}/{len(hw)} right, then {right}/{len(q['practice'])} in practice "
                     f"on {', '.join(sorted({i['skill'] for i in hw if not i['correct']}))}.",
-                    by="Coach", data={"questId": q["id"], "kidId": q["kidId"]})
+                    by="Rosetta", data={"questId": q["id"], "kidId": q["kidId"]})
     return {"correct": correct, "why": pq["why"], "done": done}
 
 
@@ -63,12 +60,13 @@ def studied_this_week(h: dict) -> list[dict]:
 
 
 def start_quiz(h: dict, count: int = 8) -> dict:
-    kids = [{"id": k["id"], "name": k["name"], "age": k["age"]} for k in h["kids"]]
+    kids = [{"id": k["id"], "name": k["name"], "age": k["age"], "grade": k.get("grade", ""),
+             "subjects": k.get("subjects", []), "upcomingTests": k.get("upcomingTests", [])} for k in h["kids"]]
     questions = tutor.quiz(kids, studied_this_week(h), count)
-    h["quiz"] = {"id": f"quiz_{_now()}", "title": "Family Quiz Battle", "questions": questions, "answers": [],
+    h["quiz"] = {"id": f"quiz_{_now()}", "title": "Family Quiz Night", "questions": questions, "answers": [],
                  "lit": 0, "goal": len(questions), "done": False, "startedAtMs": _now()}
-    notify.emit(h, "quiz_started", "Family Quiz Battle is on 📺", f"{len(questions)} questions from this week's homework.",
-                by="Quizmaster", notify=False)
+    notify.emit(h, "quiz_started", "Family Quiz Night is on 📺",
+                f"✦ {len(questions)} questions from each child's grade, tests and this week's homework.", by="Rosetta", notify=False)
     return h["quiz"]
 
 
@@ -86,6 +84,24 @@ def answer_quiz(h: dict, question_id: str, kid_id: str, choice: int) -> dict:
         quiz["lit"] += 1
     if len(quiz["answers"]) == len(quiz["questions"]):
         quiz["done"] = True
-        notify.emit(h, "quiz_done", f"Quiz Battle: {quiz['lit']} of {quiz['goal']} glyphs lit 🏆",
-                    "The family played together tonight.", by="Quizmaster")
+        _quiz_rewards(h, quiz)
+        notify.emit(h, "quiz_done", f"Family Quiz Night: {quiz['lit']} of {quiz['goal']} right 🏆",
+                    "The family played together tonight.", by="Rosetta")
     return {"correct": correct, "why": qq["why"], "done": quiz["done"], "lit": quiz["lit"]}
+
+
+def _quiz_rewards(h: dict, quiz: dict) -> None:
+    """Co-op: everyone gets 5 coins and 5 XP per right answer the family found, and a star if most were right."""
+    for k in h["kids"]:
+        family.grant(k, 5 * quiz["lit"], 5 * quiz["lit"])
+        h["history"] = (h["history"] + [{
+            "kidId": k["id"], "questId": quiz["id"], "kind": "quiz", "title": "Family Quiz Night", "atMs": _now(),
+            "day": family.today(), "minutes": max(1, (_now() - quiz.get("startedAtMs", _now())) // 60000), "items": 0,
+            "right": sum(1 for a in quiz["answers"] if a["kidId"] == k["id"] and a["correct"]),
+            "total": sum(1 for a in quiz["answers"] if a["kidId"] == k["id"]), "xp": 5 * quiz["lit"], "coins": 5 * quiz["lit"], "money": 0,
+        }])[-1000:]
+        k["streak"] = family._day_streak(h, k["id"])
+    if quiz["goal"] and quiz["lit"] * 2 >= quiz["goal"] and len(h["stars"]) < h.get("starsGoal", family.STAR_GOAL):
+        h["stars"].append({"id": f"star{len(h['stars']) + 1}", "earnedBy": "family", "questId": quiz["id"],
+                           "title": "Family Quiz Night", "atMs": _now()})
+    quiz["reward"] = {"coinsEach": 5 * quiz["lit"], "star": quiz["goal"] > 0 and quiz["lit"] * 2 >= quiz["goal"]}

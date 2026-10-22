@@ -8,25 +8,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rosetta_agents import crew, gemini, handlers, store, vision  # noqa: E402
+from rosetta_agents import crew, family, gemini, handlers, store, vision  # noqa: E402
 
 DB: dict = {}
 PHOTOS: dict = {}
 
 
 def _install_fakes():
-    store.load = lambda code: json.loads(DB[code])
+    store.load = lambda code: family.ensure(json.loads(DB[code]))
     store.save = lambda h: DB.__setitem__(h["code"], json.dumps(h))
     store.photo_bytes = lambda key: PHOTOS[key]
     store.put_voice = lambda key, wav: VOICES.__setitem__(key, wav)
     store.voice_exists = lambda key: key in VOICES
     gemini.speak = lambda text, **kw: b"RIFF:" + text.encode()  # never call Google from tests
     store.presign_get = lambda key: f"https://example/{key}?sig"
-    store.presign_put = lambda key: f"https://example/put/{key}?sig"
+    store.presign_put = lambda key, content_type="image/jpeg": f"https://example/put/{key}?sig"
+    store.keep = lambda src, dst: PHOTOS.__setitem__(dst, PHOTOS[src]) or dst
     crew.Agent = None  # exercise the deterministic policy (same rules as the Strands prompt)
 
     def scout(photo, age):
-        return {"is_room": photo != b"cat", "things": [
+        if photo == b"tidy":
+            return {"is_room": True, "things": [], "what_i_see": "a neat bedroom"}
+        return {"is_room": photo != b"cat", "what_i_see": "a cat on a sofa" if photo == b"cat" else "a messy bedroom", "things": [
             {"id": "sock", "name": "A lonely sock", "character": "sock", "box": [0.1, 0.8, 0.2, 0.9], "home": "basket", "stars": 1, "returned": False},
             {"id": "jacket", "name": "The jacket", "character": "jacket", "box": [0.5, 0.3, 0.6, 0.5], "home": "hook", "stars": 1, "returned": False},
         ]}
@@ -35,14 +38,19 @@ def _install_fakes():
         done = {"after-partial": {"sock"}, "after-done": {"sock", "jacket"}, "after-unsure": {"sock", "jacket"}}.get(after.decode(), set())
         return {"same_room": after != b"other-room", "changed": after != before,
                 "returned": {t["id"]: t["id"] in done for t in things},
-                "confidence": 0.4 if after == b"after-unsure" else 0.9}
+                "confidence": 0.4 if after == b"after-unsure" else 0.9, "what_i_see": "a kitchen" if after == b"other-room" else "a bedroom"}
 
     vision.scout, vision.judge = scout, judge
     from rosetta_agents import notify
     notify._push = lambda sub, ev: SENT.append(("push", ev["kind"])) or True
     notify._email = lambda to, ev: SENT.append(("email", ev["kind"])) or True
     notify._sms = lambda to, ev: SENT.append(("sms", ev["kind"])) or True
-    vision.keeper = lambda name, age, situation: f"[{name}] {situation[:40]}"
+    vision.keeper = lambda name, age, situation: f"[{name}] {situation[:60]}"
+    vision.digest = lambda name, age, stats: {"headline": f"{name} did {stats['tasks_done_this_week']} tasks", "notes": ["real note"]}
+    vision.listen = lambda audio, mime, task, age, name="": {"transcript": audio.decode(), "summary": "Read 10 pages of a dinosaur book.",
+                                                    "about": audio != b"silence", "mood": "happy"}
+    vision.check_proof = lambda photo, task: {"done": photo == b"made-bed", "confidence": 0.9,
+                                              "what_i_see": "a neatly made bed" if photo == b"made-bed" else "a cat on a sofa"}
 
 
 SENT = []
@@ -57,7 +65,7 @@ def call(method, path, body=None, pin=None):
 
 
 def upload(code, qid, phase, n, data):
-    key = f"uploads/{code}/{qid}/{phase}-{n}.jpg"
+    key = f"uploads/{code}/{qid}/{phase}-{n}.{'webm' if phase == 'voice' else 'jpg'}"
     PHOTOS[key] = data
     handlers.on_upload({"Records": [{"s3": {"object": {"key": key}}}]}, None)
 
@@ -73,7 +81,7 @@ class QuestFlow(unittest.TestCase):
     def q(self):
         return store.quest(store.load("R4KX"), "q_arjun_room")
 
-    def test_full_quest_carves_last_glyph(self):
+    def test_full_quest_pays_out_and_earns_a_star(self):
         self.assertEqual(call("POST", "/household/R4KX/quests/q_arjun_room/open")[1]["stage"], "AwaitingBefore")
         status, up = call("POST", "/household/R4KX/upload", {"questId": "q_arjun_room"})
         self.assertEqual((status, up["phase"]), (200, "before"))
@@ -91,7 +99,11 @@ class QuestFlow(unittest.TestCase):
         upload("R4KX", "q_arjun_room", "after", 2, b"after-done")
         h = store.load("R4KX")
         self.assertEqual(store.quest(h, "q_arjun_room")["stage"], "Done")
-        self.assertEqual(sum(1 for g in h["glyphs"] if g["earnedBy"]), 8)  # homework carves the 9th (test_learning)
+        self.assertEqual(len(h["stars"]), 1)
+        arjun = family.kid(h, "arjun")
+        self.assertEqual((arjun["coins"], arjun["streak"]), (30, 1))
+        self.assertEqual([e["character"] for e in h["squad"]], ["sock", "jacket"])
+        self.assertEqual(store.quest(h, "q_arjun_room")["lastReward"]["coins"], 30)
 
         _, view = call("GET", "/household/R4KX")
         self.assertTrue(store.quest(view, "q_arjun_room")["afterUrl"].startswith("https://"))
@@ -117,12 +129,12 @@ class QuestFlow(unittest.TestCase):
         upload("R4KX", "q_arjun_room", "before", 0, b"room")
         upload("R4KX", "q_arjun_room", "after", 1, b"after-unsure")
         self.assertTrue(self.q()["needsParent"])
-        self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 8)
+        self.assertEqual(len(store.load("R4KX")["stars"]), 0)
         self.assertEqual(call("POST", "/household/R4KX/quests/q_arjun_room/approve")[0], 403)  # kids can't approve
         self.assertIn(("push", "needs_approval"), SENT)
         call("POST", "/household/R4KX/quests/q_arjun_room/approve", pin="2468")
         self.assertEqual(self.q()["stage"], "Done")
-        self.assertEqual(sum(1 for g in store.load("R4KX")["glyphs"] if g["earnedBy"]), 8)
+        self.assertEqual(len(store.load("R4KX")["stars"]), 1)
 
     def test_emotes_are_allow_listed(self):
         self.assertEqual(call("POST", "/household/R4KX/emote", {"kidId": "meera", "emoji": "🔥"})[0], 200)

@@ -12,7 +12,7 @@ import time
 
 import boto3
 
-from . import config
+from . import config, family
 
 _ddb = boto3.resource("dynamodb", region_name=config.REGION)
 _s3 = boto3.client("s3", region_name=config.REGION)
@@ -26,7 +26,7 @@ def load(code: str) -> dict:
     item = _table().get_item(Key={"code": code}).get("Item")
     if not item:
         raise KeyError(code)
-    return json.loads(item["doc"])
+    return family.ensure(json.loads(item["doc"]))
 
 
 def save(h: dict) -> None:
@@ -50,10 +50,16 @@ def presign_get(key: str) -> str:
     return _s3.generate_presigned_url("get_object", Params={"Bucket": config.BUCKET, "Key": key}, ExpiresIn=900)
 
 
-def presign_put(key: str) -> str:
+def presign_put(key: str, content_type: str = "image/jpeg") -> str:
     return _s3.generate_presigned_url(
-        "put_object", Params={"Bucket": config.BUCKET, "Key": key, "ContentType": "image/jpeg"}, ExpiresIn=600,
+        "put_object", Params={"Bucket": config.BUCKET, "Key": key, "ContentType": content_type}, ExpiresIn=600,
     )
+
+
+def keep(src_key: str, dst_key: str) -> str:
+    """Copy an upload (deleted after a day) to memories/ (kept 90 days) so parents can replay it."""
+    _s3.copy_object(Bucket=config.BUCKET, Key=dst_key, CopySource={"Bucket": config.BUCKET, "Key": src_key})
+    return dst_key
 
 
 def put_voice(key: str, wav: bytes) -> None:
@@ -69,8 +75,17 @@ def voice_exists(key: str) -> bool:
 
 
 def public_view(h: dict) -> dict:
-    """What the TV and phones receive: photo keys swapped for short-lived URLs."""
+    """What the TV and phones receive: photo and audio keys swapped for short-lived URLs, TV time worked out."""
     v = copy.deepcopy(h)
+    v["today"] = family.today()
+    v["tvTime"] = family.tv_status(h)
+    for k in v["kids"]:
+        k["xpForNext"] = family.xp_for_next(k["level"])
+    for m in v.get("memories", []):
+        if m.get("audioKey"):
+            m["audioUrl"] = presign_get(m.pop("audioKey"))
+        if m.get("photoKey"):
+            m["photoUrl"] = presign_get(m.pop("photoKey"))
     v.pop("parentPin", None)  # never sent to devices
     for p in v.get("parents", []):
         p.pop("push", None); p.pop("email", None); p.pop("phone", None)
@@ -79,6 +94,11 @@ def public_view(h: dict) -> dict:
             q["beforeUrl"] = presign_get(q.pop("beforeKey"))
         if q.get("afterKey"):
             q["afterUrl"] = presign_get(q.pop("afterKey"))
+        c = q.get("checkin") or {}
+        if c.get("audioKey"):
+            c["audioUrl"] = presign_get(c.pop("audioKey"))
+        if c.get("photoKey"):
+            c["photoUrl"] = presign_get(c.pop("photoKey"))
         voice = q.pop("keeperVoice", None)  # a clip only counts for the exact line it speaks
         if voice and voice["line"] == q.get("keeperLine"):
             q["keeperAudioUrl"] = presign_get(voice["key"])
@@ -88,19 +108,13 @@ def public_view(h: dict) -> dict:
     return v
 
 
-# The same demo household the TV bundles, so live and demo modes look identical.
+# The demo family starts with nothing earned: every star, coin, streak and memory on screen is real.
 def seed(code: str = "R4KX") -> dict:
-    glyphs = [
-        ("g_bed", "Bed Maker", "bed", "meera"), ("g_books", "Book Keeper", "books", "arjun"),
-        ("g_shirt", "Fold Master", "shirt", "meera"), ("g_plant", "Plant Guardian", "plant", "arjun"),
-        ("g_broom", "Sweep Hero", "broom", "arjun"), ("g_dish", "Dish Hero", "dish", "meera"),
-        ("g_package", "Package Detective", "package", "arjun"), ("g_shoes", "Shoe Parade", "shoes", "meera"),
-        ("g_scholar", "Homework Hero", "scholar", ""),
-    ]
     h = {
         "code": code,
-        "name": "The Rao household",
-        "kids": [{"id": "arjun", "name": "Arjun", "age": 8}, {"id": "meera", "name": "Meera", "age": 6}],
+        "name": "The Rao family",
+        "kids": [{"id": "arjun", "name": "Arjun", "age": 8, "grade": "Grade 3"},
+                 {"id": "meera", "name": "Meera", "age": 6, "grade": "Grade 1"}],
         "rooms": [
             {"id": "arjun_room", "name": "Arjun's room", "rect": [0.282, 0.280, 0.500, 0.521], "ownerId": "arjun"},
             {"id": "meera_room", "name": "Meera's room", "rect": [0.509, 0.280, 0.723, 0.521], "ownerId": "meera"},
@@ -109,23 +123,21 @@ def seed(code: str = "R4KX") -> dict:
             {"id": "balcony", "name": "Balcony", "rect": [0.736, 0.378, 0.807, 0.540]},
         ],
         "quests": [
-            {"id": "q_arjun_homework", "kind": "study", "kidId": "arjun", "roomId": "arjun_room", "title": "Fractions homework", "glyphId": "g_scholar"},
-            {"id": "q_meera_homework", "kind": "study", "kidId": "meera", "roomId": "meera_room", "title": "Adding and taking away", "glyphId": "next_counter"},
-            {"id": "q_arjun_room", "kidId": "arjun", "roomId": "arjun_room", "title": "Rescue the Lost Things", "glyphId": "next_rescue"},
-            {"id": "q_balcony", "kidId": "meera", "roomId": "balcony", "title": "Water the balcony garden", "glyphId": "next_garden"},
-            {"id": "q_kitchen", "kidId": "arjun", "roomId": "kitchen", "title": "Kitchen crew: clear the table", "glyphId": "next_crew"},
+            {"id": "q_arjun_homework", "kind": "study", "kidId": "arjun", "roomId": "arjun_room", "title": "Fractions homework", "mustDo": True},
+            {"id": "q_meera_homework", "kind": "study", "kidId": "meera", "roomId": "meera_room", "title": "Adding and taking away", "mustDo": True},
+            {"id": "q_arjun_room", "kind": "tidy", "kidId": "arjun", "roomId": "arjun_room", "title": "Tidy your room", "mustDo": False},
         ],
-        "glyphs": [{"id": i, "name": n, "asset": a, "earnedBy": e} for i, n, a, e in glyphs],
         # Parent PIN gates approvals, settings and parent messages; change it from Mission Control in a real home.
         "parentPin": os.environ.get("ROSETTA_PARENT_PIN", "2468"),
         "parents": [
-            {"id": "mom", "name": "Mom", "push": [], "alerts": {"push": True, "email": False, "sms": False}},
-            {"id": "dad", "name": "Dad", "push": [], "alerts": {"push": True, "email": False, "sms": False}},
+            {"id": "mom", "name": "Mom", "avatar": "mom", "push": [], "alerts": {"push": True, "email": False, "sms": False}},
+            {"id": "dad", "name": "Dad", "avatar": "dad", "push": [], "alerts": {"push": True, "email": False, "sms": False}},
         ],
         "feed": [], "emotes": [], "history": [],
     }
     for q in h["quests"]:
-        q.setdefault("kind", "tidy")
-        q.update(stage="Ready", things=[], keeperLine="", confidence=1.0, attempt=0)
+        q.update(stage="Ready", things=[], keeperLine="", confidence=1.0, attempt=0, proof="photo", due=family.today())
+    family.ensure(h)
+    family.daily(h)
     save(h)
     return h

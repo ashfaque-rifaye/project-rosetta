@@ -20,8 +20,9 @@ TUTOR_TOOL = {
         "description": "Mark a child's homework sheet question by question.",
         "inputSchema": {"json": {
             "type": "object",
-            "required": ["is_homework", "subject", "topic", "items", "confidence"],
+            "required": ["what_i_see", "is_homework", "subject", "topic", "items", "confidence"],
             "properties": {
+                "what_i_see": {"type": "string", "description": "What the photo actually shows, plain words a child understands, max 14 words."},
                 "is_homework": {"type": "boolean", "description": "True if the photo shows a worksheet or exercise book with answers."},
                 "subject": {"type": "string", "description": "e.g. Maths, English, Science"},
                 "topic": {"type": "string", "description": "Specific topic, e.g. 'Adding fractions with the same denominator'"},
@@ -92,6 +93,7 @@ def tutor_check(photo: bytes, kid_age: int) -> dict:
         })
     return {
         "isHomework": bool(out.get("is_homework", True)),
+        "whatISee": str(out.get("what_i_see", ""))[:120],
         "subject": str(out.get("subject", ""))[:40],
         "topic": str(out.get("topic", ""))[:80],
         "items": items,
@@ -111,13 +113,14 @@ QUESTIONS_TOOL = {
                 "items": {
                     "type": "object", "required": ["prompt", "choices", "answer", "why", "skill"],
                     "properties": {
-                        "prompt": {"type": "string", "description": "The question, max 90 characters, readable on a TV"},
+                        "prompt": {"type": "string", "description": "The question, max 140 characters, readable on a TV"},
                         "choices": {"type": "array", "items": {"type": "string"}, "minItems": 4, "maxItems": 4,
                                     "description": "Four short options (max 18 characters each), exactly one correct"},
                         "answer": {"type": "integer", "minimum": 0, "maximum": 3, "description": "Index of the correct choice"},
                         "why": {"type": "string", "description": "One sentence shown after answering, explaining the method"},
                         "skill": {"type": "string"},
                         "for_kid": {"type": "string", "description": "Child id this question is pitched at (quiz only)"},
+                        "reason": {"type": "string", "description": "Quiz only: why this question, for the parents, e.g. 'Maths test on Friday: fractions' (max 60 characters)"},
                     },
                 },
             }},
@@ -133,19 +136,24 @@ PRACTICE_SYSTEM = (
 )
 
 QUIZ_SYSTEM = (
-    "You are Quizmaster for a family Quiz Battle on the TV. Write {count} multiple-choice questions from what the "
-    "children studied this week. Alternate between the children and pitch each question at that child's level; mark "
-    "it with for_kid. Mix review of mistakes with things they already know so everyone succeeds often. Fun, short, "
-    "no trick questions. If little was studied this week, use maths and general knowledge right for each child's age "
-    "that works for a family anywhere in the world: nature, space, animals, shapes, words. No country-specific history "
-    "or politics."
+    "You write Family Quiz Night for a family TV: {count} multiple-choice questions, alternating between the children "
+    "(mark each with for_kid). Pitch each question at that child's school grade and use, in this order of priority: "
+    "their upcoming tests (subject and topics), the skills they got wrong in this week's homework, then their school "
+    "subjects. When a child has subjects, every one of their questions must come from those subjects (for a Grade 1 "
+    "child doing Maths and English: e.g. a two-step adding word problem, a missing number, a rhyming or spelling "
+    "choice), never colours or trivia. "
+    "Aim for MODERATE difficulty: about half should need two steps of thinking (a short word problem, comparing, "
+    "a pattern, reading a small table), never trick questions, never too easy for the grade. Wrong options are the "
+    "mistakes a child really makes. Give each question a short 'reason' for the parents. If nothing is known about a "
+    "child, use grade-appropriate maths and general knowledge that works for a family anywhere: nature, space, animals, "
+    "shapes, words. No country-specific history or politics."
 )
 
 
 def _questions(out: dict, prefix: str) -> list[dict]:
     qs = []
     for q in out.get("questions", [])[:12]:
-        prompt = str(q.get("prompt", ""))[:120]
+        prompt = str(q.get("prompt", ""))[:160]
         choices = [str(c)[:24] for c in q.get("choices", [])][:4]
         ans = int(q.get("answer", 0))
         if len(choices) != 4 or not 0 <= ans < 4 or len(set(choices)) != 4:
@@ -159,7 +167,7 @@ def _questions(out: dict, prefix: str) -> list[dict]:
         random.Random(prompt).shuffle(order)
         qs.append({"id": f"{prefix}{len(qs) + 1}", "prompt": prompt, "choices": [choices[i] for i in order],
                    "answer": order.index(ans), "why": str(q.get("why", ""))[:200], "skill": str(q.get("skill", ""))[:60],
-                   "forKid": str(q.get("for_kid", ""))})
+                   "forKid": str(q.get("for_kid", "")), "reason": str(q.get("reason", ""))[:80]})
     return qs
 
 
@@ -184,7 +192,25 @@ def practice(kid_age: int, topic: str, mistakes: list[dict], count: int = 5) -> 
 
 
 def quiz(kids: list[dict], studied: list[dict], count: int = 8) -> list[dict]:
-    """kids: [{id, name, age}]; studied: [{kidId, subject, topic, skills, mistakes}]"""
-    out = vision._converse([{"text": json.dumps({"children": kids, "studied_this_week": studied})}], QUESTIONS_TOOL,
-                           QUIZ_SYSTEM.format(count=min(10, count + 2)), max_tokens=2800)
-    return _questions(out, "z")[:count]
+    """kids: [{id, name, age, grade, subjects, upcomingTests}]; studied: [{kidId, topics, needs_work}].
+    Half the questions per child, alternating; retried once if validation drops too many."""
+    brief = json.dumps({"children": kids, "studied_this_week": studied})
+    qs: list[dict] = []
+    for _ in range(2):
+        out = vision._converse([{"text": brief}], QUESTIONS_TOOL, QUIZ_SYSTEM.format(count=min(12, count + 3)), max_tokens=3200)
+        qs = _questions(out, "z")
+        if len(qs) >= count:
+            break
+    return _alternate(qs, [k["id"] for k in kids])[:count]
+
+
+def _alternate(qs: list[dict], kid_ids: list[str]) -> list[dict]:
+    """Take turns fairly: kid A, kid B, kid A... (questions for unknown kids fill in at the end)."""
+    queues = {k: [q for q in qs if q["forKid"] == k] for k in kid_ids}
+    rest = [q for q in qs if q["forKid"] not in queues]
+    out = []
+    while any(queues.values()):
+        for k in kid_ids:
+            if queues[k]:
+                out.append(queues[k].pop(0))
+    return out + rest

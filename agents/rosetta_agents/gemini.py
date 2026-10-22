@@ -64,8 +64,7 @@ def labels(purpose: str) -> dict[str, str]:
 # ---------------------------------------------------------------- structured output (the crew's tool schemas)
 # The prompts and the rest of the code use boxes as [x1, y1, x2, y2] on a 0-1000 grid. Gemini is trained to detect in
 # [ymin, xmin, ymax, xmax] on the same grid, so ask for that and convert back here.
-GEMINI_BOX = ("[ymin, xmin, ymax, xmax] in 0-1000 coordinates of the whole photo. Tight: only the printed or written "
-              "content itself, never the empty margin, the table or the background around it")
+GEMINI_BOX = "[ymin, xmin, ymax, xmax] in 0-1000 coordinates of the whole photo"
 
 
 def _gemini_schema(node: Any) -> Any:
@@ -73,7 +72,9 @@ def _gemini_schema(node: Any) -> Any:
         out = {k: _gemini_schema(v) for k, v in node.items()}
         if isinstance(out.get("properties"), dict) and "box" in out["properties"]:
             box = dict(out["properties"]["box"])
-            box["description"] = GEMINI_BOX + box.get("description", "").split("coordinates", 1)[-1]
+            # Keep what the box should cover (e.g. "around the child's handwritten answer only"), default to the object.
+            target = box.get("description", "").split("coordinates", 1)[-1].strip() or "tight around the object itself"
+            box["description"] = f"{GEMINI_BOX}, {target}"
             out["properties"] = {**out["properties"], "box": box}
         return out
     if isinstance(node, list):
@@ -91,9 +92,11 @@ def _boxes_back(node: Any) -> Any:
 
 
 def _part(block: dict) -> types.Part:
-    """One Bedrock Converse content block ({"text"} or {"image"}) as a Gemini part."""
+    """One Bedrock Converse content block ({"text"}, {"image"} or {"audio"}) as a Gemini part."""
     if "text" in block:
         return types.Part.from_text(text=block["text"])
+    if "audio" in block:  # a kid's voice note (Gemini only)
+        return types.Part.from_bytes(data=block["audio"]["bytes"], mime_type=block["audio"]["mime"])
     img = block["image"]
     return types.Part.from_bytes(data=img["source"]["bytes"], mime_type=f"image/{img['format']}")
 

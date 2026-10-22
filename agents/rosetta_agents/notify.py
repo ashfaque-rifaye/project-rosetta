@@ -33,7 +33,12 @@ ALERTS = {
     "quest_done": ("parents", False),
     "needs_approval": ("parents", True),
     "done_check": ("parents", True),
-    "raid_defeated": ("parents", False),
+    "habit_done": ("parents", False),
+    "wish_request": ("parents", True),
+    "wish_ready": ("parents", False),
+    "tv_request": ("parents", True),
+    "quiz_done": ("parents", False),
+    "goal_done": ("parents", False),
     "streak_risk": ("parents", False),
     "weekly_digest": ("parents", False),
 }
@@ -99,7 +104,7 @@ def _email(to: str, ev: dict) -> bool:
             Source=SES_FROM, Destination={"ToAddresses": [to]},
             Message={
                 "Subject": {"Data": f"Rosetta · {ev['title']}"},
-                "Body": {"Text": {"Data": f"{ev['body']}\n\n{('Open Mission Control: ' + link) if link else ''}"}},
+                "Body": {"Text": {"Data": f"{ev['body']}\n\n{('Open Rosetta for parents: ' + link) if link else ''}"}},
             },
         )
         return True

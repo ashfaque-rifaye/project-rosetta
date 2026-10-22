@@ -60,7 +60,8 @@ class HomeworkFlow(unittest.TestCase):
         self.assertEqual((row["kind"], row["right"], row["total"], row["practiceRight"], row["skills"]),
                          ("study", 1, 2, 2, ["Adding fractions"]))
         self.assertIn(("push", "quest_done"), SENT)
-        self.assertEqual(sum(1 for g in h["glyphs"] if g["earnedBy"]), 9)  # homework completes the Family Stone
+        self.assertEqual(len(h["stars"]), 1)
+        self.assertEqual(self.q()["lastReward"]["coins"], 35)
 
     def test_all_right_completes_without_practice(self):
         _tutor_fakes(items=[ITEMS[0]])
@@ -155,7 +156,7 @@ class QuizBattle(unittest.TestCase):
         DB.clear(); SENT.clear()
         store.seed("R4KX")
 
-    def test_quiz_lights_glyphs_and_finishes(self):
+    def test_quiz_counts_right_answers_together(self):
         quiz = call("POST", "/household/R4KX/quiz/start", {"count": 3})[1]
         self.assertEqual((quiz["goal"], quiz["lit"], quiz["done"]), (3, 0, False))
         call("POST", "/household/R4KX/quiz/answer", {"questionId": "z0", "kidId": "arjun", "choice": 2})

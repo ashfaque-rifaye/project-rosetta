@@ -53,9 +53,10 @@ SCOUT_TOOL = {
         "description": "Report household objects that are out of place and a child could put away.",
         "inputSchema": {"json": {
             "type": "object",
-            "required": ["same_kind_of_room", "items"],
+            "required": ["what_i_see", "same_kind_of_room", "items"],
             "properties": {
-                "same_kind_of_room": {"type": "boolean", "description": "True if this is an indoor room in a home."},
+                "what_i_see": {"type": "string", "description": "What the photo actually shows, in plain words a child understands, max 14 words."},
+                "same_kind_of_room": {"type": "boolean", "description": "True only if the photo shows a room or space in a home (walls, floor, furniture: bedroom, kitchen, living room, balcony). False for a close-up of a paper, a screen, a single object, a person or a pet."},
                 "items": {
                     "type": "array",
                     "maxItems": 6,
@@ -80,10 +81,12 @@ SCOUT_TOOL = {
 
 SCOUT_SYSTEM = (
     "You are Scout, part of Rosetta, a family app that turns tidying into a gentle game for kids. "
-    "Look at the photo of a child's room. List only objects that are clearly OUT OF PLACE (on the floor, "
+    "Look at the photo of a space in a family home (a bedroom, kitchen, living room, balcony...). First say honestly "
+    "what the photo shows. List only objects that are clearly OUT OF PLACE (on the floor, "
     "thrown on furniture, left out) and that a {age}-year-old can put away safely. Ignore things that are "
     "already where they belong (books on shelves, toys in the toy box, clothes on hooks). Never list people, "
-    "pets, or anything dangerous. Prefer the 3-6 most visible items. Choose the closest character for each: "
+    "pets, or anything dangerous. If nothing is out of place, return no items: never invent one. "
+    "Prefer the 3-6 most visible items. Choose the closest character for each: "
     + "; ".join(f"{k} = {v}" for k, v in config.CHARACTERS.items())
     + ". Boxes must tightly cover the object. Give 2 stars only for bigger jobs."
 )
@@ -98,7 +101,7 @@ def scout(photo: bytes, kid_age: int) -> dict:
             "character": it["character"] if it["character"] in config.CHARACTERS else "bricks",
             "box": _norm_box(it["box"]), "home": it["home"], "stars": int(it.get("stars", 1)), "returned": False,
         })
-    return {"is_room": bool(out.get("same_kind_of_room", True)), "things": items}
+    return {"is_room": bool(out.get("same_kind_of_room", True)), "things": items, "what_i_see": str(out.get("what_i_see", ""))[:120]}
 
 
 # ---------------------------------------------------------------- Judge
@@ -108,8 +111,9 @@ JUDGE_TOOL = {
         "description": "Report which Lost Things are back home in the after photo.",
         "inputSchema": {"json": {
             "type": "object",
-            "required": ["same_room", "changed", "results", "confidence"],
+            "required": ["what_i_see", "same_room", "changed", "results", "confidence"],
             "properties": {
+                "what_i_see": {"type": "string", "description": "What the AFTER photo actually shows, plain words, max 14 words."},
                 "same_room": {"type": "boolean", "description": "Both photos show the same room."},
                 "changed": {"type": "boolean", "description": "The after photo is a new photo, not identical to before."},
                 "results": {"type": "array", "items": {
@@ -143,7 +147,68 @@ def judge(before: bytes, after: bytes, things: list[dict]) -> dict:
         "changed": bool(out.get("changed", True)),
         "returned": {t["id"]: verdict.get(t["id"], t.get("returned", False)) for t in things},
         "confidence": float(out.get("confidence", 0.5)),
+        "what_i_see": str(out.get("what_i_see", ""))[:120],
     }
+
+
+# ---------------------------------------------------------------- Habit proof: a photo or a voice note, checked honestly
+PROOF_TOOL = {
+    "toolSpec": {
+        "name": "report_proof",
+        "description": "Whether the photo shows the task done.",
+        "inputSchema": {"json": {
+            "type": "object", "required": ["what_i_see", "done", "confidence"],
+            "properties": {
+                "what_i_see": {"type": "string", "description": "What the photo actually shows, plain words, max 14 words."},
+                "done": {"type": "boolean", "description": "True only if the photo clearly shows the task done."},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+        }},
+    }
+}
+
+PROOF_SYSTEM = (
+    "You check a child's photo for a family task on Rosetta, honestly. The task is: '{task}'. Say what the photo "
+    "actually shows. Mark done only if the photo clearly shows this task finished (for example a made bed for "
+    "'Make the bed'). Never pretend: if the photo shows something else, say what it is and mark done false."
+)
+
+
+def check_proof(photo: bytes, task: str) -> dict:
+    out = _converse([_image(photo), {"text": f"Task: {task}"}], PROOF_TOOL, PROOF_SYSTEM.format(task=task), max_tokens=300)
+    return {"done": bool(out.get("done")), "confidence": float(out.get("confidence", 0.5)),
+            "what_i_see": str(out.get("what_i_see", ""))[:120]}
+
+
+LISTEN_TOOL = {
+    "toolSpec": {
+        "name": "report_voice_note",
+        "description": "Transcript and summary of a child's voice note about a family task.",
+        "inputSchema": {"json": {
+            "type": "object", "required": ["transcript", "summary", "about_the_task", "mood"],
+            "properties": {
+                "transcript": {"type": "string", "description": "Exactly what the child said, in their language, cleaned of filler."},
+                "summary": {"type": "string", "description": "One warm sentence for the parents about what the child did, max 25 words, in English."},
+                "about_the_task": {"type": "boolean", "description": "True if the note is really about the task (not silence, noise or unrelated)."},
+                "mood": {"type": "string", "enum": ["happy", "proud", "calm", "tired", "unsure", "upset"]},
+            },
+        }},
+    }
+}
+
+LISTEN_SYSTEM = (
+    "You listen to a {age}-year-old's voice note on Rosetta, a family app. The task was: '{task}'. Transcribe what "
+    "they actually said and summarise it for their parents, using the child's name {name} (for reading: what they read and pages; for prayer or "
+    "quiet time: what they shared). Never invent details that were not said; if the note is silent, noise or not "
+    "about the task, say so and set about_the_task false."
+)
+
+
+def listen(audio: bytes, mime: str, task: str, kid_age: int, kid_name: str = "the child") -> dict:
+    out = _converse([{"audio": {"bytes": audio, "mime": mime}}, {"text": f"Task: {task}"}], LISTEN_TOOL,
+                    LISTEN_SYSTEM.format(task=task, age=kid_age, name=kid_name), max_tokens=600)
+    return {"transcript": str(out.get("transcript", ""))[:1200], "summary": str(out.get("summary", ""))[:240],
+            "about": bool(out.get("about_the_task")), "mood": str(out.get("mood", ""))}
 
 
 # ---------------------------------------------------------------- Keeper
@@ -156,12 +221,13 @@ KEEPER_TOOL = {
 }
 
 KEEPER_SYSTEM = (
-    "You are the Keeper of the Family Stone in Rosetta: a calm, warm storyteller voice on the family TV. "
+    "You are Rosetta's storyteller: a calm, warm voice on the family TV. "
     "Write ONE sentence (max 24 words) for a {age}-year-old named {name}. For a tidy-up, messy objects are 'Lost Things' "
     "that miss their homes. For homework, praise only a skill listed under 'went well'; skills under 'to practise' are "
     "the ones they got wrong, so call them what the practice round is for and never praise them. Never give an answer "
     "and never mention Lost Things. Be specific about what happened, encouraging, a little magical, never shaming, "
-    "never sarcastic, never about the child's character. No emojis."
+    "never sarcastic, never about the child's character. If the photo was not what the task needs, say plainly what it "
+    "showed and what photo to take instead. Use words a young child knows (no 'glyph', 'agent' or 'quest master'). No emojis."
 )
 
 
@@ -174,7 +240,7 @@ def keeper(kid_name: str, kid_age: int, situation: str) -> str:
 DIGEST_TOOL = {
     "toolSpec": {
         "name": "write_digest",
-        "description": "Weekly habit digest for parents.",
+        "description": "Coach's notes for parents.",
         "inputSchema": {"json": {
             "type": "object", "required": ["headline", "notes"],
             "properties": {
@@ -187,9 +253,9 @@ DIGEST_TOOL = {
 }
 
 DIGEST_SYSTEM = (
-    "You are the Digest agent in Rosetta, writing a short weekly note to parents about how a child's tidying habits are "
-    "growing. Use only the numbers given. Praise effort and progress, never compare siblings, never shame. Give at most "
-    "one practical suggestion (e.g. a better time of day or pairing a quest with a sibling)."
+    "You are Rosetta's coach, writing short notes to parents about how a child is growing: homework results, daily "
+    "habits and streaks, tidying. Use only the facts and numbers given; never invent any. Praise effort and progress, "
+    "never compare siblings, never shame. Give at most one practical suggestion."
 )
 
 

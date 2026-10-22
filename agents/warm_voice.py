@@ -12,8 +12,10 @@ KIDS = ["Arjun", "Meera"]
 LINES = [
     *[handlers.KEEPER_OPEN.format(name=k) for k in KIDS],
     *[handlers.KEEPER_OPEN_STUDY.format(name=k) for k in KIDS],
-    "Tutor is reading your work…", "Looking closely…", "Checking on everyone…",
+    "The AI Tutor is reading your work…", "Looking closely…", "Checking on everyone…",
+    "Listening to your voice note…", "Looking at your photo…",
     "A grown-up checked your homework. Well done!", "A grown-up checked it: every Lost Thing is home!",
+    "A grown-up says well done!", "A grown-up says: not quite yet. Give it one more go!",
     "A grown-up says almost! One more look around 👀",
     *[f"{right} of {total} in practice. That's how skills grow, {k}!"
       for k in KIDS for total in (4, 5) for right in range(total + 1)],

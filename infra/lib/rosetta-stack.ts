@@ -37,7 +37,9 @@ export class RosettaStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       // Kids' room photos are working data, not an archive.
-      lifecycleRules: [{ prefix: "uploads/", expiration: Duration.days(1) }, { prefix: "voice/", expiration: Duration.days(1) }],
+      lifecycleRules: [{ prefix: "uploads/", expiration: Duration.days(1) }, { prefix: "voice/", expiration: Duration.days(1) },
+        // Kids' notes, voice notes and proof photos that parents can look back on.
+        { prefix: "memories/", expiration: Duration.days(90) }],
       cors: [{ allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET], allowedOrigins: ["*"], allowedHeaders: ["*"] }],
     });
 

@@ -7,7 +7,7 @@ no change, low confidence, everything done). Specialists are plain functions wra
   scout_room      Scout + Coach: find Lost Things in the before photo, give each a home and stars
   check_after     Judge: compare before/after item by item, with confidence
   ask_parent      Router: low confidence goes to the parent instead of auto-approving
-  complete_quest  Carve the glyph when every Lost Thing is home
+  complete_quest  Finish: rewards and a star for the family goal
   keeper_says     Keeper: the one sentence the TV speaks
   mark_homework   Tutor: read a homework photo, mark each answer (maths double-checked in code), hint, never answer
   make_practice   Practice: write practice questions on exactly the skills that went wrong
@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import time
 
-from . import config, notify, store, tutor, vision, voice
+from . import config, family, notify, store, tutor, vision, voice
 
 log = logging.getLogger(__name__)
 
@@ -75,10 +75,16 @@ def scout_room() -> str:
     q = _ctx.q
     _log("QuestMaster", "Photo received from phone · routing to Scout", tool_name="scout_room")
     found = vision.scout(store.photo_bytes(q["beforeKey"]), _ctx.kid["age"])
-    if not found["is_room"] or not found["things"]:
+    q["whatISee"] = found.get("what_i_see", "")
+    if not found["is_room"]:
         q["stage"] = "AwaitingBefore"
         _ctx.save()
-        return "NOT_A_ROOM" if not found["is_room"] else "NOTHING_FOUND"
+        return f"NOT_A_ROOM: the photo shows {q['whatISee'] or 'something else'}"
+    if not found["things"]:
+        _log("Scout", "Nothing out of place: already tidy")
+        _ctx.save()
+        return "ALREADY_TIDY"
+    q.pop("whatISee", None)
     q.update(stage="Found", things=found["things"], confidence=1.0)
     _log("Scout", f"{len(found['things'])} out-of-place objects found")
     _log("Coach", "Homes assigned · " + ", ".join(f"{t['id']}→{t['home']}" for t in found["things"])[:100], tool_name="plan_homes")
@@ -95,8 +101,9 @@ def check_after() -> str:
     verdict = vision.judge(store.photo_bytes(q["beforeKey"]), store.photo_bytes(q["afterKey"]), q["things"])
     if not verdict["same_room"]:
         q["stage"] = "Found"
+        q["whatISee"] = verdict.get("what_i_see", "")
         _ctx.save()
-        return "WRONG_ROOM"
+        return f"WRONG_ROOM: the new photo shows {q['whatISee'] or 'a different place'}"
     if not verdict["changed"]:
         q["stage"] = "Found"
         _ctx.save()
@@ -119,8 +126,9 @@ def ask_parent(reason: str) -> str:
     q["needsParent"] = True
     q["parentReason"] = reason
     _log("Router", f"Sent to a parent: {reason}", tool_name="ask_parent")
-    notify.emit(_ctx.h, "needs_approval", f"Check {_ctx.kid['name']}'s room?",
-                f"The Judge is {q.get('confidence', 0):.0%} sure the Lost Things are home. Approve from here.",
+    what = "homework marking" if q.get("kind") == "study" else "room"
+    notify.emit(_ctx.h, "needs_approval", f"Check {_ctx.kid['name']}'s {what}?",
+                f"✦ The AI is only {q.get('confidence', 0):.0%} sure: {reason}. Approve from here.",
                 by="Router", data={"questId": q["id"], "kidId": q["kidId"]})
     _ctx.save()
     return "parent asked"
@@ -128,21 +136,18 @@ def ask_parent(reason: str) -> str:
 
 @tool
 def complete_quest() -> str:
-    """Carve the quest's glyph into the Family Stone. Only call when every Lost Thing is home."""
+    """Finish the quest: rewards and a star for the family goal. Only call when every Lost Thing is home
+    (or the room was already tidy) or the homework is all right."""
     q = _ctx.q
     if q.get("kind") != "study" and any(not t["returned"] for t in q["things"]):
         return "REFUSED: some Lost Things are still lost"
     q["stage"] = "Done"
-    for g in _ctx.h["glyphs"]:
-        if g["id"] == q["glyphId"]:
-            g["earnedBy"] = q["kidId"]
-    record_finish(_ctx.h, q)
+    r = family.finish(_ctx.h, q)
     notify.emit(_ctx.h, "quest_done", f"{_ctx.kid['name']} finished “{q['title']}” ✅",
-                f"{_done_detail(q)} A glyph was carved into the Family Stone.",
-                by="QuestMaster", data={"questId": q["id"], "kidId": q["kidId"]})
+                f"{_done_detail(q)}{' A star for the family goal ⭐' if r.get('star') else ''}",
+                by="Rosetta", data={"questId": q["id"], "kidId": q["kidId"]})
     _ctx.save()
-    done = sum(1 for g in _ctx.h["glyphs"] if g.get("earnedBy"))
-    return f"glyph carved; stone {done}/{len(_ctx.h['glyphs'])}"
+    return f"done; family stars {len(_ctx.h['stars'])}/{_ctx.h.get('starsGoal', 9)}"
 
 
 @tool
@@ -166,8 +171,10 @@ def mark_homework() -> str:
     marked = tutor.tutor_check(store.photo_bytes(q["beforeKey"]), _ctx.kid["age"])
     if not marked["isHomework"] or not marked["items"]:
         q["stage"] = "AwaitingBefore"
+        q["whatISee"] = marked.get("whatISee", "")
         _ctx.save()
-        return "NOT_HOMEWORK"
+        return f"NOT_HOMEWORK: the photo shows {q['whatISee'] or 'no worksheet'}"
+    q.pop("whatISee", None)
     right = sum(1 for i in marked["items"] if i["correct"])
     q.update(stage="Checked", homework=marked, confidence=marked["confidence"])
     by_code = sum(1 for i in marked["items"] if i["checkedBy"] == "math")
@@ -201,35 +208,39 @@ def make_practice() -> str:
 QUEST_MASTER_PROMPT = f"""You are Quest Master, the coordinator of Rosetta's agent crew on a family Fire TV.
 A child's phone just uploaded a photo for a tidy-up quest. Decide which tools to call, then stop.
 
-- New BEFORE photo: call scout_room. If it returns NOT_A_ROOM or NOTHING_FOUND, call keeper_says to ask kindly
-  for a new photo of the room. Otherwise call keeper_says to invite the child to help the Lost Things home.
+- New BEFORE photo: call scout_room. If it returns NOT_A_ROOM, call keeper_says saying plainly what the photo
+  showed and asking for a photo of the room. If it returns ALREADY_TIDY, call complete_quest, then keeper_says
+  celebrating a tidy room. Otherwise call keeper_says to invite the child to help the Lost Things home.
 - New AFTER photo: call check_after.
-  - WRONG_ROOM or NO_CHANGE: keeper_says asking for a fresh photo of the same room.
+  - WRONG_ROOM: keeper_says saying what the new photo showed and asking for a photo of the same room.
+  - NO_CHANGE: keeper_says asking for a fresh photo of the same room.
   - confidence below {config.AUTO_APPROVE_CONFIDENCE}: call ask_parent with a short reason, then keeper_says that a grown-up
     will take a look.
-  - nothing still lost: call complete_quest, then keeper_says celebrating and mentioning the Family Stone.
+  - nothing still lost: call complete_quest, then keeper_says celebrating and mentioning the family's stars.
   - otherwise: keeper_says naming exactly what is still lost and where it belongs.
 For a HOMEWORK quest (a photo of a worksheet):
-  - call mark_homework. If it returns NOT_HOMEWORK, keeper_says asking kindly for a clear photo of the whole sheet.
+  - call mark_homework. If it returns NOT_HOMEWORK, keeper_says saying plainly what the photo showed and asking
+    for a clear photo of the whole worksheet.
   - confidence below {config.AUTO_APPROVE_CONFIDENCE}: call ask_parent (the handwriting may have been misread), then keeper_says.
   - every answer right: call complete_quest, then keeper_says celebrating something specific.
   - otherwise call make_practice, then keeper_says praising what went well and inviting them to the practice round.
     Never tell the child a correct answer.
-Always finish with exactly one keeper_says call. Never invent items the tools did not report."""
+Always finish with exactly one keeper_says call. Never invent items the tools did not report, and never pretend a
+photo shows something it doesn't."""
 
 
 def _deterministic(phase: str) -> None:
     """Same policy without the LLM orchestrator (used when Strands isn't available)."""
     if _ctx.q.get("kind") == "study":
         r = mark_homework()
-        if r == "NOT_HOMEWORK":
-            keeper_says("The photo didn't show a homework sheet clearly; ask kindly for a clear photo of the whole page.")
+        if r.startswith("NOT_HOMEWORK"):
+            keeper_says(f"{r}. Say plainly what the photo showed and ask kindly for a clear photo of the whole worksheet.")
         elif _ctx.q["confidence"] < config.AUTO_APPROVE_CONFIDENCE:
             ask_parent(f"Tutor is only {_ctx.q['confidence']:.0%} sure it read the handwriting")
             keeper_says("Say a grown-up will take a quick look at the homework.")
         elif all(i["correct"] for i in _ctx.q["homework"]["items"]):
             complete_quest()
-            keeper_says(f"Tutor result: {r}. Everything is right; celebrate and mention the Family Stone.")
+            keeper_says(f"Tutor result: {r}. Everything is right; celebrate and mention the family's stars.")
         else:
             make_practice()
             keeper_says(f"Tutor result: {r}. Praise what went well and invite them to a short practice round. "
@@ -237,12 +248,20 @@ def _deterministic(phase: str) -> None:
         return
     if phase == "before":
         r = scout_room()
-        keeper_says("The photo didn't show the room clearly; ask for another photo." if r.startswith("NO")
-                    else f"Scout found these Lost Things: {r}. Invite the child to bring them home.")
+        if r.startswith("NOT_A_ROOM"):
+            keeper_says(f"{r}. Say plainly what the photo showed and ask for a photo of the room.")
+        elif r == "ALREADY_TIDY":
+            complete_quest()
+            keeper_says("The room is already tidy: nothing is out of place. Celebrate it.")
+        else:
+            keeper_says(f"These things are out of place: {r}. Invite the child to bring them home.")
         return
     r = check_after()
-    if r in ("WRONG_ROOM", "NO_CHANGE"):
-        keeper_says("The new photo doesn't show the same room changing; ask kindly for a fresh photo.")
+    if r.startswith("WRONG_ROOM"):
+        keeper_says(f"{r}. Say plainly what the new photo showed and ask for a photo of the same room.")
+        return
+    if r == "NO_CHANGE":
+        keeper_says("The new photo looks the same as before; ask kindly for a fresh photo after tidying.")
         return
     conf = _ctx.q["confidence"]
     if conf < config.AUTO_APPROVE_CONFIDENCE:
@@ -250,9 +269,9 @@ def _deterministic(phase: str) -> None:
         keeper_says("Say a grown-up will take a quick look.")
     elif _ctx.q["stage"] == "Done":
         complete_quest()
-        keeper_says("Every Lost Thing is home; a new glyph is carved into the Family Stone.")
+        keeper_says("Every Lost Thing is home; the family earned a star.")
     else:
-        keeper_says(f"Judge result: {r}. Name what is still lost and where it belongs.")
+        keeper_says(f"Result: {r}. Name what is still lost and where it belongs.")
 
 
 def _done_detail(q: dict) -> str:
@@ -262,28 +281,9 @@ def _done_detail(q: dict) -> str:
     return f"{len(q.get('things', []))} Lost Things are home."
 
 
-def record_finish(h: dict, q: dict) -> None:
-    """Habit history for Growth and the Digest agent: one row per finished quest."""
-    import time
-    opened = q.get("openedAtMs") or int(time.time() * 1000)
-    h["history"] = (h.get("history", []) + [{
-        "kidId": q["kidId"], "questId": q["id"], "roomId": q.get("roomId", ""), "atMs": int(time.time() * 1000),
-        "minutes": max(1, (int(time.time() * 1000) - opened) // 60000), "selfStarted": bool(q.get("selfStarted")),
-        "items": len(q.get("things", [])),
-        **_study_row(q),
-    }])[-500:]
-
-
-def _study_row(q: dict) -> dict:
-    """Learning fields for Growth: score, practice result and the skills that needed work."""
-    if q.get("kind") != "study" or not q.get("homework"):
-        return {"kind": "tidy"}
-    items = q["homework"]["items"]
-    return {"kind": "study", "subject": q["homework"]["subject"], "topic": q["homework"]["topic"],
-            "right": sum(1 for i in items if i["correct"]), "total": len(items),
-            "practiceRight": sum(1 for v in q.get("answers", {}).values() if v.get("correct")),
-            "practiceTotal": len(q.get("practice", [])),
-            "skills": sorted({i["skill"] for i in items if not i["correct"]})}
+def record_finish(h: dict, q: dict) -> dict:
+    """Kept for older callers: finishing a quest pays out through family.finish (history, rewards, streaks, stars)."""
+    return family.finish(h, q)
 
 
 def _master_model():
