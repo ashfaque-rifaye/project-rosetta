@@ -5,72 +5,338 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a1020">
   <title>Rosetta · Mission Control</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
   <div class="eyebrow">Rosetta · Parent</div>
   <h1>Mission Control</h1>
-  <p class="lead" id="sub">Your household's quests and what the agent crew is doing.</p>
+  <p class="lead" id="sub">Homework, chores and alerts for your family.</p>
 
-  <section id="review"></section>
+  <!-- Sign in: who is this, and the household PIN (it stays on this phone) -->
+  <section id="signin" class="card" hidden>
+    <div class="eyebrow">Who's this?</div>
+    <div class="chips" id="who"></div>
+    <label class="field">Household PIN
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="••••">
+    </label>
+    <button id="signinBtn">Sign in</button>
+    <p class="muted" id="signinMsg">The PIN is set for your household. Demo household: 2468.</p>
+  </section>
 
-  <h2>Quests on the TV</h2>
-  <section id="quests"></section>
+  <section id="app" hidden>
+    <div class="row">
+      <span class="muted" id="me"></span>
+      <button class="link" id="signout">Sign out</button>
+    </div>
 
-  <h2>Post a quest</h2>
-  <div class="card">
-    <select id="kid"></select>
-    <select id="room"></select>
-    <input id="qtitle" placeholder="e.g. Water the balcony plants" maxlength="60">
-    <button id="add">Put it on the TV</button>
-  </div>
+    <div id="needsWrap" hidden>
+      <h2>Needs you</h2>
+      <section id="needs"></section>
+    </div>
 
-  <h2>Family Stone</h2>
-  <div class="card" id="stone"></div>
+    <h2>Family feed</h2>
+    <section class="card" id="feed"></section>
 
-  <button class="ghost" id="reset" style="margin-top:18px">Reset demo household</button>
+    <h2>Send a message to the TV</h2>
+    <div class="card">
+      <div class="chips" id="quick">
+        <button class="chip" data-t="Proud of you! 🫶">Proud of you! 🫶</button>
+        <button class="chip" data-t="Homework first, then movie night 🍿">Homework first 🍿</button>
+        <button class="chip" data-t="Snack's ready 🍪">Snack's ready 🍪</button>
+      </div>
+      <textarea id="msg" maxlength="140" rows="2" placeholder="The Keeper reads it aloud on the TV"></textarea>
+      <button id="send">Send</button>
+    </div>
+
+    <h2>Tonight's quests</h2>
+    <section id="quests"></section>
+
+    <h2>Post a quest</h2>
+    <div class="card">
+      <select id="kind">
+        <option value="study">Homework</option>
+        <option value="tidy">Tidy-up</option>
+      </select>
+      <select id="kid"></select>
+      <select id="room"></select>
+      <input id="qtitle" placeholder="e.g. Spelling worksheet" maxlength="60">
+      <button id="add">Put it on the TV</button>
+    </div>
+
+    <h2>Alerts</h2>
+    <div class="card" id="alerts">
+      <div class="row"><b>Phone alerts</b><span class="muted" id="pushState"></span></div>
+      <button id="pushBtn" class="ghost">Turn on phone alerts</button>
+      <p class="muted small" id="pushHint">On iPhone, first add this page to your Home Screen (Share → Add to Home Screen), then open it from there.</p>
+      <label class="toggle"><input type="checkbox" id="aPush"> Push to this phone</label>
+      <label class="toggle"><input type="checkbox" id="aEmail"> Email</label>
+      <input id="email" type="email" placeholder="you@example.com" maxlength="80">
+      <label class="toggle"><input type="checkbox" id="aSms"> SMS, only when something needs you</label>
+      <input id="phone" type="tel" placeholder="+91 98xxxxxxxx" maxlength="20">
+      <div class="row">
+        <button id="saveAlerts">Save</button>
+        <button id="testAlert" class="ghost">Send a test alert</button>
+      </div>
+      <p class="muted small" id="alertMsg"></p>
+    </div>
+
+    <h2>Family Stone</h2>
+    <div class="card" id="stone"></div>
+
+    <button class="ghost" id="reset" style="margin-top:18px">Reset demo household</button>
+  </section>
 </main>
+<div class="toast" id="toast" hidden></div>
 <script src="config.js"></script>
 <script src="rosetta.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-let filled = false;
+let me = parentSession();
+let household = null, filled = false, settingsLoaded = false;
 
-async function refresh() {
-  const h = await getHousehold();
-  $("sub").textContent = `${h.name} · join code ${h.code}`;
-  const unsure = h.quests.filter((q) => q.needsParent);
-  $("review").innerHTML = unsure.map((q) => `
-    <div class="card"><div class="flag">The Judge isn't sure</div>
-      <p>${q.title}: ${q.parentReason || ""}</p>
-      ${q.afterUrl ? `<img class="preview" src="${q.afterUrl}" alt="">` : ""}
-      <button onclick="approve('${q.id}')">Looks done, approve</button></div>`).join("");
-  $("quests").innerHTML = h.quests.map((q) => {
-    const kid = h.kids.find((k) => k.id === q.kidId);
-    return `<div class="card"><div class="eyebrow">${kid.name} · ${STAGE_TEXT[q.stage] || q.stage}</div>
-      <div>${q.title}</div>${q.keeperLine ? `<p class="keeper">“${q.keeperLine}”</p>` : ""}
-      ${crewHtml(q.stage)}${q.things.length ? `<div style="margin-top:8px">${thingsHtml(q.things)}</div>` : ""}</div>`;
-  }).join("");
-  const done = h.glyphs.filter((g) => g.earnedBy).length;
-  $("stone").innerHTML = `<div>${done} of ${h.glyphs.length} glyphs carved${done === h.glyphs.length ? " · <b>movie night unlocked</b>" : ""}</div>`;
-  if (!filled) {
-    $("kid").innerHTML = h.kids.map((k) => `<option value="${k.id}">${k.name}</option>`).join("");
-    $("room").innerHTML = h.rooms.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
-    filled = true;
-  }
+const KIND_ICON = {
+  quest_done: "✅", needs_approval: "🙋", done_check: "📸", message: "💬", parent_reply: "↩️", new_quest: "📝",
+  quiz_started: "📺", quiz_done: "🏆", streak_risk: "🔥", weekly_digest: "📈", raid_defeated: "🏆",
+};
+
+function toast(text) {
+  $("toast").textContent = text; $("toast").hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => ($("toast").hidden = true), 2600);
 }
 
-async function approve(id) { await post(`/household/${CODE}/quests/${id}/approve`); refresh(); }
+// Polling refreshes every 3 s; only rebuild a section when its HTML actually changes, so taps aren't lost mid-press.
+const shown = {};
+function setHtml(id, html) {
+  if (shown[id] === html) return;
+  shown[id] = html;
+  $(id).innerHTML = html;
+}
+
+function ago(ms) {
+  const s = Math.max(1, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+}
+
+// ---------------------------------------------------------------- sign in
+function showSignin(h) {
+  $("signin").hidden = false; $("app").hidden = true;
+  $("signinMsg").textContent = "The PIN is set for your household. Demo household: 2468.";
+  const parents = (h && h.parents && h.parents.length) ? h.parents : [{ id: "mom", name: "Mom" }, { id: "dad", name: "Dad" }];
+  $("who").innerHTML = parents.map((p, i) => `<button class="chip ${i === 0 ? "on" : ""}" data-id="${p.id}">${esc(p.name)}</button>`).join("");
+  $("who").querySelectorAll(".chip").forEach((b) => b.onclick = () => {
+    $("who").querySelectorAll(".chip").forEach((x) => x.classList.remove("on")); b.classList.add("on");
+  });
+}
+
+$("signinBtn").onclick = async () => {
+  const id = ($("who").querySelector(".chip.on") || {}).dataset?.id;
+  const pin = $("pin").value.trim();
+  if (!id || !pin) return;
+  $("signinMsg").textContent = "Checking…";
+  try {
+    const p = await asParent(`/household/${CODE}/parents/${id}`, { method: "GET", pin });
+    me = { id, name: p.name, pin };
+    localStorage.setItem(PARENT_KEY, JSON.stringify(me));
+    $("pin").value = "";
+    start();
+  } catch (e) {
+    $("signinMsg").textContent = "That PIN didn't match. Try again.";
+  }
+};
+$("signout").onclick = () => { localStorage.removeItem(PARENT_KEY); me = null; settingsLoaded = false; showSignin(household); };
+
+// ---------------------------------------------------------------- render
+function needsHtml(h) {
+  const items = h.quests.filter((q) => q.needsParent).map((q) => {
+    const kid = h.kids.find((k) => k.id === q.kidId);
+    const hw = q.homework;
+    const what = hw ? `${hw.items.filter((i) => i.correct).length}/${hw.items.length} marked right · ${esc(hw.topic)}`
+                    : `${q.things.filter((t) => t.returned).length}/${q.things.length} Lost Things home`;
+    const photo = q.afterUrl || q.beforeUrl;
+    return `<div class="card needs">
+      <div class="flag">${q.kind === "study" ? "The Tutor isn't sure" : "The Judge isn't sure"}</div>
+      <div><b>${esc(kid ? kid.name : "")}</b> · ${esc(q.title)}</div>
+      <p class="muted">${what}${q.parentReason ? " · " + esc(q.parentReason) : ""}</p>
+      ${photo ? `<img class="preview" src="${photo}" alt="The photo the crew checked">` : ""}
+      <div class="row">
+        <button data-act="approve" data-q="${q.id}">Looks good, approve ✓</button>
+        <button class="ghost" data-act="reject" data-q="${q.id}">Not yet</button>
+      </div></div>`;
+  });
+  const hour = Date.now() - 3600 * 1000;
+  (h.feed || []).filter((f) => f.kind === "done_check" && f.atMs > hour).slice(-2).forEach((f) => items.push(
+    `<div class="card needs"><div class="flag">Done? Check?</div><div>${esc(f.title)}</div><p class="muted">${esc(f.body)} · ${ago(f.atMs)}</p></div>`));
+  return items.join("");
+}
+
+function feedHtml(h) {
+  const rows = (h.feed || []).slice(-15).reverse();
+  if (!rows.length) return `<p class="muted">Nothing yet tonight. Finished homework, messages and anything that needs you will show up here.</p>`;
+  return rows.map((f) => `<div class="feedrow"><span class="ico">${KIND_ICON[f.kind] || "•"}</span>
+    <div><div>${esc(f.title)}</div>${f.body ? `<div class="muted small">${esc(f.body)}</div>` : ""}</div>
+    <span class="when">${ago(f.atMs)}</span></div>`).join("");
+}
+
+function questsHtml(h) {
+  return h.quests.map((q) => {
+    const kid = h.kids.find((k) => k.id === q.kidId);
+    const study = q.kind === "study";
+    const text = (study ? STUDY_TEXT : STAGE_TEXT)[q.stage] || q.stage;
+    const hw = q.homework;
+    const extra = hw ? `<div class="muted small">${hw.items.filter((i) => i.correct).length}/${hw.items.length} right · ${esc(hw.topic)}${
+      (q.practice || []).length ? ` · practice ${Object.keys(q.answers || {}).length}/${q.practice.length}` : ""}</div>` : "";
+    return `<div class="card"><div class="eyebrow">${esc(kid ? kid.name : "")} · ${study ? "Homework" : "Tidy"} · ${text}</div>
+      <div>${esc(q.title)}</div>${extra}${q.keeperLine ? `<p class="keeper">“${esc(q.keeperLine)}”</p>` : ""}
+      ${crewHtml(q.stage, study)}</div>`;
+  }).join("");
+}
+
+async function refresh() {
+  try {
+    household = await getHousehold();
+  } catch (e) { $("sub").textContent = "Can't reach Rosetta right now… " + e.message; return; }
+  const h = household;
+  $("sub").textContent = `${h.name} · join code ${h.code}`;
+  if (!me) { if ($("signin").hidden) showSignin(h); return; }
+  $("signin").hidden = true; $("app").hidden = false;
+  $("me").textContent = `Signed in as ${me.name}`;
+  const needs = needsHtml(h);
+  $("needsWrap").hidden = !needs;
+  setHtml("needs", needs);
+  setHtml("feed", feedHtml(h));
+  setHtml("quests", questsHtml(h));
+  const done = h.glyphs.filter((g) => g.earnedBy).length;
+  setHtml("stone", `<div>${done} of ${h.glyphs.length} glyphs carved${done === h.glyphs.length ? " · <b>Movie Night unlocked 🍿</b>" : ""}</div>`);
+  if (!filled) {
+    $("kid").innerHTML = h.kids.map((k) => `<option value="${k.id}">${esc(k.name)}</option>`).join("");
+    $("room").innerHTML = h.rooms.map((r) => `<option value="${r.id}">${esc(r.name)}</option>`).join("");
+    filled = true;
+  }
+  if (!settingsLoaded) loadSettings();
+}
+
+// ---------------------------------------------------------------- actions
+async function decide(questId, act) {
+  try {
+    await asParent(`/household/${CODE}/quests/${questId}/${act}`);
+    toast(act === "approve" ? "Approved. The TV is celebrating 🎉" : "Sent back with a kind nudge 👀");
+    refresh();
+  } catch (e) { toast(String(e.message).startsWith("403") ? "Your PIN changed. Sign in again." : "Couldn't send that. Try again."); }
+}
+$("needs").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-act]");
+  if (b) { b.disabled = true; decide(b.dataset.q, b.dataset.act); }
+});
+
+$("quick").querySelectorAll(".chip").forEach((b) => b.onclick = () => { $("msg").value = b.dataset.t; });
+$("send").onclick = async () => {
+  const text = $("msg").value.trim(); if (!text) return;
+  try { await asParent(`/household/${CODE}/message`, { body: { from: me.id, text, to: "all" } }); $("msg").value = ""; toast("Sent to the TV 📺"); refresh(); }
+  catch (e) { toast("Couldn't send the message."); }
+};
+
 $("add").onclick = async () => {
   const title = $("qtitle").value.trim(); if (!title) return;
-  await post(`/household/${CODE}/quests`, { kidId: $("kid").value, roomId: $("room").value, title });
-  $("qtitle").value = ""; refresh();
+  try {
+    await asParent(`/household/${CODE}/quests`, { body: { kidId: $("kid").value, roomId: $("room").value, title, kind: $("kind").value } });
+    $("qtitle").value = ""; toast("It's on the TV"); refresh();
+  } catch (e) { toast("Couldn't post the quest."); }
 };
-$("reset").onclick = async () => { if (confirmReset()) { await post(`/household/${CODE}/reset`); refresh(); } };
-function confirmReset() { return $("reset").dataset.armed ? true : ($("reset").dataset.armed = "1", $("reset").textContent = "Tap again to reset", false); }
 
-if (!CODE) location.href = "kid.html"; else { refresh(); setInterval(refresh, 3000); }
+$("reset").onclick = async () => {
+  if (!$("reset").dataset.armed) { $("reset").dataset.armed = "1"; $("reset").textContent = "Tap again to reset"; return; }
+  await post(`/household/${CODE}/reset`); delete $("reset").dataset.armed; $("reset").textContent = "Reset demo household"; refresh();
+};
+
+// ---------------------------------------------------------------- alerts
+async function loadSettings() {
+  settingsLoaded = true;
+  try {
+    const p = await asParent(`/household/${CODE}/parents/${me.id}`, { method: "GET" });
+    $("aPush").checked = !!(p.alerts && p.alerts.push);
+    $("aEmail").checked = !!(p.alerts && p.alerts.email);
+    $("aSms").checked = !!(p.alerts && p.alerts.sms);
+    $("email").value = p.email || "";
+    $("phone").value = p.phone || "";
+    $("pushState").textContent = p.devices ? `${p.devices} device${p.devices > 1 ? "s" : ""} signed up` : "not on yet";
+  } catch (e) { settingsLoaded = false; }
+  updatePushButton();
+}
+
+function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+
+async function updatePushButton() {
+  if (!pushSupported()) { $("pushBtn").disabled = true; $("pushBtn").textContent = "Phone alerts aren't available in this browser"; return; }
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  $("pushBtn").textContent = sub ? "Phone alerts are on for this phone ✓" : "Turn on phone alerts";
+  $("pushHint").hidden = !!sub;
+}
+
+function urlB64ToBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+$("pushBtn").onclick = async () => {
+  if (!pushSupported()) return;
+  $("alertMsg").textContent = "Asking your phone…";
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { $("alertMsg").textContent = "Alerts are blocked for this site. You can allow them in your browser settings."; return; }
+    const reg = await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    const { key } = await api("/vapid-public-key");
+    if (!key) { $("alertMsg").textContent = "Phone alerts aren't set up on the server yet."; return; }
+    const sub = (await reg.pushManager.getSubscription()) ||
+      await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToBytes(key) });
+    const p = await asParent(`/household/${CODE}/parents/${me.id}`, { body: { subscription: sub.toJSON(), alerts: { push: true, email: $("aEmail").checked, sms: $("aSms").checked } } });
+    $("aPush").checked = true;
+    $("pushState").textContent = `${p.devices} device${p.devices > 1 ? "s" : ""} signed up`;
+    $("alertMsg").textContent = "Phone alerts are on. Try “Send a test alert”.";
+    updatePushButton();
+  } catch (e) { $("alertMsg").textContent = "Couldn't turn on alerts: " + e.message; }
+};
+
+$("saveAlerts").onclick = async () => {
+  try {
+    await asParent(`/household/${CODE}/parents/${me.id}`, { body: {
+      email: $("email").value.trim(), phone: $("phone").value.trim(),
+      alerts: { push: $("aPush").checked, email: $("aEmail").checked, sms: $("aSms").checked },
+    } });
+    $("alertMsg").textContent = "Saved.";
+  } catch (e) { $("alertMsg").textContent = "Couldn't save: " + e.message; }
+};
+
+$("testAlert").onclick = async () => {
+  try {
+    const r = await asParent(`/household/${CODE}/parents/${me.id}/test`);
+    $("alertMsg").textContent = r.delivered.length ? `Sent by ${r.delivered.map((d) => d.split(":")[0]).join(", ")}.`
+      : "Nothing was sent: turn on at least one channel (email needs a verified sender on the server).";
+  } catch (e) { $("alertMsg").textContent = "Couldn't send a test: " + e.message; }
+};
+
+// ---------------------------------------------------------------- start
+// Notification buttons open this page with ?do=approve|reject&q=<questId>.
+async function handleDeepLink() {
+  const act = params.get("do"), q = params.get("q");
+  if (!me || !q || !["approve", "reject"].includes(act)) return;
+  history.replaceState(null, "", `parent.html?code=${CODE}`);
+  await decide(q, act);
+}
+
+function start() { refresh().then(handleDeepLink); }
+
+if (!CODE) location.href = "kid.html";
+else { start(); setInterval(refresh, 3000); }
 </script>
 </body>
 </html>

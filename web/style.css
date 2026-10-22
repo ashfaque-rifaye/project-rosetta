@@ -49,3 +49,27 @@ input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px sol
 .choice.right { background: var(--moss); color: var(--night); }
 .choice.wrong { background: #ff6fa3; color: var(--night); }
 .why { color: var(--mist); margin: 10px 0 0; }
+
+/* parent page: sign-in, needs-you, feed, alerts */
+textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--cream); font: inherit; margin: 10px 0; resize: vertical; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.chip { width: auto; background: var(--panel); color: var(--cream); border: 1px solid var(--line); border-radius: 99px; padding: 8px 14px;
+  font-weight: 600; font-size: 15px; }
+.chip.on { background: var(--gold); color: var(--night); border-color: var(--gold); }
+.field { display: block; color: var(--mist); font-size: 14px; margin: 6px 0 10px; }
+.field input { margin-top: 6px; letter-spacing: .3em; font-size: 20px; }
+.row { align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.row > button { flex: 1; }
+button.link { width: auto; background: none; color: var(--gold); padding: 6px 0; flex: none; white-space: nowrap; text-decoration: underline; }
+.small { font-size: 13px; }
+.needs { border: 1px solid var(--ember); }
+.feedrow { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.feedrow:last-child { border-bottom: 0; }
+.feedrow .ico { font-size: 18px; line-height: 1.3; }
+.feedrow .when { color: var(--mist); font-size: 12px; white-space: nowrap; }
+.toggle { display: flex; align-items: center; gap: 10px; margin: 12px 0 6px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--gold); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--cream); color: var(--night); padding: 12px 18px; border-radius: 14px; font-weight: 700; z-index: 10;
+  max-width: calc(100% - 32px); box-shadow: 0 8px 30px rgba(0, 0, 0, .4); }

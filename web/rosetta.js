@@ -12,6 +12,19 @@ async function api(path, opts = {}) {
 const getHousehold = () => api(`/household/${CODE}`);
 const post = (path, body = {}) => api(path, { method: "POST", body: JSON.stringify(body) });
 
+// Parent actions carry the household PIN (header x-parent-pin). It lives only on the parent's own phone.
+const PARENT_KEY = "rosetta.parent";
+function parentSession() {
+  try { return JSON.parse(localStorage.getItem(PARENT_KEY) || "null"); } catch (e) { return null; }
+}
+function asParent(path, { method = "POST", body, pin } = {}) {
+  const s = parentSession();
+  return api(path, {
+    method, headers: { "content-type": "application/json", "x-parent-pin": pin || (s && s.pin) || "" },
+    ...(body ? { body: JSON.stringify(body) } : method === "POST" ? { body: "{}" } : {}),
+  });
+}
+
 // Lost Thing portraits ship with the web page (same art as the TV).
 const thingArt = (c) => `things/${c}.webp`;
 

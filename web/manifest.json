@@ -1,0 +1,14 @@
+{
+  "name": "Rosetta Mission Control",
+  "short_name": "Rosetta",
+  "description": "Homework, chores and alerts for your family's Rosetta TV.",
+  "start_url": "parent.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a1020",
+  "theme_color": "#0a1020",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

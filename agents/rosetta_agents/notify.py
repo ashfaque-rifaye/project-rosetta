@@ -47,7 +47,7 @@ def emit(h: dict, kind: str, title: str, body: str, *, by: str = "rosetta", data
     ev = {
         "id": f"f{int(time.time() * 1000)}{len(h.get('feed', []))}",
         "kind": kind, "title": title[:80], "body": body[:280], "by": by,
-        "atMs": int(time.time() * 1000), "data": data or {}, "delivered": [],
+        "atMs": int(time.time() * 1000), "data": {**(data or {}), "code": h.get("code", "")}, "delivered": [],
     }
     h["feed"] = (h.get("feed", []) + [ev])[-60:]
     if notify and kind in ALERTS:

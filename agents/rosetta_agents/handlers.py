@@ -133,13 +133,28 @@ def api(event, _context):
             store.save(h)
             return _resp(200, ev)
 
+        m = re.fullmatch(r"/household/(\w+)/parents/(\w+)/test", path)
+        if m and method == "POST":  # parent: "send me a test alert" on every channel they turned on
+            h = store.load(m[1])
+            if not _is_parent(event, h):
+                return _resp(403, {"error": "parent PIN required"})
+            p = next(x for x in h.get("parents", []) if x["id"] == m[2])
+            ev = {"id": f"t{int(time.time() * 1000)}", "kind": "test", "title": "Rosetta alerts are on ✅",
+                  "body": "You'll hear about finished homework, anything that needs you, and the weekly digest.", "data": {}}
+            delivered = notify._fan_out(p, ev)
+            return _resp(200, {"delivered": delivered})
+
         m = re.fullmatch(r"/household/(\w+)/parents/(\w+)", path)
-        if m and method == "POST":  # parent: alert settings + push subscription
+        if m and method in ("GET", "POST"):  # parent: sign-in check (GET), alert settings + push subscription (POST)
             h = store.load(m[1])
             if not _is_parent(event, h):
                 return _resp(403, {"error": "parent PIN required"})
             parents = h.setdefault("parents", [])
             p = next((x for x in parents if x["id"] == m[2]), None)
+            if method == "GET":
+                if p is None:
+                    return _resp(404, {"error": "unknown parent"})
+                return _resp(200, {**{k: v for k, v in p.items() if k != "push"}, "devices": len(p.get("push", []))})
             if p is None:
                 p = {"id": m[2], "name": body.get("name", m[2].title()), "push": [], "alerts": {"push": True, "email": False, "sms": False}}
                 parents.append(p)

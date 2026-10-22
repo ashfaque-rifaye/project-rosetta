@@ -85,6 +85,26 @@ class HomeworkFlow(unittest.TestCase):
         self.assertEqual(call("POST", "/household/R4KX/quests/q_arjun_homework/answer", {"questionId": "p1", "choice": 1})[0], 400)
 
 
+class ParentPage(unittest.TestCase):
+    def setUp(self):
+        _install_fakes()
+        DB.clear(); SENT.clear()
+        store.seed("R4KX")
+
+    def test_sign_in_settings_and_test_alert(self):
+        self.assertEqual(call("GET", "/household/R4KX/parents/mom")[0], 403)
+        self.assertEqual(call("GET", "/household/R4KX/parents/mom", pin="1111")[0], 403)
+        st, me = call("GET", "/household/R4KX/parents/mom", pin="2468")
+        self.assertEqual((st, me["name"], me["devices"]), (200, "Mom", 0))
+        call("POST", "/household/R4KX/parents/mom", {"email": "mom@example.com", "alerts": {"push": True, "email": True, "sms": False},
+                                                       "subscription": {"endpoint": "https://push.example/m", "keys": {}}}, pin="2468")
+        st, me = call("GET", "/household/R4KX/parents/mom", pin="2468")
+        self.assertEqual((me["email"], me["alerts"]["email"], me["devices"]), ("mom@example.com", True, 1))
+        self.assertNotIn("email", [k for p in call("GET", "/household/R4KX")[1]["parents"] for k in p])  # never public
+        st, r = call("POST", "/household/R4KX/parents/mom/test", pin="2468")
+        self.assertEqual(r["delivered"], ["push:mom", "email:mom"])
+
+
 class QuizBattle(unittest.TestCase):
     def setUp(self):
         _install_fakes()
