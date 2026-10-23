@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rosetta for Fire TV</title>
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    main.wide { max-width: 860px; }
+    .dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .dl a { display: block; text-decoration: none; text-align: center; }
+    .dl .size { display: block; font-weight: 500; font-size: 13px; opacity: .75; margin-top: 2px; }
+    code, .url { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px 7px; font-size: 14px; word-break: break-all; }
+    pre { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; font-size: 13.5px; }
+    ol li, ul li { margin: 6px 0; }
+    a { color: var(--gold); }
+    .steps h3 { margin: 4px 0 6px; font-size: 17px; }
+    .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: rgba(255, 153, 0, .16); color: #ffb547; border: 1px solid rgba(255, 153, 0, .45); margin-right: 6px; }
+    @media (max-width: 640px) { .dl { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main class="wide">
+  <div class="eyebrow">Rosetta · for judges and testers</div>
+  <h1>Install Rosetta on a Fire TV</h1>
+  <p class="lead">The TV app below is already connected to the live AWS backend and the public <b>DEMO</b> family (Mom, Dad, Arjun in Grade 3, Meera in Grade 1). Install it, then use the parent and kid phone pages to play the family's part.</p>
+  <p><span class="tag">AWS</span><span class="tag">Fire OS</span><span class="tag">Android TV emulator</span></p>
+
+  <div class="dl">
+    <a class="btn" href="downloads/rosetta-tv-demo.apk">Rosetta TV app<span class="size">rosetta-tv-demo.apk · 71 MB · required</span></a>
+    <a class="btn ghost" style="border:1px solid rgba(244,197,106,.5);background:transparent;color:var(--gold)" href="downloads/rosetta-quiz-night.apk">Family Quiz Night (Unity)<span class="size">rosetta-quiz-night.apk · 86 MB · optional</span></a>
+  </div>
+
+  <div class="card steps">
+    <h3>1 · On a Fire TV (Fire OS)</h3>
+    <ol>
+      <li>On the Fire TV: <b>Settings → My Fire TV → Developer options</b> (tap <i>About</i> 7 times if it's hidden) and turn on <b>Install unknown apps</b> for <i>Downloader</i>.</li>
+      <li>Install the free <b>Downloader</b> app from the Amazon Appstore.</li>
+      <li>In Downloader, type <span class="url">dr8w3l96syzm7.cloudfront.net/downloads/rosetta-tv-demo.apk</span> and choose <b>Install</b>.</li>
+      <li>Optional, for the 3D Quiz Night: repeat with <span class="url">dr8w3l96syzm7.cloudfront.net/downloads/rosetta-quiz-night.apk</span>.</li>
+    </ol>
+    <p class="muted">Or with ADB: turn on <i>ADB debugging</i> in Developer options, then from a computer on the same network:</p>
+<pre>adb connect &lt;fire-tv-ip&gt;:5555
+adb install rosetta-tv-demo.apk
+adb install rosetta-quiz-night.apk   # optional</pre>
+  </div>
+
+  <div class="card steps">
+    <h3>2 · Or on the Android TV emulator (accepted by the hackathon FAQ)</h3>
+    <ol>
+      <li>Android Studio → SDK Manager → install <code>system-images;android-36;android-tv;x86_64</code> (Fire OS 16 is Android 16).</li>
+      <li>Device Manager → create a <b>Television 1080p</b> device on that image and start it.</li>
+      <li>Download both APKs above and run <code>adb install rosetta-tv-demo.apk</code> (and the Quiz Night APK).</li>
+    </ol>
+    <p class="muted">Emulator keys: arrows = D-pad, Enter = select, Esc = Back.</p>
+  </div>
+
+  <h2>Five minutes with the DEMO family</h2>
+  <div class="card">
+    <ol>
+      <li><b>TV:</b> Rosetta opens on the living house. Move down the Quest Board; the camera follows each task to its room. Press <b>UP</b> for Arjun's and Meera's Progress or the <b>Parents</b> QR.</li>
+      <li><b>Parent phone:</b> open <a href="parent.html?code=DEMO">the parent page</a>, sign in as Mom with the demo PIN <b>2468</b>, and tap <b>Unlock TV time now</b>. The TV portal opens; <i>Lock it again</i> resets it.</li>
+      <li><b>Homework:</b> on the TV open <i>Fractions homework</i>. On <a href="kid.html?code=DEMO">the kid page</a> pick Arjun and photograph any worksheet. In about 15 seconds the ✦ AI Tutor marks it on the TV, then sets practice.</li>
+      <li><b>Honesty:</b> send a photo of something else and Rosetta says what it actually sees.</li>
+      <li><b>Daily task:</b> on the kid page, send a voice note for <i>Read 10 pages</i>. It becomes a memory on the parent page.</li>
+      <li><b>Pocket money:</b> add a small wish on the parent page; when a child has saved enough they tap <i>Ask Mom &amp; Dad</i> on the kid page and Mom approves. The TV's <b>Treasure</b> screen updates.</li>
+      <li><b>Quiz Night:</b> bottom bar → <i>Quiz Night</i>. Rosetta writes 8 questions for the two children and opens the 3D game.</li>
+    </ol>
+    <p class="muted">Everything is shared live, so another tester may be using the DEMO family too. <b>Start the family over</b> is at the bottom of the parent page.</p>
+  </div>
+
+  <h2>How it runs</h2>
+  <div class="card">
+    <p>Serverless on AWS, in one AWS CDK stack: Amazon CloudFront and S3 for these pages, Amazon API Gateway and AWS Lambda for the API, a <b>Strands Agents</b> crew on Lambda with an <b>Amazon Bedrock</b> model layer, Amazon DynamoDB for each family, S3 events for photo and voice uploads, Amazon EventBridge for nudges, and Amazon SES / SNS for parent alerts.</p>
+    <p class="muted">Source code (MIT): <a href="https://github.com/ashfaque-rifaye/project-rosetta">github.com/ashfaque-rifaye/project-rosetta</a> · <a href="friction-log.html">Friction log</a></p>
+  </div>
+</main>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, RemovalPolicy, Size, Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3n from "aws-cdk-lib/aws-s3-notifications";
@@ -118,7 +118,23 @@ export class RosettaStack extends Stack {
         s3deploy.Source.asset(path.join(__dirname, "..", "..", "web"), { exclude: ["config.js"] }),
         s3deploy.Source.data("config.js", `window.ROSETTA_CONFIG = { apiUrl: "${api.apiEndpoint}" };\n`),
       ],
+      exclude: ["downloads/*"],   // the APKs below are deployed separately; don't prune them
     });
+
+    // The TV install page (web/tv.html) links to the TV app and Quiz Night APKs: put them in dist/downloads/ to publish.
+    const downloads = path.join(__dirname, "..", "..", "dist", "downloads");
+    if (fs.existsSync(downloads)) {
+      new s3deploy.BucketDeployment(this, "DownloadsDeploy", {
+        destinationBucket: site,
+        destinationKeyPrefix: "downloads/",
+        distribution: cdn,
+        distributionPaths: ["/downloads/*"],
+        sources: [s3deploy.Source.asset(downloads)],
+        contentType: "application/vnd.android.package-archive",
+        memoryLimit: 2048,
+        ephemeralStorageSize: Size.gibibytes(2),
+      });
+    }
 
     new CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new CfnOutput(this, "WebUrl", { value: `https://${cdn.distributionDomainName}` });

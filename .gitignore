@@ -59,3 +59,5 @@ assets/demo/*.wav
 assets/demo/tv_room.png
 assets/demo/*.webp
 assets/demo/*.jpg
+/dist/
+/submission/

@@ -1,219 +1,238 @@
 # Friction Log: Project Rosetta
 
-Submitted with the Devpost entry (worth up to a 10% judging bonus). One entry per snag, written down when it happens.
+Friction we hit while building a Fire TV app with a serverless AWS agent backend for the Amazon Developer **Build, Ship, Shape** hackathon. Every entry was written down when it happened and follows the hackathon format: **task attempted · steps taken · expected vs. actual · severity · workaround · actionable suggestion**.
 
-Severity: **Blocker** · **Major** · **Minor** · **Papercut**
+Severity scale: **Blocker** (no way forward) · **Major** (cost an hour or more, or changes the product) · **Minor** (cost a test cycle) · **Papercut** (annoying, quick to fix).
+
+Also published at https://dr8w3l96syzm7.cloudfront.net/friction-log.html
+
+| # | Area | Entry | Severity |
+|---|---|---|---|
+| F-01 | Fire TV · Vega | Vega SDK and Vega Virtual Device unavailable on Windows | Major |
+| F-02 | Fire TV · Fire OS | No official Fire OS emulator image | Minor |
+| F-03 | Fire TV · getting started | SDK Manager silently skipped the TV system image until licenses were accepted | Papercut |
+| F-04 | Fire TV · emulator | TV emulator exits silently when the system drive is low on space | Major |
+| F-05 | Fire TV · emulator | Host-GPU mode hangs the TV emulator at renderer init | Major |
+| F-06 | Fire TV · emulator | A phone image at TV resolution hides Fire TV's real density | Major |
+| F-07 | Fire TV · emulator | adb screenrecord captures only 2-5 frames a second | Major |
+| F-08 | Fire TV · testing | Background dexopt restarts the app right after install | Minor |
+| F-09 | Fire TV · Compose for TV | tv-material 1.0 still gates FilterChip behind an experimental opt-in | Papercut |
+| F-10 | Fire TV · Compose for TV | The first Back press only clears focus | Minor |
+| F-11 | Fire TV · Media3 | SubtitleView doesn't move a visible cue when padding changes | Minor |
+| F-12 | Fire TV · Fire OS / Amazon Kids | No way for an app to grant or gate screen time | Major |
+| F-13 | Fire TV · Unity | Unity 6 can't target the 32-bit TV image used for Fire OS 8 | Minor |
+| F-14 | Fire TV · Unity | Unity Hub's silent install fails without an interactive admin prompt | Major |
+| F-15 | Amazon Bedrock | Models listed as ACTIVE fail with INVALID_PAYMENT_INSTRUMENT, intermittently | Major |
+| F-16 | Amazon Bedrock · Nova Pro | The vision bounding-box convention isn't next to the Converse image docs | Papercut |
+| F-17 | Amazon Bedrock · Nova Pro | Arithmetic verdicts when marking homework | Major |
+| F-18 | Strands Agents SDK | pip --platform silently installs an old Strands for Lambda when building on Windows | Major |
+| F-19 | Amazon API Gateway · AWS CDK | HTTP API catch-all route swallows the CORS preflight | Minor |
+| F-20 | Amazon Polly | No neural voices for Tamil or Malayalam, though Transcribe understands both | Major |
 
 ---
 
-### F-001: Vega SDK / Vega Virtual Device unavailable on Windows
-- **Tool:** Vega SDK (Vega Developer Tools, VVD)
+## Fire TV and Fire OS
+
+### F-01: Vega SDK and Vega Virtual Device unavailable on Windows
+- **Tool:** Vega SDK (Vega Developer Tools, Vega Virtual Device)
 - **Task:** Build the Fire TV app for Vega OS and run it in the Vega simulator.
-- **Steps:** Read the hackathon Resources page → Vega install docs (0.22–0.24).
-- **Expected:** An install path for Windows, the most common developer desktop OS.
-- **Actual:** System requirements list only macOS 10.15+ and Ubuntu 20.04+ (KVM). No Windows or WSL2 guidance.
-- **Severity:** Major. It pushed us onto Fire OS, so we can't demo on Vega at all.
-- **Workaround:** Build natively for Fire OS (Kotlin + Compose for TV) and test on the Android TV emulator, as the FAQ allows.
-- **Suggestion:** Ship a Windows build of VVD, or document a supported WSL2 + nested-virtualization path. At minimum, state Windows status on the hackathon Resources page.
+- **Steps:** Hackathon Resources page → Vega install docs (0.22–0.24) → system requirements.
+- **Expected:** An install path for Windows, the most common developer desktop.
+- **Actual:** Only macOS 10.15+ and Ubuntu 20.04+ (KVM) are supported; no Windows or WSL2 guidance.
+- **Severity:** Major. It pushed us onto Fire OS, so we couldn't demo on Vega at all.
+- **Workaround:** Built natively for Fire OS (Kotlin + Compose for TV) and tested on the Android TV emulator, as the FAQ allows.
+- **Suggestion:** Ship a Windows build of the Vega Virtual Device, or document a supported WSL2 + nested-virtualization path. At minimum, state Windows status on the hackathon Resources page.
 
-### F-002: No official Fire OS emulator image
-- **Tool:** Fire TV / Fire OS tooling
+### F-02: No official Fire OS emulator image
+- **Tool:** Fire TV / Fire OS developer tooling
 - **Task:** Run the app on something representative of a Fire TV without hardware.
-- **Steps:** Looked for a Fire OS system image in the Android SDK Manager and in Amazon docs.
-- **Expected:** A "Fire OS 8" emulator image (as there once was for Fire tablets).
-- **Actual:** Only generic Android TV and Google TV images. We picked `android-30;android-tv;x86` because Fire OS 8 is based on Android 11, which is a guess on our part.
+- **Steps:** Searched the Android SDK Manager and the Fire TV docs for a Fire OS system image.
+- **Expected:** A Fire OS emulator image, as there once was for Fire tablets.
+- **Actual:** Only generic Android TV and Google TV images. We had to infer that Android TV API 30 ≈ Fire OS 8 and API 36 ≈ Fire OS 16.
 - **Severity:** Minor
-- **Workaround:** Android TV API 30 image, 1080p, density 320 (matches a 1080p Fire TV Stick at 960×540 dp).
-- **Suggestion:** Publish a Fire OS emulator image, or at least a doc page saying which AOSP TV image best mirrors each Fire OS version.
+- **Workaround:** Android TV `android-36;android-tv;x86_64`, 1080p, 320 dpi (the same 960 × 540 dp as a 1080p Fire TV).
+- **Suggestion:** Publish x86_64 Fire OS emulator images, or a table mapping each Fire OS version to the closest Android TV image.
 
-### F-003: SDK Manager silently skipped the system image until licenses were accepted
-- **Tool:** Android SDK `sdkmanager` (CLI)
+### F-03: SDK Manager silently skipped the TV system image until licenses were accepted
+- **Tool:** Android SDK `sdkmanager` (CLI), on the Fire TV getting-started path
 - **Task:** Install `system-images;android-30;android-tv;x86` from the command line.
-- **Expected:** Install, or a clear "license not accepted" error.
-- **Actual:** Exit code 0, platform installed, system image missing. It only worked after `sdkmanager --licenses`.
-- **Severity:** Papercut. Not Amazon's tool, but it's on the Fire TV getting-started path.
+- **Steps:** `sdkmanager "system-images;android-30;android-tv;x86"` on a fresh SDK.
+- **Expected:** The image installs, or a clear "license not accepted" error.
+- **Actual:** Exit code 0, the platform installed, the system image missing. It only worked after `sdkmanager --licenses`.
+- **Severity:** Papercut
 - **Workaround:** `yes | sdkmanager --licenses` first.
-- **Suggestion:** Amazon's Fire TV CLI quick-start could include the license step.
+- **Suggestion:** Add the license step to the Fire TV command-line quick start.
 
-### F-004: TV emulator silently fails to start when the system drive is low on space
-- **Tool:** Android Emulator (Android TV image), on the Fire TV getting-started path
-- **Task:** Boot the TV emulator created with `avdmanager ... -d tv_1080p`.
-- **Steps:** `emulator -avd FireTV_API30` launched from a script → waited 6 min for `sys.boot_completed`.
-- **Expected:** Boot, or a visible error.
-- **Actual:** The process exited immediately with no window. Only `-verbose` revealed `FATAL | Not enough space to create userdata partition ... need 7372.80 MB`. The default TV AVD reserves a 7.2 GB data partition, and avdmanager places it on C: (`disk.dataPartition.path=<temp>`).
-- **Severity:** Major (lost ~10 minutes and looked like a hang)
-- **Workaround:** Moved the AVD to another drive, set `disk.dataPartition.size=4G`, and removed the `<temp>` data path.
-- **Suggestion:** The Fire TV docs could recommend a smaller data partition for TV AVDs and mention `-verbose` for diagnosing silent exits.
+### F-04: TV emulator exits silently when the system drive is low on space
+- **Tool:** Android Emulator with an Android TV image
+- **Task:** Boot a TV AVD created with `avdmanager ... -d tv_1080p`.
+- **Steps:** `emulator -avd FireTV_API30` from a script, then waited for `sys.boot_completed`.
+- **Expected:** The emulator boots, or shows an error.
+- **Actual:** The process exited immediately with no window. Only `-verbose` revealed `FATAL | Not enough space to create userdata partition ... need 7372.80 MB`: the default TV AVD reserves a 7.2 GB data partition on C:.
+- **Severity:** Major (about 10 minutes lost; it looked like a hang).
+- **Workaround:** Moved the AVD to another drive and set `disk.dataPartition.size=4G`.
+- **Suggestion:** Recommend a smaller data partition for TV AVDs in the Fire TV emulator guide, and mention `-verbose` for diagnosing silent exits.
 
-### F-005: Host-GPU mode hangs the TV emulator at renderer init
-- **Tool:** Android Emulator 36.3.10, `-gpu auto`, NVIDIA RTX 4060 Laptop (Vulkan 1.4)
+### F-05: Host-GPU mode hangs the TV emulator at renderer init
+- **Tool:** Android Emulator 36.3.10, `-gpu auto`, Windows laptop with an NVIDIA RTX 4060 (hybrid graphics)
 - **Task:** Boot the Android TV API 30 AVD.
-- **Actual:** The log stops after "Selecting Vulkan device". qemu stays alive at ~350 MB, never registers with adb, and shows no window, for over 6 min.
+- **Steps:** `emulator -avd FireTV_API30 -gpu auto`.
+- **Expected:** Boot with hardware rendering.
+- **Actual:** The log stops after "Selecting Vulkan device"; qemu stays alive, never registers with adb and shows no window for over 6 minutes.
 - **Severity:** Major
-- **Workaround:** `-gpu swiftshader_indirect`. That got past rendering, then hit host memory limits (see the note below; not an Amazon issue).
+- **Workaround:** `-gpu swiftshader_indirect` for the API 30 image; the API 36 x86_64 TV image later ran fine with `-gpu host`.
 - **Suggestion:** Document the recommended `-gpu` flag for TV AVDs on Windows laptops with hybrid GPUs.
 
-### F-006: tv-material 1.0 "stable" still gates FilterChip behind an experimental opt-in
-- **Tool:** `androidx.tv:tv-material:1.0.0` (Compose for TV)
-- **Task:** Language chips in the player (D-pad selectable).
-- **Actual:** Compile error "This tv-material API is experimental" for `FilterChip`, with no hint in the Fire TV Compose docs.
-- **Severity:** Papercut
-- **Workaround:** `@file:OptIn(ExperimentalTvMaterial3Api::class)`
-- **Suggestion:** Fire TV's Compose-for-TV guide could list which tv-material components are still experimental.
-
-### F-007: Media3 `SubtitleView` doesn't move an already-visible cue when its bottom padding changes
-- **Tool:** `androidx.media3:media3-ui:1.8.0`, which Fire TV docs recommend for playback
-- **Task:** Lift subtitles above an on-screen control bar while the bar is visible.
-- **Expected:** `setBottomPaddingFraction()` repositions the current cue.
-- **Actual:** The cue stays put until the next cue arrives, so it overlaps the bar.
-- **Severity:** Minor
-- **Workaround:** Hide `SubtitleView` and render cues ourselves in Compose from `Player.Listener.onCues`. This turned out better anyway, since it lets us make individual words focusable for Rosetta Notes.
-- **Suggestion:** A Fire TV sample showing Compose-rendered captions with D-pad interaction.
-
-### F-008: Bedrock Claude access flips from working to `INVALID_PAYMENT_INSTRUMENT` with no console signal
-- **Tool:** Amazon Bedrock (Converse API), Anthropic models via AWS Marketplace, us-east-1
-- **Task:** Call Claude for translation (feasibility test 4).
-- **Steps:** `list_foundation_models` / `list_inference_profiles` show 15 Claude models as ACTIVE. Probed each with a 5-token Converse call.
-- **Expected:** Either the listed models are invocable, or the listing says which ones aren't.
-- **Actual:** The listing shows everything as ACTIVE. Invocation fails three different ways: "not available for this account" (5.x family), `INVALID_PAYMENT_INSTRUMENT` (Sonnet/Haiku 4.x), and Opus 4.5/4.6 **succeeded once, then failed with `INVALID_PAYMENT_INSTRUMENT` ~3 minutes later** on the real request.
-- **Severity:** Major. It blocks the core feature, and the intermittent success makes it look like a code bug.
-- **Workaround:** Validated the pipeline on Amazon Nova Pro (first-party, no Marketplace). Fix the payment method to unlock Claude.
-- **Suggestion:** Return per-model *invocability* (entitlement + Marketplace status) from `ListFoundationModels`, and fail consistently rather than allowing a first call through.
-
-### F-009: Polly has no neural voice for Tamil or Malayalam (Transcribe supports both)
-- **Tool:** Amazon Polly
-- **Task:** Dub family stories *into* a grandparent's language (e.g. English reply → Tamil).
-- **Actual:** Transcribe batch understands ta-IN, ml-IN, te-IN, kn-IN and others, but Polly speaks only hi-IN and en-IN among Indian languages.
-- **Severity:** Major for our use case (the reply loop to Tamil grandparents is subtitles-only).
-- **Workaround:** Tamil replies are delivered as subtitles; Hindi gets a voice.
-- **Suggestion:** Tamil, Malayalam, Telugu, Bengali neural voices. That's hundreds of millions of speakers, many of them Fire TV customers in India.
-
-### F-010: App process replaced by background dexopt right after install, so D-pad input landed on the launcher
-- **Tool:** Android TV emulator (API 30) / Fire OS app install path
-- **Task:** Install the debug APK, launch it, and drive the flow with `adb shell input keyevent`.
-- **Actual:** About 30 s after install, the system ran `dexopt` on the new APK and restarted the app process. Our scripted
-  key presses then went to the TV launcher (Settings opened). No crash or log line in our app explained it.
-- **Severity:** Minor (it cost a test cycle and looked like a crash)
-- **Workaround:** `adb shell cmd package compile -m speed -f <pkg>` right after install, then launch.
-- **Suggestion:** Mention this in the Fire TV "test with adb" docs, especially for automated demo recording.
-
-### F-011: Bedrock vision bounding-box convention isn't stated next to the Converse image docs
-- **Tool:** Amazon Bedrock, Amazon Nova Pro (Converse with image input)
-- **Task:** Get grounded boxes for objects to draw on the TV.
-- **Actual:** The Nova grounding convention (integers on a 0–1000 grid, `[x1, y1, x2, y2]`) is in the Nova user guide but
-  not in the Converse API image examples, so the first schema guessed pixels.
-- **Severity:** Papercut
-- **Workaround:** State the 0–1000 convention in the tool schema description and normalize in code.
-- **Suggestion:** A "grounding" example on the Converse API page for each vision model.
-
-### Note: host memory (not an Amazon issue)
-The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) and the emulator could not run together, so we switched to `kotlin.compiler.execution.strategy=in-process`, a 1.25 GB guest, and stopped idle daemons. Recorded here so the numbers in this log make sense.
-
-### F-012: Unity Hub's silent install fails without an interactive admin prompt
-- **Tool:** Unity Hub CLI (`--headless install`), Unity 6000.3 LTS, Windows 11
-- **Task:** Install the Unity editor and Android Build Support on a second drive for the Fire OS companion app.
-- **Actual:** The download completed (about 7 GB staged on C:), then the install failed with "The Windows elevation prompt was cancelled or timed out" because no one was there to accept UAC.
-- **Severity:** Major. It cost about 30 minutes and nearly filled the system drive.
-- **Workaround:** Run the downloaded, signed installers as the current user (`__COMPAT_LAYER=RunAsInvoker`, `/S /D=E:\Unity\Editors\...`), and unpack the NDK/JDK zips by hand.
-- **Suggestion (to Amazon, for Fire TV game developers):** Document the minimum Unity setup for Fire OS (modules, x86_64 vs ARM64) on the Fire TV game docs page.
-
-### F-013: Unity 6 can't target the Android TV image we used for Fire OS
-- **Tool:** Unity 6 Android player, Android TV emulator `android-30;android-tv;x86`
-- **Actual:** Unity 6 supports ARM64, ARMv7 and x86_64 only, and the recommended Fire OS 8-like TV image is 32-bit x86, so the Unity APK can't run there.
-- **Severity:** Minor
-- **Workaround:** A second, x86_64 AVD (API 36, 1080p) for testing the Unity companion; ARM64 for real Fire TV devices.
-- **Suggestion:** Pairs with F-002: an official x86_64 Fire OS emulator image would cover native and Unity apps.
-
-### F-014: HTTP API catch-all route swallows CORS preflight
-- **Tool:** Amazon API Gateway HTTP API (CDK `corsPreflight` + `ANY /{proxy+}` route)
-- **Task:** Let the phone page (CloudFront origin) call the API.
-- **Expected:** With `corsPreflight` configured, API Gateway answers `OPTIONS` itself.
-- **Actual:** The `ANY` route also matches `OPTIONS`, so the preflight went to the Lambda, which returned 404, and every browser call failed. The console only says "CORS policy".
-- **Severity:** Minor
-- **Workaround:** The Lambda answers `OPTIONS` with 204 and the CORS headers.
-- **Suggestion:** A warning in the CDK `HttpApi` docs (or a synth-time warning) when an `ANY` route coexists with `corsPreflight`.
-
-### F-015: Amazon Nova Pro arithmetic when marking homework
-- **Tool:** Amazon Bedrock, Amazon Nova Pro (Converse, image + forced tool schema)
-- **Task:** Mark a child's handwritten fractions worksheet.
-- **Actual:** Transcription of every handwritten answer was correct, but one verdict was wrong ("which is bigger, 2/3 or 3/5?" marked incorrect). Asking for step-by-step working first did not fully fix it. Generated quiz options were also biased to option A and once contained two correct choices.
-- **Severity:** Major for an education product (a wrong mark can mislead a child).
-- **Workaround:** Exact checking in code for arithmetic (Python `Fraction`), server-side shuffling and validation of generated questions, and retrying generation when too few pass.
-- **Suggestion:** A Bedrock sample showing "model reads, code verifies" for education use cases; and an optional calculator tool in Nova's built-in tool set.
-
-### F-016: On Android TV, Compose spends the first Back press on clearing focus
-- **Tool:** Jetpack Compose for TV (`tv-material`), Android TV API 36 image
-- **Task:** Leave a screen with one press of the remote's Back button.
-- **Steps:** Screen with a focused card and a `BackHandler`; press Back.
-- **Expected:** The `BackHandler` runs on the first press.
-- **Actual:** The first press only removed focus from the focused card; the second press navigated. On a phone image at TV resolution it behaved as expected, so we only saw it on a real TV image.
-- **Severity:** Minor (judges pressing Back once think the app is stuck).
-- **Workaround:** Intercept `KEYCODE_BACK` in a root `onPreviewKeyEvent` and navigate on key-up.
-- **Suggestion:** Document the TV focus-on-Back behaviour next to `BackHandler`, or offer an opt-out.
-
-### F-017: `pip --platform` silently installs an old Strands for Lambda when building on Windows
-- **Tool:** Strands Agents SDK packaging for AWS Lambda (pip `--platform manylinux2014_x86_64 --only-binary=:all:`)
-- **Task:** Bundle strands-agents 1.62 (with the Gemini provider) into a Lambda zip without Docker.
-- **Actual:** pip evaluates environment markers for the build machine, so `mcp`'s `pywin32; sys_platform == "win32"` dependency had no Linux wheel and pip backtracked to strands-agents 1.1.0 without any error. The Lambda then failed with `No module named 'strands.models.gemini'`.
-- **Severity:** Major (silent, only visible at runtime).
-- **Workaround:** `uv pip install --python-platform x86_64-manylinux2014 --python-version 3.12 --only-binary :all:`, which resolves markers for the target.
-- **Suggestion:** A "package Strands for Lambda" page (or an official Lambda layer) that warns about cross-platform resolution.
-
-### F-018: A phone image at TV resolution hides Fire TV's real density
+### F-06: A phone image at TV resolution hides Fire TV's real density
 - **Tool:** Android emulator (`android-36;google_apis_playstore` with the `tv_1080p` profile vs `android-36;android-tv;x86_64`)
 - **Task:** Check the 10-foot layouts at Fire TV's real screen size.
-- **Actual:** On the phone image the app laid out on a larger dp canvas; on a true Android TV image (1920 × 1080 at 320 dpi = 960 × 540 dp, like a 1080p Fire TV) the homework screen overflowed and Home showed one quest card.
+- **Steps:** Built the screens on a phone image set to 1920 × 1080, then installed the same APK on a true Android TV image.
+- **Expected:** The same layout on both.
+- **Actual:** A real TV image is 1920 × 1080 at 320 dpi = 960 × 540 dp (like a 1080p Fire TV). The homework screen overflowed and Home showed a single quest card.
 - **Severity:** Major (the demo would have looked broken on a real Fire TV).
-- **Workaround:** Draw every screen on a fixed 1440 × 810 canvas and scale it to the display (`LocalDensity` override); identical on 720p, 1080p and 4K.
+- **Workaround:** Draw every screen on a fixed 1440 × 810 canvas and scale it to the display (`LocalDensity` override): identical on 720p, 1080p and 4K.
 - **Suggestion:** State Fire TV's dp size and density on the "Use an Android TV emulator" page, and recommend an x86_64 TV image.
 
-### F-019: Workload Identity Federation from AWS Lambda fails on the default subject mapping
-- **Tool:** Google Cloud Workload Identity Federation (AWS provider), called from AWS Lambda roles
-- **Task:** Let Lambda call Vertex AI without any key.
-- **Actual:** `invalid_request: The size of mapped attribute google.subject exceeds the 127 bytes limit`: the default mapping uses the full assumed-role ARN, and CDK-generated role names plus the function session name exceed it.
-- **Severity:** Minor (clear error, easy fix once found).
-- **Workaround:** `google.subject=assertion.userid`, keeping `attribute.aws_role` for the bindings.
-- **Suggestion:** Use a shorter default subject for AWS providers, or note the limit in the AWS-provider guide.
-
-### F-020: Gemini TTS per-minute quota is small by default
-- **Tool:** Vertex AI, `gemini-2.5-flash-tts`
-- **Task:** Pre-generate about 70 short Keeper voice clips.
-- **Actual:** Four parallel requests returned `429 RESOURCE_EXHAUSTED` (per-minute, per-base-model quota).
-- **Severity:** Minor
-- **Workaround:** Generate one at a time with back-off, and cache every repeating line in S3 so live use needs few calls.
-- **Suggestion:** Show the default TTS quota on the model card.
-
-### F-021: Gemini anchored every homework box at the page margin
-- **Tool:** Vertex AI, `gemini-2.5-flash` (structured output with a JSON response schema, image input)
-- **Task:** Get a bounding box per homework question for the TV's ticks and crosses.
-- **Actual:** Asked for a box "around the question and its answer", the model returned `xmin = 40` (of 1000) for every item across runs, far left of the questions; adding the tool description to the system prompt made it consistent. Coordinates are also y-x ordered, unlike Nova's x-y.
-- **Severity:** Minor (wrong-looking marks, verdicts unaffected).
-- **Workaround:** Ask for a tight box around the child's handwritten answer only, in Gemini's native `[ymin, xmin, ymax, xmax]`, and convert in one adapter.
-- **Suggestion:** Document box-prompting guidance for documents (tight targets work better than regions).
-
-### F-022: No way for an app to gate the other apps on Fire TV
-- **Tool:** Fire OS (Fire TV), Amazon Kids
-- **Task:** Let a family's TV time unlock only after today's tasks are done ("no TV until homework is finished").
-- **Actual:** Fire TV doesn't allow replacing the home screen, and there is no API for an app to lock or time-limit other apps. Amazon Kids profiles have time limits, but nothing an app can grant ("earned 45 minutes").
-- **Severity:** Major for this use case (the core promise can only be honoured, not enforced).
-- **Workaround:** Rosetta unlocks TV time inside the app, opens Prime Video, YouTube or Netflix from there and counts the minutes; the parent page walks parents through Fire TV's own parental controls (PIN-protected app launches) for the rest.
-- **Suggestion:** An Amazon Kids "grant screen time" API that a parent-approved app can call.
-
-### F-023: Image models rate-limit hard on a fresh project
-- **Tool:** Vertex AI, `gemini-2.5-flash-image`
-- **Task:** Generate two parent portraits in the kids' art style.
-- **Actual:** 429 `RESOURCE_EXHAUSTED` on the first requests, with no quota shown up front.
-- **Severity:** Minor.
-- **Workaround:** Fall back across image models and wait between attempts (`assets/intro/make_intro.py`).
-- **Suggestion:** Show the per-minute image quota in the console next to the model, and include a retry-after hint in the 429.
-
-
-### F-024: adb screenrecord on the TV emulator captures only 2-5 frames a second
-- **Tool:** Android TV emulator (API 36, Fire OS 16 stand-in), `adb shell screenrecord`
-- **Task:** Record a smooth demo video of the app.
-- **Steps:** `adb shell screenrecord --bit-rate 20000000` while driving the app with the remote.
+### F-07: adb screenrecord on the TV emulator captures only 2-5 frames a second
+- **Tool:** Android TV emulator (API 36, our Fire OS 16 stand-in), `adb shell screenrecord`
+- **Task:** Record a smooth demo video of the app for the submission.
+- **Steps:** `adb shell screenrecord --bit-rate 20000000 --time-limit 60 /sdcard/shot.mp4` while driving the app with `adb shell input keyevent`.
 - **Expected:** 30 fps footage.
-- **Actual:** the recorder encodes inside the emulator and competes with the app; footage had 2-5 distinct frames a second and the demo stuttered. The default AVD (4 cores, 2 GB) also drew the app at about 10 fps.
+- **Actual:** The recorder encodes inside the emulator and competes with the app: the footage had 2-5 distinct frames a second and the video stuttered. The default TV AVD (4 cores, 2 GB) also drew the app at about 10 fps (`dumpsys gfxinfo`: 97 ms median frame).
 - **Severity:** Major for demo videos.
-- **Workaround:** the emulator's own host-side recorder, `adb emu screenrecord start --fps 30 <file>.webm`, with the AVD raised to 8 cores and 6 GB: steady 30 fps.
-- **Suggestion:** recommend the host-side recorder and a TV-sized AVD profile in the Fire TV emulator docs.
+- **Workaround:** The emulator's own host-side recorder, `adb emu screenrecord start --fps 30 <file>.webm`, with the AVD raised to 8 cores and 6 GB: a steady 30 fps and a 32 ms median frame.
+- **Suggestion:** Recommend the host-side recorder and a TV-sized AVD profile in the Fire TV emulator docs; many hackathon entrants record their demo this way.
+
+### F-08: Background dexopt restarts the app right after install
+- **Tool:** Android TV emulator / Fire OS app install path
+- **Task:** Install the debug APK, launch it, and drive the flow with `adb shell input keyevent`.
+- **Steps:** `adb install`, `am start`, then scripted key presses.
+- **Expected:** Key presses reach the app.
+- **Actual:** About 30 s after install the system ran `dexopt` on the new APK and restarted the app process; the scripted keys landed on the launcher (Settings opened). Nothing in our log explained it.
+- **Severity:** Minor (it cost a test cycle and looked like a crash).
+- **Workaround:** `adb shell cmd package compile -m speed -f <package>` right after install, then launch.
+- **Suggestion:** Mention this in the Fire TV "test with adb" docs, especially for automated testing and demo recording.
+
+### F-09: tv-material 1.0 still gates FilterChip behind an experimental opt-in
+- **Tool:** `androidx.tv:tv-material:1.0.0` (Compose for TV)
+- **Task:** D-pad-selectable chips.
+- **Steps:** Used `FilterChip` from the 1.0 "stable" artifact.
+- **Expected:** A stable API compiles without opt-ins.
+- **Actual:** Compile error "This tv-material API is experimental", with no hint in the Fire TV Compose docs.
+- **Severity:** Papercut
+- **Workaround:** `@file:OptIn(ExperimentalTvMaterial3Api::class)`.
+- **Suggestion:** List which tv-material components are still experimental in Fire TV's Compose for TV guide.
+
+### F-10: On a TV image, Compose spends the first Back press on clearing focus
+- **Tool:** Jetpack Compose for TV (`tv-material`), Android TV API 36 image
+- **Task:** Leave a screen with one press of the remote's Back button.
+- **Steps:** A screen with a focused card and a `BackHandler`; press Back once.
+- **Expected:** The `BackHandler` runs on the first press.
+- **Actual:** The first press only removed focus from the card; the second press navigated. On a phone image it behaved as expected, so we only saw it on a TV image.
+- **Severity:** Minor (testers pressing Back once think the app is stuck).
+- **Workaround:** Intercept `KEYCODE_BACK` in a root `onPreviewKeyEvent` and navigate on key-up.
+- **Suggestion:** Document the TV focus-on-Back behaviour next to `BackHandler` in the Fire TV Compose guide, or offer an opt-out.
+
+### F-11: Media3 SubtitleView doesn't move an already-visible cue when its padding changes
+- **Tool:** `androidx.media3:media3-ui:1.8.0`, recommended by the Fire TV docs for playback
+- **Task:** Lift subtitles above an on-screen control bar while the bar is visible.
+- **Steps:** `subtitleView.setBottomPaddingFraction()` when the bar appears.
+- **Expected:** The current cue moves up.
+- **Actual:** The cue stays put until the next cue arrives, overlapping the bar.
+- **Severity:** Minor
+- **Workaround:** Render cues ourselves in Compose from `Player.Listener.onCues`.
+- **Suggestion:** A Fire TV sample showing Compose-rendered captions with D-pad interaction.
+
+### F-12: No way for an app to grant or gate screen time on Fire TV
+- **Tool:** Fire OS (Fire TV), Amazon Kids
+- **Task:** Unlock a family's TV time only after today's tasks are done ("no TV until homework is finished").
+- **Steps:** Looked for a launcher-replacement option, an app-usage API and an Amazon Kids API for granting time.
+- **Expected:** Some sanctioned way for a parent-approved app to grant screen time.
+- **Actual:** Fire TV doesn't allow replacing the home screen, and no API lets an app lock or time-limit other apps. Amazon Kids profiles have time limits, but nothing an app can grant ("earned 45 minutes").
+- **Severity:** Major for this use case (the core promise can only be honoured, not enforced).
+- **Workaround:** Rosetta unlocks TV time inside the app, launches Prime Video, YouTube or Netflix and counts the minutes; the parent page walks parents through Fire TV's parental controls (PIN-protected app launches) for the rest.
+- **Suggestion:** An Amazon Kids "grant screen time" API that a parent-approved app can call (our #1 feature request).
+
+### F-13: Unity 6 can't target the 32-bit TV image used for Fire OS 8
+- **Tool:** Unity 6 Android player, Android TV emulator `android-30;android-tv;x86`
+- **Task:** Run the Unity Quiz Night companion on our Fire OS 8 stand-in.
+- **Steps:** Built the Unity APK and installed it on the API 30 TV image.
+- **Expected:** It installs and runs.
+- **Actual:** Unity 6 supports ARM64, ARMv7 and x86_64 only; the Fire OS 8-like TV image is 32-bit x86, so the APK has no matching ABI there.
+- **Severity:** Minor
+- **Workaround:** An x86_64 AVD (API 36, 1080p) for the Unity companion; ARMv7 + ARM64 for real Fire TV devices.
+- **Suggestion:** Pairs with F-02: an official x86_64 Fire OS emulator image would cover native and Unity apps.
+
+### F-14: Unity Hub's silent install fails without an interactive admin prompt
+- **Tool:** Unity Hub CLI (`--headless install`), Unity 6000.3 LTS, Windows 11
+- **Task:** Install the Unity editor and Android Build Support for the Fire OS companion app.
+- **Steps:** `Unity Hub.exe -- --headless install --version 6000.3.x --module android`.
+- **Expected:** An unattended install.
+- **Actual:** The 7 GB download completed, then the install failed with "The Windows elevation prompt was cancelled or timed out" because no one was there to accept UAC.
+- **Severity:** Major (about 30 minutes, and it nearly filled the system drive).
+- **Workaround:** Ran the downloaded, signed installers silently as the current user and unpacked the NDK/JDK by hand.
+- **Suggestion:** Document the minimum Unity setup for Fire OS (modules, ABIs) on the Fire TV game developer page.
+
+## Amazon Bedrock and the Strands Agents SDK
+
+### F-15: Bedrock models listed as ACTIVE fail with INVALID_PAYMENT_INSTRUMENT, intermittently
+- **Tool:** Amazon Bedrock (Converse API), Anthropic models via AWS Marketplace, us-east-1
+- **Task:** Call a Claude model from the agent crew.
+- **Steps:** `list_foundation_models` and `list_inference_profiles` show 15 Claude models as ACTIVE; probed each with a 5-token Converse call.
+- **Expected:** Either the listed models are invocable, or the listing says which ones aren't.
+- **Actual:** Everything is listed as ACTIVE, but invocation fails three different ways: "not available for this account", `INVALID_PAYMENT_INSTRUMENT`, and one model that **succeeded once, then failed** with `INVALID_PAYMENT_INSTRUMENT` about 3 minutes later.
+- **Severity:** Major. It blocked the planned model, and the intermittent success looked like a bug in our code.
+- **Workaround:** Built the crew on **Amazon Nova Pro** (first-party, no Marketplace subscription) and kept every prompt model-agnostic.
+- **Suggestion:** Return per-model invocability (entitlement + Marketplace status) from `ListFoundationModels`, and fail consistently instead of letting a first call through.
+
+### F-16: Nova's bounding-box convention isn't next to the Converse image docs
+- **Tool:** Amazon Bedrock, Amazon Nova Pro (Converse with image input)
+- **Task:** Get grounded boxes for out-of-place objects to draw on the TV.
+- **Steps:** Followed the Converse API image examples and asked for boxes in a tool schema.
+- **Expected:** The coordinate system documented with the image block.
+- **Actual:** The convention (integers on a 0–1000 grid, `[x1, y1, x2, y2]`) is only in the Nova user guide, so our first schema guessed pixels.
+- **Severity:** Papercut
+- **Workaround:** State the 0–1000 convention in the tool schema description and normalise in code.
+- **Suggestion:** A "grounding" example on the Converse API page for each vision model.
+
+### F-17: Amazon Nova Pro arithmetic when marking homework
+- **Tool:** Amazon Bedrock, Amazon Nova Pro (Converse, image + forced tool schema)
+- **Task:** Mark a child's handwritten fractions worksheet.
+- **Steps:** Sent the worksheet photo with a marking schema (question, child's answer, correct?, hint).
+- **Expected:** Correct verdicts on simple fraction comparisons.
+- **Actual:** Every handwritten answer was transcribed correctly, but one verdict was wrong ("which is bigger, 2/3 or 3/5?" marked incorrect); asking for working first didn't fully fix it. Generated quiz options were biased toward option A and once had two correct choices.
+- **Severity:** Major for an education product (a wrong mark can mislead a child).
+- **Workaround:** Exact checking in code for arithmetic (Python `Fraction`, `mathcheck.py`); server-side shuffling and validation of generated questions, regenerating when too few pass.
+- **Suggestion:** A Bedrock sample showing "model reads, code verifies" for education, and an optional calculator tool for Nova.
+
+### F-18: pip --platform silently installs an old Strands Agents for Lambda when building on Windows
+- **Tool:** Strands Agents SDK, packaged for AWS Lambda with `pip install --platform manylinux2014_x86_64 --only-binary=:all:`
+- **Task:** Bundle the latest strands-agents into a Lambda zip without Docker.
+- **Steps:** Ran the pip command on Windows 11 into a target folder, zipped it, deployed with CDK.
+- **Expected:** The latest strands-agents for Linux.
+- **Actual:** pip evaluates dependency markers for the build machine, so `mcp`'s `pywin32; sys_platform == "win32"` dependency had no Linux wheel and pip backtracked to strands-agents 1.1.0 without an error. The Lambda then failed at import time on a module that only exists in newer releases.
+- **Severity:** Major (silent; only visible at runtime).
+- **Workaround:** `uv pip install --python-platform x86_64-manylinux2014 --python-version 3.12 --only-binary :all:`, which resolves markers for the target platform.
+- **Suggestion:** A "package Strands Agents for Lambda" page (or an official Lambda layer) that warns about cross-platform resolution.
+
+## AWS services
+
+### F-19: API Gateway HTTP API catch-all route swallows the CORS preflight
+- **Tool:** Amazon API Gateway HTTP API via AWS CDK (`corsPreflight` + an `ANY /{proxy+}` route)
+- **Task:** Let the phone pages (CloudFront origin) call the API.
+- **Steps:** `new apigw.HttpApi(..., { corsPreflight })` plus `addRoutes({ path: "/{proxy+}", methods: [ANY] })`.
+- **Expected:** With `corsPreflight` set, API Gateway answers `OPTIONS` itself.
+- **Actual:** The `ANY` route also matches `OPTIONS`, so the preflight reached the Lambda, which returned 404, and every browser call failed with only "CORS policy" in the console.
+- **Severity:** Minor
+- **Workaround:** The Lambda answers `OPTIONS` with 204 and the CORS headers.
+- **Suggestion:** A synth-time warning (or a note in the `HttpApi` docs) when an `ANY` route coexists with `corsPreflight`.
+
+### F-20: Amazon Polly has no neural voice for Tamil or Malayalam
+- **Tool:** Amazon Polly (with Amazon Transcribe for comparison)
+- **Task:** Speak family messages in a grandparent's language (for example, an English reply read out in Tamil).
+- **Steps:** Listed Polly voices by language; tested Transcribe language identification on the same languages.
+- **Expected:** Voices for the major Indian languages Transcribe understands.
+- **Actual:** Transcribe handles ta-IN, ml-IN, te-IN, kn-IN and more, but among Indian languages Polly speaks only hi-IN and en-IN.
+- **Severity:** Major for families in South India.
+- **Workaround:** Tamil and Malayalam as on-screen text; Hindi and English get a voice.
+- **Suggestion:** Neural voices for Tamil, Malayalam, Telugu and Bengali: hundreds of millions of speakers, many of them Fire TV customers in India.
