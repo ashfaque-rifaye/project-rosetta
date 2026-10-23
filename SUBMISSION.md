@@ -95,23 +95,28 @@ kotlin, jetpack-compose, compose-for-tv, fire-tv, fire-os, android, unity, c-sha
 
 ## "Try it out" links
 ```
+https://dr8w3l96syzm7.cloudfront.net/tv.html
 https://github.com/ashfaque-rifaye/project-rosetta
 https://dr8w3l96syzm7.cloudfront.net/parent.html?code=DEMO
 https://dr8w3l96syzm7.cloudfront.net/kid.html?code=DEMO
 https://github.com/ashfaque-rifaye/compose-vision-overlay
 ```
+The first link is the TV app install page on AWS: it hosts the TV app APK (already pointed at the live stack and the DEMO family), the optional Unity Quiz Night APK, and Fire TV / emulator install steps.
 
-## Image gallery (up to 15; JPG/PNG under 5 MB)
-Upload in this order from `docs/screens/`:
-`41-home-living-house.png`, `42-ai-tutor-marks-workbook.png`, `43-coding-class-traced.png`, `48-honest-wrong-photo.png`,
-`44-pocket-money-wish-list.png`, `47-tv-time-unlocked.png`, `45-quiz-night-unity.png`, `46-progress-coach-notes.png`,
-`40-architecture-aws.png`, `33-room-check.png`, `35-family-goal.png`, `30-intro.png`.
+## Image gallery (up to 15; JPG/PNG under 5 MB; 3:2)
+Upload all 15 from `submission/gallery/`, in file-name order. Each is 1800 × 1200 (3:2) with a caption:
+`01-rosetta-on-the-family-tv` · `02-home-living-house-quest-board` · `03-ai-tutor-marks-handwritten-workbook` ·
+`04-practice-reasoning-questions` · `05-coding-class-traced-line-by-line` · `06-honest-ai-wrong-photo` ·
+`07-room-check-lost-things` · `08-voice-note-daily-habit` · `09-rewards-for-every-child` · `10-pocket-money-and-wish-list` ·
+`11-tv-time-unlocked` · `12-family-quiz-night-unity-3d` · `13-progress-and-coach-notes` · `14-parents-scan-the-tv` ·
+`15-architecture-serverless-on-aws`
 
 ## Video demo link
 ⬜ Upload `assets/demo/build/rosetta_demo_v3.mp4` (1080p, 2:56) to YouTube as **Public** or **Unlisted**, then paste the link.
 
 ## Upload a file (optional, 35 MB)
-⬜ Optional: a zip of the TV app APK built with the three `-P` flags from the testing instructions (it opens the public demo family).
+Upload `submission/Project-Rosetta-Submission.zip` (22 MB): `1-Project-Deck/` (PDF and PowerPoint, 17 slides) and
+`2-Source-Code/Project-Rosetta-Source.zip` (the code; the heavy media stays in the GitHub repo).
 
 ---
 
@@ -146,7 +151,9 @@ Rosetta's backend is serverless on AWS, end to end, in one AWS CDK stack (infra/
 - Amazon CloudFront + S3: the kid and parent phone pages (PWA).
 - AWS CDK: the whole stack deploys with one command; pay-per-use, scales to zero.
 
-The README's "AWS integrations" section maps each service to the file that uses it.
+Development workflow: built with Claude Code as an agentic pair programmer.
+
+The README's "Built on AWS" section maps each service to the file that uses it, with an architecture diagram.
 ```
 
 ### Open Source Mini Challenge
@@ -175,38 +182,40 @@ Why it matters: multimodal models now return grounded boxes, but every TV app wo
 6. Amazon Polly neural voices for Tamil, Malayalam, Telugu and Bengali (Important): Fire TV has huge audiences in India.
 ```
 
-### Friction log (optional, up to +10%)
+### Friction log (optional, up to +10%): the field takes a URL
 ```
-F-001 Vega SDK unavailable on Windows. Task: target Vega OS. Steps: followed the Vega getting-started guide on Windows 11. Expected: an installer or WSL2 path. Actual: macOS/Ubuntu only. Severity: Major. Workaround: built for Fire OS. Suggestion: support WSL2.
+https://dr8w3l96syzm7.cloudfront.net/friction-log.html
+```
+20 entries on Fire TV, Fire OS, Compose for TV, Media3, Amazon Kids, Unity on Fire OS, Amazon Bedrock, the Strands Agents SDK,
+API Gateway with the CDK, and Amazon Polly, each with task, steps, expected vs. actual, severity, workaround and suggestion.
+The same log is `FRICTION_LOG.md` in the repo.
 
-F-002 No official Fire OS emulator image. Task: test the app "on Fire TV" without hardware. Expected: a Fire OS AVD. Actual: had to infer that Android TV API 36 x86_64 ≈ Fire OS 16. Severity: Minor. Workaround: Android TV images. Suggestion: publish Fire OS AVD images.
-
-F-004 TV emulator silently exits when the system drive is low on space. Steps: launch AVD with C: nearly full. Expected: an error. Actual: silent exit that looks like a hang. Severity: Major. Workaround: move the AVD home to another drive. Suggestion: a clear disk-space error.
-
-F-008 Bedrock model shows ACTIVE but fails with INVALID_PAYMENT_INSTRUMENT, intermittently. Task: call a Claude model on Bedrock. Expected: either works or a clear entitlement error before calling. Actual: one success, then failures minutes later. Severity: Major. Workaround: built the crew on Amazon Nova Pro. Suggestion: an "is this model invocable for me" API.
-
-F-011 Bedrock vision bounding-box convention isn't stated next to the Converse image docs. Expected: the coordinate system documented with the image block. Actual: found by trial (Nova uses x-y on a 0-1000 grid). Severity: Papercut. Suggestion: one line in the Converse docs.
-
-F-014 API Gateway HTTP API catch-all route swallows the CORS preflight. Steps: ANY /{proxy+} plus corsPreflight. Expected: OPTIONS handled by API Gateway. Actual: preflight routed to Lambda. Severity: Minor. Workaround: answer OPTIONS in the handler. Suggestion: document the precedence.
-
-F-015 Amazon Nova Pro arithmetic when marking homework. Task: mark fraction comparisons. Actual: occasional wrong verdicts on "which is bigger". Severity: Major for education. Workaround: exact maths in code overrides arithmetic verdicts. Suggestion: guidance on pairing models with tools for maths.
-
-F-017 pip --platform silently installs an old Strands Agents for Lambda when building on Windows. Expected: latest version for manylinux. Actual: dependency markers evaluated for Windows, pip fell back to strands-agents 1.1.0. Severity: Major (only visible at runtime). Workaround: uv pip install --python-platform x86_64-manylinux2014. Suggestion: a documented "Strands on Lambda" recipe or layer.
-
-F-018 A phone image at TV resolution hides Fire TV's real density. Actual: a real 1080p Fire TV is 960 × 540 dp; screens overflowed. Severity: Major. Workaround: scale one fixed 1440 × 810 canvas. Suggestion: a "screen sizes for Fire TV" note in the emulator guide.
-
-F-022 No way for an app to gate the other apps on Fire TV. Task: lock streaming apps until tasks are done. Actual: not possible for third-party apps. Severity: Major for this use case. Workaround: honour TV time inside Rosetta and guide parents to Fire TV parental controls. Suggestion: the earn-time API above.
-
-F-024 adb screenrecord on the TV emulator captures only 2-5 frames per second. Task: record a smooth demo. Actual: guest-side encoding starves the app; footage stutters. Severity: Major for demo videos. Workaround: the emulator's own recorder (adb emu screenrecord start --fps 30) plus 8 emulator cores. Suggestion: recommend it in the Fire TV emulator docs.
+### Project testing link
+```
+https://dr8w3l96syzm7.cloudfront.net/tv.html
 ```
 
-### Project testing link and instructions
+### Testing instructions or credentials
 ```
-Live demo family (code DEMO, parent PIN 2468, public test data only):
-- Parent page: https://dr8w3l96syzm7.cloudfront.net/parent.html?code=DEMO
-- Kid page: https://dr8w3l96syzm7.cloudfront.net/kid.html?code=DEMO
+Everything runs live on AWS. Use the public DEMO family (Mom, Dad, Arjun in Grade 3, Meera in Grade 1). Parent PIN: 2468 (test data only).
 
-TV app: clone the repo and, in tv-app/, run `./gradlew installDebug -ProsettaApiUrl=https://jlgtsqwtzl.execute-api.us-east-1.amazonaws.com -ProsettaWebUrl=https://dr8w3l96syzm7.cloudfront.net -ProsettaCode=DEMO` on any Fire TV, Android TV or the Android TV emulator (API 36 = Fire OS 16). On the TV: open "Fractions homework", then from the kid page on your phone snap any worksheet (or assets/homework/arjun_fractions.jpg). On the parent page: add a daily task, approve a wish, or tap "Unlock TV time now" and watch the TV open. The Parents button on the TV home shows a QR code to the parent page. Offline mode (`./gradlew installDebug` with no URLs) runs the whole flow with just a remote: MENU sends the bundled photo.
+1. Install the TV app from https://dr8w3l96syzm7.cloudfront.net/tv.html
+   - Fire TV: enable Developer options > Install unknown apps, install the free "Downloader" app, enter
+     dr8w3l96syzm7.cloudfront.net/downloads/rosetta-tv-demo.apk and install. Optional 3D Quiz Night:
+     dr8w3l96syzm7.cloudfront.net/downloads/rosetta-quiz-night.apk
+   - Or the Android TV emulator (system-images;android-36;android-tv;x86_64 = Fire OS 16): adb install rosetta-tv-demo.apk
+2. Parent phone: https://dr8w3l96syzm7.cloudfront.net/parent.html?code=DEMO, sign in as Mom with PIN 2468.
+   Tap "Unlock TV time now" and watch the TV portal open ("Lock it again" resets it).
+3. Kid phone: https://dr8w3l96syzm7.cloudfront.net/kid.html?code=DEMO, pick Arjun. On the TV open "Fractions homework",
+   then photograph any worksheet from the kid page: the AI Tutor marks it on the TV in about 15 seconds and sets practice.
+   Send a photo of anything else and Rosetta says what it actually sees.
+4. Daily task: send a voice note for "Read 10 pages" from the kid page; it appears as a memory on the parent page.
+5. Pocket money: add a small wish on the parent page; when the child has saved enough they tap "Ask Mom & Dad" and Mom approves.
+   The TV's Treasure screen updates.
+6. Quiz Night: bottom bar on the TV > Quiz Night (8 questions written for the two children; opens the Unity game if installed).
+
+The DEMO family is shared, so other testers may be using it at the same time. "Start the family over" is at the bottom of the
+parent page. To build from source instead, see the README (./gradlew installDebug with the live URLs and -ProsettaCode=DEMO).
 ```
 
 ### Feedback Q1: Which developer tools, APIs and SDKs did you use, and for what?
