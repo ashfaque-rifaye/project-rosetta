@@ -1,7 +1,7 @@
 """Voice the Keeper's repeating lines ahead of time, so the first family to hear each one doesn't wait for it.
 
   ROSETTA_BUCKET=<uploads bucket> python agents/warm_voice.py
-Needs Google ADC (gcloud auth application-default login) for Vertex AI and AWS credentials for the bucket.
+Needs AWS credentials (Amazon Polly and the bucket).
 Lines must match handlers.py / learning.py exactly: each clip is keyed by a hash of its text (see voice.py).
 """
 import time
@@ -22,7 +22,7 @@ LINES = [
 ]
 
 if __name__ == "__main__":
-    # One at a time: Gemini TTS has a small per-minute quota; wait it out when it's hit.
+    # One at a time, retrying if Polly throttles.
     for line in LINES:
         for _ in range(6):
             if key := voice.fixed(line):

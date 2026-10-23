@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rosetta_agents import crew, family, gemini, handlers, store, vision  # noqa: E402
+from rosetta_agents import crew, family, handlers, speech, store, vision  # noqa: E402
 
 DB: dict = {}
 PHOTOS: dict = {}
@@ -20,7 +20,8 @@ def _install_fakes():
     store.photo_bytes = lambda key: PHOTOS[key]
     store.put_voice = lambda key, wav: VOICES.__setitem__(key, wav)
     store.voice_exists = lambda key: key in VOICES
-    gemini.speak = lambda text, **kw: b"RIFF:" + text.encode()  # never call Google from tests
+    speech.speak = lambda text: b"RIFF:" + text.encode()  # never call Amazon Polly from tests
+    speech.transcribe = lambda key, ext: PHOTOS[key].decode()  # nor Amazon Transcribe
     store.presign_get = lambda key: f"https://example/{key}?sig"
     store.presign_put = lambda key, content_type="image/jpeg": f"https://example/put/{key}?sig"
     store.keep = lambda src, dst: PHOTOS.__setitem__(dst, PHOTOS[src]) or dst
@@ -47,8 +48,8 @@ def _install_fakes():
     notify._sms = lambda to, ev: SENT.append(("sms", ev["kind"])) or True
     vision.keeper = lambda name, age, situation: f"[{name}] {situation[:60]}"
     vision.digest = lambda name, age, stats: {"headline": f"{name} did {stats['tasks_done_this_week']} tasks", "notes": ["real note"]}
-    vision.listen = lambda audio, mime, task, age, name="": {"transcript": audio.decode(), "summary": "Read 10 pages of a dinosaur book.",
-                                                    "about": audio != b"silence", "mood": "happy"}
+    vision.listen = lambda words, task, age, name="": {"transcript": words, "summary": "Read 10 pages of a dinosaur book.",
+                                                    "about": words != "silence", "mood": "happy"}
     vision.check_proof = lambda photo, task: {"done": photo == b"made-bed", "confidence": 0.9,
                                               "what_i_see": "a neatly made bed" if photo == b"made-bed" else "a cat on a sofa"}
 

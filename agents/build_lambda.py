@@ -20,13 +20,11 @@ reqs = [r for r in (HERE / "requirements.txt").read_text().splitlines() if r.str
 binary = [r for r in reqs if not r.startswith(PURE)] + ["cryptography>=42", "aiohttp>=3.9", "requests>=2.31"]
 pip = [sys.executable, "-m", "pip", "install", "--target", str(DIST), "--upgrade", "--quiet", "--no-cache-dir"]
 # uv, not pip: pip judges dependency markers by this machine (e.g. mcp's `pywin32; sys_platform == "win32"` on Windows)
-# and silently falls back to an old strands-agents without the Gemini provider; uv resolves for the Lambda platform.
+# and silently falls back to an old strands-agents; uv resolves for the Lambda platform.
 subprocess.check_call(["uv", "pip", "install", "--target", str(DIST), "--upgrade", "--quiet", "--no-cache",
                        "--python-platform", "x86_64-manylinux2014", "--python-version", "3.12", "--only-binary", ":all:", *binary])
 subprocess.check_call(pip + ["--no-deps", "pywebpush>=2.0", "py-vapid>=1.9", "http-ece>=1.1"])
 shutil.copytree(HERE / "rosetta_agents", DIST / "rosetta_agents", ignore=shutil.ignore_patterns("__pycache__"))
-# Keyless Google sign-in for Vertex AI (Workload Identity Federation config; no secrets in it).
-shutil.copy(HERE / "gcp_wif.json", DIST / "gcp_wif.json")
 # boto3/botocore are already in the Lambda runtime; drop them to keep the bundle small.
 for name in ("boto3", "botocore", "s3transfer"):
     for p in DIST.glob(f"{name}*"):

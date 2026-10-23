@@ -231,7 +231,8 @@ def s_aws(n):
     img = base(n)
     header(img, "AWS Builder", "Why it's built this way", "Serverless, event-driven, one CDK stack, pay-per-use")
     rows = [("Strands Agents SDK", "Quest Master agent picks the specialist tools for each photo or voice note"),
-            ("Amazon Bedrock", "Converse API tool specs with forced JSON; Amazon Nova Pro; Nova grounding boxes"),
+            ("Amazon Bedrock", "Every AI call: Amazon Nova 2 Lite, Converse tool specs with forced JSON, grounding boxes"),
+            ("Amazon Polly · Transcribe", "The Keeper's voice on the TV; kids' voice notes heard and summarised"),
             ("AWS Lambda", "API, agent crew (S3-triggered) and scheduled jobs: three functions"),
             ("Amazon S3 events", "Presigned phone uploads start the agent run; photos deleted after 1 day"),
             ("Amazon DynamoDB", "One household document per family; the TV polls it once a second"),
@@ -244,7 +245,7 @@ def s_aws(n):
         d.rounded_rectangle((80, y, 92, y + 56), radius=4, fill=ORANGE)
         d.text((116, y + 8), k, font=font(SANS_SB, 30), fill=CREAM)
         d.text((560, y + 12), v, font=font(SANS, 26), fill=MIST)
-        y += 76
+        y += 68
     d.text((80, 900), "Trust layer: the model reads the handwriting, exact maths in code decides the verdict (11 of 11 on our test sheets).",
            font=font(SANS_SB, 26), fill=GOLD)
     return img

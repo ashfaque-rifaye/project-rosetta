@@ -299,7 +299,7 @@ class CloudRepository(
         return f.absolutePath
     }
 
-    /** Gemini voice clips: the S3 key (the URL's path) names each clip, so it downloads once. */
+    /** Keeper voice clips (Amazon Polly): the S3 key (the URL's path) names each clip, so it downloads once. */
     private fun cacheVoice(url: String): String? = runCatching {
         val f = File(voiceDir, url.substringBefore('?').substringAfterLast('/'))
         if (!f.exists()) download(url, f)

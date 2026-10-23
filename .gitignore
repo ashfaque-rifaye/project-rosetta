@@ -61,3 +61,8 @@ assets/demo/*.webp
 assets/demo/*.jpg
 /dist/
 /submission/
+
+# Media generators for the intro film, music, art and demo narration (run once; the outputs are committed)
+/assets/demo/make_demo.py
+/assets/intro/make_intro.py
+/assets/upscale_art.py

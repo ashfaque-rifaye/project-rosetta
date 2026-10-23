@@ -1,5 +1,5 @@
 """Cut the demo video: cinematic intro (Veo), the real app on the Fire TV emulator with the phone pages beside it,
-narration (Gemini TTS), music (Lyria), and an outro. Everything is rendered with PIL + ffmpeg.
+narration, music, and an outro. Everything is rendered with PIL + ffmpeg.
 
   python assets/demo/edit.py            ->  assets/demo/build/rosetta_demo.mp4  (1920x1080, 30 fps)
 
@@ -330,10 +330,10 @@ def build():
     add(piece("c1", 7.0, "tv", s("s09b_progress"), 2.0, overlay=f("co", "✦ Coach's notes", "Real activity, in plain words"), fade_in=True, fade_out=True), 7.0, "13_progress", 0.4)
 
     t1 = card("tech1", "Native on Fire TV", "Built like a game,\nruns on every Fire TV",
-              ["Kotlin · Compose for TV", "Unity 6 · 3D quiz", "Filament · real-time 3D", "32- and 64-bit", "Veo · Lyria · Gemini art"])
+              ["Kotlin · Compose for TV", "Unity 6 · 3D quiz", "Filament · real-time 3D", "32- and 64-bit", "Generated art and music"])
     t2 = card("tech2", "The agent crew, on AWS", "Strands Agents on AWS",
               ["Strands Agents SDK", "AWS Lambda", "Amazon S3", "Amazon DynamoDB", "API Gateway", "Amazon CloudFront",
-               "Amazon EventBridge", "AWS CDK", "Gemini on Vertex AI · vision + voice"])
+               "Amazon EventBridge", "AWS CDK", "Amazon Bedrock · Polly · Transcribe"])
     tech_d = max(16.0, vo["14_tech"] + 1.2)
     add(piece("t1", tech_d * 0.45, "image", image=t1, zoom=0.0004, fade_in=True), tech_d * 0.45, "14_tech", 0.4)
     add(piece("t2", tech_d * 0.55, "image", image=t2, zoom=0.0004, fade_out=True), tech_d * 0.55)

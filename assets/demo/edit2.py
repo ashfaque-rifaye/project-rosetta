@@ -245,7 +245,7 @@ def build():
     B.mkdir(parents=True, exist_ok=True)
     edit.BG = edit.background()
     vo_len = tighten_vo()
-    import make_demo
+    import make_demo  # the narration lines (the generator stays local, see .gitignore)
     vo_text = make_demo.VO
     s = lambda n: FT / f"{n}.mp4"  # noqa: E731
     tl = []
@@ -298,7 +298,7 @@ def build():
 
     t1 = card("tech_v2", "How it's built", "Native on Fire TV · agents on AWS",
               ["Kotlin · Compose for TV", "Unity 6 · Filament 3D", "Strands Agents", "AWS Lambda · S3 · DynamoDB", "API Gateway · CloudFront",
-               "Gemini on Vertex AI"])
+               "Amazon Bedrock (Nova)"])
     td = max(6.0, vo_len["14_tech"] + 0.8)
     add(edit.piece("x1", td, "image", image=t1, zoom=0.0005, fade_in=True, fade_out=True), td, "14_tech", 0.3)
 

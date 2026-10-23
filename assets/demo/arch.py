@@ -25,7 +25,7 @@ BOXES = {
     "api":    (1, 520, 200, "Amazon API Gateway", "One HTTP API for\nthe TV and the phones", ORANGE, True),
     "lambda": (2, 250, 300, "AWS Lambda", "Strands Agents crew:\nAI Tutor · Scout · Judge\nCoach · Keeper\nphoto checks, marking,\nquiz, notes, rewards", ORANGE, True),
     "events": (2, 600, 160, "Amazon EventBridge", "Streak nudges and the\nweekly family digest", ORANGE, True),
-    "bedrock": (3, 210, 150, "Amazon Bedrock", "Model layer · Amazon Nova", ORANGE, True),
+    "bedrock": (3, 210, 150, "Amazon Bedrock", "Amazon Nova 2 Lite · every AI call\n+ Amazon Polly · Transcribe", ORANGE, True),
     "ddb":    (3, 385, 140, "Amazon DynamoDB", "The family's state", ORANGE, True),
     "s3":     (3, 550, 140, "Amazon S3", "Photos and voice notes\n→ event → the agents", ORANGE, True),
     "notify": (3, 715, 140, "Amazon SES · SNS", "Email and SMS alerts", ORANGE, True),

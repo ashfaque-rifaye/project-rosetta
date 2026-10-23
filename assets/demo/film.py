@@ -151,7 +151,7 @@ def s05_honest():
 
 
 def s06_voice():
-    """Arjun's voice note for Read 10 pages: Gemini listens, sums it up, keeps it as a memory."""
+    """Arjun's voice note for Read 10 pages: Rosetta listens, sums it up, keeps it as a memory."""
     with Rec("s06_voice", 60):
         time.sleep(1.5)
         key("DPAD_DOWN", 0.9, 2)       # Read 10 pages (Arjun) after the two homework cards… see film notes

@@ -160,6 +160,18 @@
 <td>No neural voices for Tamil or Malayalam, though Transcribe understands both</td>
 <td>Major</td>
 </tr>
+<tr>
+<td><a href="#F-21">F-21</a></td>
+<td>Amazon Bedrock · Nova 2 Lite</td>
+<td>A new account gets 20 requests a minute, so one busy minute throttles an agent crew</td>
+<td>Major</td>
+</tr>
+<tr>
+<td><a href="#F-22">F-22</a></td>
+<td>Amazon Bedrock · Nova 2 Lite</td>
+<td>Reasoning settings have hidden rules that only show up as errors</td>
+<td>Minor</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -385,6 +397,28 @@
 <li><strong>Severity:</strong> <span class="sev Major">Major</span> for families in South India.</li>
 <li><strong>Workaround:</strong> Tamil and Malayalam as on-screen text; Hindi and English get a voice.</li>
 <li><strong>Suggestion:</strong> Neural voices for Tamil, Malayalam, Telugu and Bengali: hundreds of millions of speakers, many of them Fire TV customers in India.</li>
+</ul>
+<h3 id="F-21"><span class="id">F-21</span> Amazon Nova 2 Lite starts at 20 requests a minute</h3>
+<ul>
+<li><strong>Tool:</strong> Amazon Bedrock, Amazon Nova 2 Lite (<code>us.</code> cross-region inference profile), called from AWS Lambda and the Strands Agents SDK</li>
+<li><strong>Task:</strong> Move the whole agent crew to a small, low-cost model and run a family's homework, room check and voice note back to back.</li>
+<li><strong>Steps:</strong> Deployed with <code>us.amazon.nova-2-lite-v1:0</code>; ran our live end-to-end test (about six model calls per photo: the Quest Master's turns plus the specialists).</li>
+<li><strong>Expected:</strong> A quota in line with Nova Lite (200 cross-region requests a minute on the same account).</li>
+<li><strong>Actual:</strong> <code>ThrottlingException</code> on the fourth flow. Service Quotas shows 20 requests a minute for Nova 2 Lite on both the <code>us.</code> and <code>global.</code> profiles, against 8,000,000 tokens a minute, so requests run out long before tokens do. A voice note was transcribed but couldn't be summarised.</li>
+<li><strong>Severity:</strong> <span class="sev Major">Major</span> for any agent product (one user action fans out into several calls).</li>
+<li><strong>Workaround:</strong> The Quest Master uses the <code>global.</code> profile (its own quota), specialists use <code>us.</code>, retries go up to six, and a throttled call overflows to Amazon Nova Lite.</li>
+<li><strong>Suggestion:</strong> Raise the default request quota for Nova 2 Lite to match Nova Lite, or name the quota in the <code>ThrottlingException</code> message so developers know which one to request.</li>
+</ul>
+<h3 id="F-22"><span class="id">F-22</span> Nova 2 Lite reasoning settings have rules that only errors reveal</h3>
+<ul>
+<li><strong>Tool:</strong> Amazon Bedrock Converse, Amazon Nova 2 Lite <code>reasoningConfig</code></li>
+<li><strong>Task:</strong> Turn on a little extended reasoning for marking homework and tracing code, with a forced tool choice for strict JSON.</li>
+<li><strong>Steps:</strong> Tried <code>maxReasoningEffort</code> low, medium and high, each with <code>toolChoice: {tool}</code> and our usual <code>temperature</code> and <code>maxTokens</code>.</li>
+<li><strong>Expected:</strong> One documented table of which inference settings go with which effort.</li>
+<li><strong>Actual:</strong> <code>high</code> fails with "<code>maxTokens</code> must be unset"; <code>medium</code> sometimes spends the whole budget thinking and returns no tool call; Nova Pro rejects <code>reasoningConfig</code> outright. <code>low</code> with forced tool choice works well (our sample sheets marked exactly like the answer key).</li>
+<li><strong>Severity:</strong> <span class="sev Minor">Minor</span></li>
+<li><strong>Workaround:</strong> <code>low</code> effort only for marking, no <code>temperature</code> when reasoning, and a retry without reasoning if the model refuses it or ends without an answer.</li>
+<li><strong>Suggestion:</strong> A compatibility table on the Nova 2 reasoning page (effort × maxTokens × temperature × toolChoice), and a validation error that names the model when reasoning isn't supported.</li>
 </ul>
 <p class="muted">Source: <a href="https://github.com/ashfaque-rifaye/project-rosetta/blob/main/FRICTION_LOG.md">FRICTION_LOG.md on GitHub</a> · <a href="tv.html">Install the TV app</a></p>
 </main>

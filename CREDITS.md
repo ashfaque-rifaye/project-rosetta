@@ -27,19 +27,19 @@ both SIL Open Font License 1.1, from the Google Fonts repository; licenses in `a
 
 ## Software
 Kotlin, Jetpack Compose for TV, AndroidX, ZXing (Apache-2.0), OkHttp (Apache-2.0), Strands Agents SDK (Apache-2.0),
-AWS SDKs and CDK (Apache-2.0), Google Gen AI SDK for Python (Apache-2.0). The raid arena is built with Unity 6 (Unity Personal license) and its Universal Render
+AWS SDKs and CDK (Apache-2.0). The raid arena is built with Unity 6 (Unity Personal license) and its Universal Render
 Pipeline. See each package for its license.
 
 ## Sound
 All sound effects are original and synthesized from code (`assets/sfx/make_sfx.py`, `assets/sfx/make_arena_sfx.py`); no samples.
 
 ## Voice
-The Keeper's voice is generated with Google Gemini text-to-speech on Vertex AI (prebuilt voice "Sulafat") from lines written by our agents or by us (`agents/rosetta_agents/voice.py`, `assets/voice/make_keeper_voice.py`).
+The Keeper's voice is **Amazon Polly** (generative voice "Kajal", Indian English), speaking lines written by our agents or by us (`agents/rosetta_agents/speech.py`, `voice.py`, `assets/voice/make_keeper_voice.py`).
 
 ## Intro, music and parent portraits
-- **Intro video:** generated with **Google Veo 3.1** on Vertex AI (8 s, text-free; prompt in `assets/intro/make_intro.py`: a carved stone in a miniature living room whose star sockets ignite one by one, then a golden light sweep). The ROSETTA wordmark is drawn by the TV app.
-- **Music:** the intro sting and the home-screen theme are original instrumental pieces generated with **Google Lyria 2** (`lyria-002`) on Vertex AI, mixed with ffmpeg.
-- **Mom and Dad portraits:** generated with Gemini image models on Vertex AI, using the kids' Flow avatars as style references.
+- **Intro video:** generated with **Google Veo 3.1** (8 s, text-free: a carved stone in a miniature living room whose star sockets ignite one by one, then a golden light sweep). The ROSETTA wordmark is drawn by the TV app.
+- **Music:** the intro sting and the home-screen theme are original instrumental pieces generated with **Google Lyria 2**, mixed with ffmpeg.
+- **Mom and Dad portraits:** generated with Google image models, using the kids' Flow avatars as style references.
 
 ## Demo video
 Footage is screen recordings of the app running on the Android TV emulator plus the phone pages. Any staged scene is

@@ -37,10 +37,11 @@ Detailed step-by-step problems are in [FRICTION_LOG.md](FRICTION_LOG.md) (also a
 - **Worked well:** it's convenient to have device docs inside the coding assistant.
 - **Needs work:** more Compose-for-TV examples (most samples are React Native).
 
-## Amazon Bedrock: Converse API + Amazon Nova Pro
-- **Used for:** the agent crew's vision: Scout finds out-of-place objects with bounding boxes, Judge compares before/after photos item by item with a confidence score, Keeper writes the spoken line. Forced tool schemas give us strict JSON.
-- **Worked well:** Converse with `toolChoice: {tool}` is a clean way to get structured output from a multimodal model; Nova Pro's 0–1000 grounding convention maps straight onto our TV overlay; latency of ~2–4 s per photo is fine for a "the crew is looking…" moment.
+## Amazon Bedrock: Converse API + Amazon Nova (Nova 2 Lite in production, Nova Pro while building)
+- **Used for:** every AI call: the AI Tutor marks homework (with Nova 2 Lite's extended reasoning set to low), Practice and Quiz Night write questions, Scout finds out-of-place objects with bounding boxes, Judge compares before/after photos item by item with a confidence score, Keeper writes the spoken line. Forced tool schemas give us strict JSON.
+- **Worked well:** Converse with `toolChoice: {tool}` is a clean way to get structured output from a multimodal model; Nova's 0–1000 grounding convention maps straight onto our TV overlay; latency of ~2–4 s per photo is fine for a "the crew is looking…" moment.
 - **Needs work:** **model access is confusing**. The console and `ListFoundationModels` show models as ACTIVE that the account can't invoke. Anthropic models failed with `INVALID_PAYMENT_INSTRUMENT` intermittently, one even succeeding once and then failing minutes later (F-15). An "is this model invocable for me?" API would save hours.
+- **Also needs work:** Nova 2 Lite starts at **20 requests a minute** per account (Nova Lite: 200), so one busy minute of an agent crew throttles (F-21); its reasoning settings have rules we only learned from errors (F-22).
 - **Onboarding:** ~30 minutes to the first Nova call.
 - **Build again?** Yes.
 
@@ -64,7 +65,8 @@ Detailed step-by-step problems are in [FRICTION_LOG.md](FRICTION_LOG.md) (also a
 - **Build again?** Yes.
 
 ## Amazon Polly / Amazon Transcribe
-- **Used for:** feasibility tests (Polly Hindi voice, Transcribe language ID: hi-IN at confidence 1.00 in 18 s).
+- **Used for:** the Keeper's voice on the TV (Polly generative voice *Kajal*, en-IN, about 2 s a line, cached in S3) and kids' voice notes (Transcribe batch jobs straight from S3 with language identification, about 10 s for a short note; Nova then writes the parents' summary). Earlier feasibility tests: Transcribe language ID gave hi-IN at confidence 1.00 in 18 s.
+- **Worked well:** no setup at all; the Indian English generative voice suits an Indian family.
 - **Needs work:** **no Tamil/Malayalam neural voices** in Polly although Transcribe understands them (F-20).
 
 ---

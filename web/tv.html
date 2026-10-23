@@ -72,7 +72,7 @@ adb install rosetta-quiz-night.apk   # optional</pre>
 
   <h2>How it runs</h2>
   <div class="card">
-    <p>Serverless on AWS, in one AWS CDK stack: Amazon CloudFront and S3 for these pages, Amazon API Gateway and AWS Lambda for the API, a <b>Strands Agents</b> crew on Lambda with an <b>Amazon Bedrock</b> model layer, Amazon DynamoDB for each family, S3 events for photo and voice uploads, Amazon EventBridge for nudges, and Amazon SES / SNS for parent alerts.</p>
+    <p>Serverless on AWS, in one AWS CDK stack: Amazon CloudFront and S3 for these pages, Amazon API Gateway and AWS Lambda for the API, a <b>Strands Agents</b> crew on Lambda with <b>Amazon Bedrock</b> (Amazon Nova 2 Lite) for every AI call, <b>Amazon Polly</b> for the Keeper's voice and <b>Amazon Transcribe</b> for kids' voice notes, Amazon DynamoDB for each family, S3 events for photo and voice uploads, Amazon EventBridge for nudges, and Amazon SES / SNS for parent alerts.</p>
     <p class="muted">Source code (MIT): <a href="https://github.com/ashfaque-rifaye/project-rosetta">github.com/ashfaque-rifaye/project-rosetta</a> · <a href="friction-log.html">Friction log</a></p>
   </div>
 </main>

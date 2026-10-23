@@ -19,7 +19,8 @@ import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations
  * Project Rosetta backend.
  *
  *   kid phone ──PUT photo──► S3 uploads/ (deleted after 1 day) ──event──► Agent Lambda (Strands Quest Master
- *                                                                          + Scout/Coach/Judge/Keeper on Bedrock)
+ *                                                                          + Scout/Coach/Judge/Keeper on Bedrock,
+ *                                                                          voice on Polly, voice notes on Transcribe)
  *   TV / phones ──HTTP API──► API Lambda ──► DynamoDB (household doc) ◄──────────────┘
  *   phone pages ◄── CloudFront ◄── S3 web/
  *   EventBridge ──► Scheduled Lambda: evening streak nudge, weekly Growth digest (Digest agent)
@@ -28,7 +29,7 @@ import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations
 export class RosettaStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
-    const modelId = this.node.tryGetContext("modelId") ?? "us.amazon.nova-pro-v1:0";
+    const modelId = this.node.tryGetContext("modelId") ?? "us.amazon.nova-2-lite-v1:0";
 
     const uploads = new s3.Bucket(this, "Uploads", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -38,6 +39,7 @@ export class RosettaStack extends Stack {
       autoDeleteObjects: true,
       // Kids' room photos are working data, not an archive.
       lifecycleRules: [{ prefix: "uploads/", expiration: Duration.days(1) }, { prefix: "voice/", expiration: Duration.days(1) },
+        { prefix: "transcripts/", expiration: Duration.days(1) },
         // Kids' notes, voice notes and proof photos that parents can look back on.
         { prefix: "memories/", expiration: Duration.days(90) }],
       cors: [{ allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET], allowedOrigins: ["*"], allowedHeaders: ["*"] }],
@@ -68,11 +70,6 @@ export class RosettaStack extends Stack {
       ROSETTA_WEB_URL: `https://${cdn.distributionDomainName}`,
       ROSETTA_VAPID_PUBLIC: vapid.public, ROSETTA_VAPID_PRIVATE: vapid.private,
       ROSETTA_SES_FROM: this.node.tryGetContext("sesFrom") ?? "",
-      // AI runs on Gemini via Vertex AI for now (-c aiProvider=bedrock switches back). The Lambdas sign in to Google
-      // keylessly: gcp_wif.json (in the bundle, no secrets) lets Google trust these functions' AWS roles.
-      ROSETTA_AI_PROVIDER: this.node.tryGetContext("aiProvider") ?? "vertex",
-      GOOGLE_CLOUD_PROJECT: "tesselle-demandfoundry",
-      GOOGLE_APPLICATION_CREDENTIALS: "/var/task/gcp_wif.json",
     };
 
     const apiFn = new lambda.Function(this, "ApiFn", {
@@ -81,7 +78,9 @@ export class RosettaStack extends Stack {
     });
     const agentFn = new lambda.Function(this, "AgentCrewFn", {
       runtime: lambda.Runtime.PYTHON_3_12, handler: "rosetta_agents.handlers.on_upload", code, environment: env,
-      memorySize: 1024, timeout: Duration.seconds(120),
+      // A voice note waits for Amazon Transcribe (usually ~10 s, now and then over a minute). One run per upload:
+      // a retried run would replay a finished photo over newer state.
+      memorySize: 1024, timeout: Duration.seconds(240), retryAttempts: 0,
     });
 
     const scheduledFn = new lambda.Function(this, "ScheduledFn", {
@@ -94,6 +93,11 @@ export class RosettaStack extends Stack {
       uploads.grantReadWrite(fn);
       fn.addToRolePolicy(new iam.PolicyStatement({
         actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:Converse", "bedrock:ConverseStream"],
+        resources: ["*"],
+      }));
+      // The Keeper's voice (Amazon Polly) and kids' voice notes (Amazon Transcribe reads them from the uploads bucket).
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["polly:SynthesizeSpeech", "transcribe:StartTranscriptionJob", "transcribe:GetTranscriptionJob"],
         resources: ["*"],
       }));
       // Parent alerts: email (only from a verified SES sender) and SMS for urgent alerts.

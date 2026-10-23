@@ -133,7 +133,7 @@ data class Quest(
     val afterPhoto: String? = null,
     val things: List<LostThing> = emptyList(),
     val keeperLine: String = "",
-    /** The Keeper's line in the Gemini voice (a cached audio file), when the agents sent one. */
+    /** The Keeper's line in the Polly voice (a cached audio file), when the agents sent one. */
     val keeperAudio: String? = null,
     val confidence: Float = 1f,
     val xpReward: Int = 60,

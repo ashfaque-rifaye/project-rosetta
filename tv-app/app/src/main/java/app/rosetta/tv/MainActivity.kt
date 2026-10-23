@@ -192,7 +192,7 @@ class MainActivity : ComponentActivity() {
                         )
                         is Screen.Quest -> household.quests.firstOrNull { it.id == s.id }?.let { quest ->
                             LaunchedEffect(quest.keeperLine) {
-                                // Live: the text lands first and the agents' Gemini voice a few seconds later, so wait for it.
+                                // Live: the text lands first and the agents' Polly voice a few seconds later, so wait for it.
                                 val audio = if (!household.live) null else withTimeoutOrNull(25_000) {
                                     repo.household.map { h -> h.quests.firstOrNull { it.id == quest.id }?.takeIf { it.keeperLine == quest.keeperLine }?.keeperAudio }
                                         .first { it != null }

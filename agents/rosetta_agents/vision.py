@@ -1,38 +1,58 @@
-"""The crew's eyes: model calls with images and forced JSON tool schemas (Gemini on Vertex by default, see gemini.py;
-Bedrock Converse when ROSETTA_AI_PROVIDER=bedrock).
+"""The crew's eyes: Amazon Bedrock Converse calls with images and forced JSON tool schemas.
 
 Each function is one specialist:
   scout()  - finds out-of-place items in the "before" photo, with boxes
   judge()  - compares "before" and "after" item by item, with a confidence score
+  listen() - turns a voice note's words (Amazon Transcribe) into a summary for the parents
   keeper() - writes the one warm sentence the TV speaks
 Boxes use Amazon Nova's grounding convention (integers 0-1000) and are normalized to 0..1 here.
 """
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import boto3
+from botocore.config import Config
 
 from . import config
 
-_rt = boto3.client("bedrock-runtime", region_name=config.REGION)
+log = logging.getLogger(__name__)
+_rt = boto3.client("bedrock-runtime", region_name=config.REGION,
+                   config=Config(read_timeout=120, retries={"max_attempts": 6, "mode": "standard"}))
 
 
-def _converse(content: list[dict], tool: dict, system: str, max_tokens: int = 1500) -> dict[str, Any]:
-    if config.AI_PROVIDER == "vertex":
-        from . import gemini
-        return gemini.structured(content, tool, system, purpose=tool["toolSpec"]["name"])
-    resp = _rt.converse(
-        modelId=config.MODEL_ID,
-        system=[{"text": system}],
-        messages=[{"role": "user", "content": content}],
-        toolConfig={"tools": [tool], "toolChoice": {"tool": {"name": tool["toolSpec"]["name"]}}},
-        inferenceConfig={"maxTokens": max_tokens, "temperature": 0.2},
-    )
-    for block in resp["output"]["message"]["content"]:
-        if "toolUse" in block:
-            return block["toolUse"]["input"]
+def _converse(content: list[dict], tool: dict, system: str, max_tokens: int = 1500, think: bool = False,
+              model: str | None = None) -> dict[str, Any]:
+    """One model call that must answer through [tool]. [think] turns on Nova's reasoning (config.REASONING) for work
+    that needs working out, like marking homework or tracing code."""
+    reasoning = {"reasoningConfig": {"type": "enabled", "maxReasoningEffort": config.REASONING}}
+    # With reasoning first (when asked); if it runs long without an answer, or the model has no reasoning (e.g. Nova
+    # Pro), ask once more without it.
+    for think_now in ((True, False) if think and config.REASONING != "off" else (False,)):
+        extra = {"additionalModelRequestFields": reasoning} if think_now else {}
+        try:
+            resp = _rt.converse(
+                modelId=model or config.MODEL_ID,
+                system=[{"text": system}],
+                messages=[{"role": "user", "content": content}],
+                toolConfig={"tools": [tool], "toolChoice": {"tool": {"name": tool["toolSpec"]["name"]}}},
+                inferenceConfig={"maxTokens": max_tokens + 6000} if think_now else {"maxTokens": max_tokens, "temperature": 0.2},
+                **extra,
+            )
+        except _rt.exceptions.ThrottlingException:
+            if model:
+                raise
+            log.warning("request quota used up this minute: overflowing to %s", config.OVERFLOW_MODEL_ID)
+            return _converse(content, tool, system, max_tokens, think=False, model=config.OVERFLOW_MODEL_ID)
+        except _rt.exceptions.ValidationException:
+            if not think_now:
+                raise
+            continue
+        for block in resp["output"]["message"]["content"]:
+            if "toolUse" in block:
+                return block["toolUse"]["input"]
     raise RuntimeError("model did not return structured output")
 
 
@@ -139,7 +159,7 @@ def judge(before: bytes, after: bytes, things: list[dict]) -> dict:
     listing = json.dumps([{"id": t["id"], "name": t["name"], "box_0_1": t["box"]} for t in things])
     out = _converse(
         [{"text": "BEFORE:"}, _image(before), {"text": "AFTER:"}, _image(after), {"text": f"Lost Things: {listing}"}],
-        JUDGE_TOOL, JUDGE_SYSTEM, max_tokens=800,
+        JUDGE_TOOL, JUDGE_SYSTEM, max_tokens=800, think=True,
     )
     verdict = {r["id"]: bool(r["returned"]) for r in out.get("results", [])}
     return {
@@ -197,17 +217,20 @@ LISTEN_TOOL = {
 }
 
 LISTEN_SYSTEM = (
-    "You listen to a {age}-year-old's voice note on Rosetta, a family app. The task was: '{task}'. Transcribe what "
-    "they actually said and summarise it for their parents, using the child's name {name} (for reading: what they read and pages; for prayer or "
+    "You read the words of a {age}-year-old's voice note on Rosetta, a family app (speech-to-text, so fix obvious "
+    "mis-hearings only). The task was: '{task}'. Write what they actually said and summarise it for their parents, using the child's name {name} (for reading: what they read and pages; for prayer or "
     "quiet time: what they shared). Never invent details that were not said; if the note is silent, noise or not "
     "about the task, say so and set about_the_task false."
 )
 
 
-def listen(audio: bytes, mime: str, task: str, kid_age: int, kid_name: str = "the child") -> dict:
-    out = _converse([{"audio": {"bytes": audio, "mime": mime}}, {"text": f"Task: {task}"}], LISTEN_TOOL,
+def listen(words: str, task: str, kid_age: int, kid_name: str = "the child") -> dict:
+    """[words] is what Amazon Transcribe heard in the note (see speech.transcribe)."""
+    if not words.strip():
+        return {"transcript": "", "summary": "", "about": False, "mood": ""}
+    out = _converse([{"text": f"Task: {task}. Voice note: {words}"}], LISTEN_TOOL,
                     LISTEN_SYSTEM.format(task=task, age=kid_age, name=kid_name), max_tokens=600)
-    return {"transcript": str(out.get("transcript", ""))[:1200], "summary": str(out.get("summary", ""))[:240],
+    return {"transcript": str(out.get("transcript", "") or words)[:1200], "summary": str(out.get("summary", ""))[:240],
             "about": bool(out.get("about_the_task")), "mood": str(out.get("mood", ""))}
 
 

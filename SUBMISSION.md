@@ -50,7 +50,8 @@ We asked a different question: **what if the TV itself could help?** What if it 
 | API | **Amazon API Gateway** (HTTP API) | One API for the TV and the phones |
 | Compute | **AWS Lambda** | The API, the agent crew and scheduled jobs |
 | Agents | **Strands Agents SDK** | *Quest Master* agent decides which specialist to run for each photo or voice note and handles edge cases |
-| Models | **Amazon Bedrock** (Converse API, **Amazon Nova Pro**) | Every prompt and JSON schema is a Bedrock Converse tool spec; the crew was built and first deployed on Nova Pro |
+| Models | **Amazon Bedrock** (Converse API, **Amazon Nova 2 Lite**) | Every AI call: marking, practice, quiz, room checks, notes. Each prompt is a Bedrock Converse tool spec; light reasoning only for marking, code tracing and before/after checks |
+| Voice | **Amazon Polly** · **Amazon Transcribe** | The Keeper's voice on the TV (Polly generative voice); kids' voice notes transcribed, then summarised by Nova |
 | State | **Amazon DynamoDB** | One household document: kids, quests, habits, rewards, wishes, history |
 | Media | **Amazon S3** | Presigned uploads straight from the phone → **S3 event** → agent Lambda; photos deleted after 1 day, memories kept 90 days |
 | Schedules | **Amazon EventBridge** | Daily streak nudges and the weekly family digest |
@@ -141,10 +142,12 @@ Upload `submission/Project-Rosetta-Submission.zip` (22 MB): `1-Project-Deck/` (P
 Rosetta's backend is serverless on AWS, end to end, in one AWS CDK stack (infra/lib/rosetta-stack.ts):
 
 - Strands Agents SDK: "Quest Master" is a Strands agent that decides which specialist tool to run for every photo or voice note (AI Tutor, Scout, Judge, Listener, Proof check, Keeper, Coach) and handles edge cases such as the wrong photo, low confidence or an already-tidy room (agents/rosetta_agents/crew.py).
-- Amazon Bedrock (Converse API, Amazon Nova Pro): every prompt and JSON schema in the crew is written as a Bedrock Converse tool spec with forced tool choice, and Quest Master uses the Strands BedrockModel. The crew was built and first deployed on Nova Pro; Nova's 0-1000 grounding boxes drive the "Lost Things" overlay on the TV (agents/rosetta_agents/vision.py, tutor.py). The model provider is one CDK flag: `npx cdk deploy -c aiProvider=bedrock`.
+- Amazon Bedrock (Converse API, Amazon Nova 2 Lite): every AI call in Rosetta. Each prompt and JSON schema is a Bedrock Converse tool spec with forced tool choice, and Quest Master uses the Strands BedrockModel. Nova 2 Lite is small and low-cost; a little extended reasoning is switched on only for marking homework, tracing code and judging before/after photos (agents/rosetta_agents/vision.py, tutor.py). Nova's 0-1000 grounding boxes drive the "Lost Things" overlay and the marks on the child's handwriting.
+- Amazon Polly: the Keeper's voice (generative voice Kajal) for every line the TV speaks and for parents' messages; repeating lines are cached in S3 (speech.py, voice.py).
+- Amazon Transcribe: kids' voice notes are transcribed straight from S3 with language identification, then Nova summarises them for the parents (speech.py).
 - AWS Lambda: three functions: the HTTP API, the agent crew (triggered by S3 events) and scheduled jobs.
 - Amazon API Gateway (HTTP API): one API for the Fire TV app and the phone pages.
-- Amazon S3: presigned uploads straight from a child's phone (photos and voice notes), an S3 event notification starts the agent Lambda; lifecycle rules delete photos after 1 day and keep memories 90 days.
+- Amazon S3: presigned uploads straight from a child's phone (photos and voice notes), an S3 event notification starts the agent Lambda; lifecycle rules delete photos and transcripts after 1 day and keep memories 90 days.
 - Amazon DynamoDB: one household document per family (kids, quests, habits, rewards, pocket money, wish list, history).
 - Amazon EventBridge: daily streak nudges and a weekly family digest.
 - Amazon SES and Amazon SNS: email and SMS alerts to parents (alongside Web Push).
@@ -186,7 +189,7 @@ Why it matters: multimodal models now return grounded boxes, but every TV app wo
 ```
 https://dr8w3l96syzm7.cloudfront.net/friction-log.html
 ```
-20 entries on Fire TV, Fire OS, Compose for TV, Media3, Amazon Kids, Unity on Fire OS, Amazon Bedrock, the Strands Agents SDK,
+22 entries on Fire TV, Fire OS, Compose for TV, Media3, Amazon Kids, Unity on Fire OS, Amazon Bedrock, the Strands Agents SDK,
 API Gateway with the CDK, and Amazon Polly, each with task, steps, expected vs. actual, severity, workaround and suggestion.
 The same log is `FRICTION_LOG.md` in the repo.
 
@@ -226,7 +229,8 @@ parent page. To build from source instead, see the README (./gradlew installDebu
 - Unity 6 LTS (URP): Family Quiz Night as a companion Fire OS app.
 - Filament / SceneView: real-time 3D rewards on the TV.
 - Strands Agents SDK: the Quest Master agent that orchestrates the crew.
-- Amazon Bedrock (Converse API, Amazon Nova Pro): the crew's model layer and JSON tool schemas.
+- Amazon Bedrock (Converse API, Amazon Nova 2 Lite): every AI call, with JSON tool schemas.
+- Amazon Polly and Amazon Transcribe: the Keeper's voice and kids' voice notes.
 - AWS Lambda, Amazon API Gateway, Amazon S3, Amazon DynamoDB, Amazon EventBridge, Amazon SES, Amazon SNS, Amazon CloudFront, AWS CDK: the serverless backend.
 - Amazon Devices Builder Tools (MCP): Fire TV documentation lookups while coding.
 ```
@@ -236,7 +240,8 @@ parent page. To build from source instead, see the README (./gradlew installDebu
 - Fire OS: being Android meant Kotlin and Compose skills transferred directly; the FAQ allowing the Android TV emulator unblocked us without hardware.
 - Compose for TV: declarative focus plus graphicsLayer made the camera that glides between rooms short to write.
 - Strands Agents: @tool on plain Python functions plus a Bedrock model is very little code, and the specialists stay testable as normal functions.
-- Amazon Bedrock Converse: forced tool choice is a clean way to get strict JSON from a multimodal model; Nova Pro's 0-1000 grounding maps straight onto the TV overlay; 2-4 s per photo.
+- Amazon Bedrock Converse: forced tool choice is a clean way to get strict JSON from a multimodal model; Nova's 0-1000 grounding maps straight onto the TV overlay; Nova 2 Lite with low reasoning marked our sample sheets exactly like the answer key; 2-5 s per room photo.
+- Amazon Polly and Transcribe: no setup at all; a voice note is transcribed in about 10 s and a Keeper line voiced in about 2 s.
 - AWS CDK: one stack, one command; S3 events → Lambda is the simplest possible trigger for an agent run; BucketDeployment injected the API URL into the web config at deploy time.
 - Unity 6: building the whole scene from C# made headless builds easy; one APK for ARM64 and x86_64.
 ```
@@ -247,6 +252,7 @@ parent page. To build from source instead, see the README (./gradlew installDebu
 - Apps can't grant or enforce screen time on Fire TV (our #1 request: an Amazon Kids earn-time API).
 - adb screenrecord on the TV emulator only manages 2-5 fps; the emulator's own recorder is the fix but isn't documented for Fire TV.
 - Bedrock: models listed as ACTIVE that the account can't invoke; the vision box convention isn't documented next to Converse images.
+- Nova 2 Lite starts at 20 requests a minute (Nova Lite: 200), so an agent crew throttles in a busy minute; its reasoning settings have undocumented combinations.
 - Strands Agents: packaging for Lambda from Windows silently pulled an old version; a Lambda layer or recipe would help.
 - tv-material 1.0 still needs an experimental opt-in for FilterChip; Compose on Android TV spends the first Back press clearing focus.
 - Polly lacks neural voices for Tamil and Malayalam, although Transcribe understands both.
@@ -255,7 +261,7 @@ parent page. To build from source instead, see the README (./gradlew installDebu
 ### Feedback Q4: Onboarding (zero to hello world)?
 ```
 - Fire TV app on the emulator: about 1.5 hours including emulator troubleshooting; about 10 minutes for the app itself.
-- Amazon Bedrock: about 30 minutes to the first Nova Pro call with boto3.
+- Amazon Bedrock: about 30 minutes to the first Nova call with boto3.
 - Strands Agents: under an hour to a working agent with tools; packaging for Lambda took longer.
 - AWS CDK: about an hour to the first deployed stack (npm cache had to move off a full C: drive).
 - Unity 6 for Fire OS: half a day, mostly installer and build-target issues.
@@ -268,7 +274,7 @@ Yes. The living-room TV is the right screen for family moments, Fire OS's Androi
 
 ### Which AI tools have you leveraged?
 ```
-Claude Code (Anthropic) as a pair programmer for the Kotlin, Python, TypeScript and Unity code; Amazon Bedrock (Amazon Nova Pro) through the Strands Agents SDK in the product itself; generative image, video and music tools for the artwork, intro film and score (credited in CREDITS.md).
+Claude Code (Anthropic) as a pair programmer for the Kotlin, Python, TypeScript and Unity code; Amazon Bedrock (Amazon Nova 2 Lite) through the Strands Agents SDK, Amazon Polly and Amazon Transcribe in the product itself; generative image, video and music tools for the artwork, intro film and score (credited in CREDITS.md).
 ```
 
 ### Did you gain AI value you can use in your career?

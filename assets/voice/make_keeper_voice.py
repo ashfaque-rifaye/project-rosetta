@@ -1,9 +1,9 @@
-"""Bundle the TV's own Keeper lines in the Gemini voice (Vertex AI TTS, same voice as the live agents).
+"""Bundle the TV's own Keeper lines in the Amazon Polly voice (the same voice as the live agents).
 
   python assets/voice/make_keeper_voice.py
 Writes tv-app/app/src/main/assets/voice/<hash>.wav and index.json (exact line -> file), which KeeperVoice plays before
 falling back to the device voice. Lines must match the TV code exactly: LocalRepository (offline household) and the
-Family Goal lines in MainActivity. Needs Google ADC for project tesselle-demandfoundry. Re-running skips clips that exist.
+Family Goal lines in MainActivity. Needs AWS credentials (Amazon Polly). Re-running skips clips that exist.
 """
 import hashlib
 import json
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "agents"))
-from rosetta_agents import gemini  # noqa: E402
+from rosetta_agents import speech  # noqa: E402
 
 OUT = ROOT / "tv-app/app/src/main/assets/voice"
 KIDS = ["Arjun", "Meera"]
@@ -47,13 +47,13 @@ if __name__ == "__main__":
         if (OUT / name).exists():
             continue
         spoken = re.sub(r"\s+", " ", EMOJI.sub("", line)).strip()
-        for attempt in range(6):  # Gemini TTS has a small per-minute quota: wait it out
+        for attempt in range(6):  # retry if Polly throttles
             try:
-                (OUT / name).write_bytes(gemini.speak(spoken, purpose="tv-bundled-voice"))
+                (OUT / name).write_bytes(speech.speak(spoken))
                 break
             except Exception as e:
                 print("  retry:", str(e)[:80])
-                time.sleep(20)
+                time.sleep(3)
         print("ok " if (OUT / name).exists() else "FAIL", line, flush=True)
     (OUT / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
     for old in OUT.glob("*.wav"):  # clips for lines the TV no longer says

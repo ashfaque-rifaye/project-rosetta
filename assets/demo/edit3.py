@@ -162,7 +162,7 @@ def build():
     B.mkdir(parents=True, exist_ok=True)
     edit.BG = edit.background()
     vo_len = tighten_vo()
-    import make_demo
+    import make_demo  # the narration lines (the generator stays local, see .gitignore)
     vo_text = make_demo.VO
     tl = []
 

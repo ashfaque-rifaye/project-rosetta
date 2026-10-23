@@ -9,7 +9,7 @@ import java.io.File
 import java.util.Locale
 
 /**
- * The Keeper's voice: a warm Gemini voice (Vertex AI TTS). In live mode the agents send a clip with each line;
+ * The Keeper's voice: a warm Amazon Polly voice. In live mode the agents send a clip with each line;
  * fixed and offline lines use clips bundled in assets/voice (index.json maps line -> file, made by
  * assets/voice/make_keeper_voice.py). The device's TextToSpeech is only the last resort.
  */
@@ -34,7 +34,7 @@ class KeeperVoice(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    /** Say [raw]: the Gemini clip at [audio] if the agents sent one, else a bundled clip, else the device voice. */
+    /** Say [raw]: the Polly clip at [audio] if the agents sent one, else a bundled clip, else the device voice. */
     fun speak(raw: String, audio: String? = null) {
         if (raw.isBlank() && audio == null) return
         stop()

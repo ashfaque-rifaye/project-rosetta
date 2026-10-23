@@ -56,7 +56,9 @@ TUTOR_SYSTEM = (
     "You are Tutor, part of Rosetta, a family app on the TV. You look at a photo of a {age}-year-old's homework: maths, "
     "English, science or coding (for code, trace the program line by line, keeping track of each variable). "
     "Transcribe the questions the child answered (numbered or not, up to 12, in reading order; skip the name, date and "
-    "class fields and blanks the child left empty) and exactly what the child wrote. Then, for each question, write your own working "
+    "class fields and blanks the child left empty) and exactly what the child wrote. The line after = is the answer blank: "
+    "a number written on or above it is a whole-number answer, not a fraction (read an answer as a fraction only when "
+    "the printed question has fractions). Then, for each question, write your own working "
     "step by step and the expected answer BEFORE you compare it with the child's answer. "
     "An answer that is right but not in the form the question asks for (for example not "
     "simplified when asked to simplify) is not correct. For each wrong answer give ONE short hint (max 20 words) that "
@@ -68,7 +70,7 @@ TUTOR_SYSTEM = (
 
 def tutor_check(photo: bytes, kid_age: int) -> dict:
     out = vision._converse([vision._image(photo), {"text": "Mark this homework."}], TUTOR_TOOL,
-                           TUTOR_SYSTEM.format(age=kid_age), max_tokens=2500)
+                           TUTOR_SYSTEM.format(age=kid_age), max_tokens=2500, think=True)
     items = []
     for it in out.get("items", [])[:12]:
         question = re.sub(r"^\s*(?:q?\d+\s*[.)]\s+)", "", str(it.get("question", ""))).strip()

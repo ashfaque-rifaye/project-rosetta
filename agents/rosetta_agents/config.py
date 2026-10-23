@@ -2,22 +2,18 @@
 import os
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-# Multimodal model for Scout / Judge / Keeper. Amazon Nova Pro is available on our account today;
-# swap to a Claude model id here once Bedrock model access allows it.
-MODEL_ID = os.environ.get("ROSETTA_MODEL_ID", "us.amazon.nova-pro-v1:0")
-
-# Which models the crew uses: "vertex" (Gemini on Vertex AI, today's default to save cost) or "bedrock" (the ids
-# above). Only the AI calls move; storage, API, events and alerts stay on AWS either way. See gemini.py.
-AI_PROVIDER = os.environ.get("ROSETTA_AI_PROVIDER", "vertex")
-GCP_PROJECT = os.environ.get("GOOGLE_CLOUD_PROJECT", "tesselle-demandfoundry")
-GEMINI_LOCATION = os.environ.get("ROSETTA_GEMINI_LOCATION", "global")
-# Tesselle's fast model with thinking off: the Tutor marks a sheet in ~14 s (gemini-3.8-flash took ~60 s, mostly
-# writing out its working). "off" = thinking budget 0; otherwise a thinking level for models that support one.
-GEMINI_MODEL = os.environ.get("ROSETTA_GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_THINKING = os.environ.get("ROSETTA_GEMINI_THINKING", "off")
-GEMINI_TTS_MODEL = os.environ.get("ROSETTA_TTS_MODEL", "gemini-2.5-flash-tts")
-KEEPER_VOICE = os.environ.get("ROSETTA_KEEPER_VOICE", "Sulafat")
-KEEPER_STYLE = "Say this like a warm, gently magical storyteller talking to a child, unhurried and kind"
+# Every agent runs on Amazon Bedrock. Amazon Nova 2 Lite: small, fast and low-cost, reads photos, and calls tools. A
+# little reasoning ("low") is on for marking homework, tracing code and judging before/after photos; quick lines
+# (the Keeper, summaries) skip it.
+MODEL_ID = os.environ.get("ROSETTA_MODEL_ID", "us.amazon.nova-2-lite-v1:0")
+REASONING = os.environ.get("ROSETTA_REASONING", "low")
+# Quest Master runs on the global inference profile, so it draws on its own request quota, not the specialists'.
+MASTER_MODEL_ID = os.environ.get("ROSETTA_MASTER_MODEL_ID", MODEL_ID.replace("us.", "global.", 1))
+# When a busy minute uses up the request quota, a specialist call overflows to Amazon Nova Lite (higher quota).
+OVERFLOW_MODEL_ID = os.environ.get("ROSETTA_OVERFLOW_MODEL_ID", "us.amazon.nova-lite-v1:0")
+# The Keeper's voice: Amazon Polly (generative engine), warm Indian English.
+KEEPER_VOICE = os.environ.get("ROSETTA_KEEPER_VOICE", "Kajal")
+KEEPER_LANGUAGE = os.environ.get("ROSETTA_KEEPER_LANGUAGE", "en-IN")
 BUCKET = os.environ.get("ROSETTA_BUCKET", "")
 TABLE = os.environ.get("ROSETTA_TABLE", "")
 # Judge confidence below this asks the parent instead of auto-approving.

@@ -44,7 +44,8 @@ AWS is the core of Rosetta. Everything behind the TV, from the moment a child's 
  │ parent.html (PWA)       │ ────────► │      ├ AI Tutor · Practice · Quizmaster · Coach      │      │ Progress · Parents (QR)    │
  │ PIN · approve · alerts  │           │      ├ Scout · Judge · Router (tidy-ups)             │      │ ─launch─► Unity Quiz Night │
  └─────────────────────────┘           │      └ Listener · Proof check · Keeper               │      └────────────────────────────┘
-        ▲                              │ Amazon Bedrock ── Converse API, Amazon Nova Pro      │
+        ▲                              │ Amazon Bedrock ── Converse API, Amazon Nova 2 Lite   │
+        │                              │ Amazon Polly (voice) · Amazon Transcribe (notes)     │
         │ Web Push · email · SMS       │ Amazon API Gateway ── AWS Lambda (the API)           │
         └───────────────────────────── │ Amazon DynamoDB ── one household document            │
                                        │ Amazon EventBridge ── streak nudges, weekly digest   │
@@ -58,16 +59,18 @@ AWS is the core of Rosetta. Everything behind the TV, from the moment a child's 
 | AWS service | What Rosetta uses it for | Code |
 |---|---|---|
 | **Strands Agents SDK** | *Quest Master* is a Strands agent: for every photo or voice note it chooses the specialist tools to run (`mark_homework`, `make_practice`, `scout_room`, `check_after`, `ask_parent`, `complete_quest`, `keeper_says`) and handles the edge cases (wrong photo, low confidence, an already-tidy room) | `agents/rosetta_agents/crew.py` |
-| **Amazon Bedrock** (Converse API, **Amazon Nova Pro**) | The crew's model layer. Every prompt and JSON schema is written as a Bedrock Converse tool spec with forced tool choice; Quest Master uses the Strands `BedrockModel`. Nova's 0–1000 grounding boxes drive the Lost Things overlay. The crew was built and first deployed on Nova Pro | `agents/rosetta_agents/vision.py`, `tutor.py`, `crew.py` |
+| **Amazon Bedrock** (Converse API, **Amazon Nova 2 Lite**) | Every AI call in Rosetta. Every prompt and JSON schema is a Bedrock Converse tool spec with forced tool choice; Quest Master uses the Strands `BedrockModel`. Nova 2 Lite is small, fast and low-cost; a little **extended reasoning** is switched on only for marking homework, tracing code and judging before/after room photos. Nova's 0–1000 grounding boxes drive the Lost Things overlay and the marks on the child's handwriting | `agents/rosetta_agents/vision.py`, `tutor.py`, `crew.py` |
+| **Amazon Polly** (generative voice *Kajal*) | The Keeper's voice: every line the TV speaks, parents' messages read aloud on the TV, and the clips bundled in the app. Repeating lines are voiced once and cached in S3 | `agents/rosetta_agents/speech.py`, `voice.py` |
+| **Amazon Transcribe** | Kids' voice notes ("I read 11 pages of Matilda…"): transcribed straight from S3 with language identification (Indian and other English, Hindi), then summarised for the parents by Nova | `speech.py`, `handlers.py` |
 | **AWS Lambda** | Three functions: the HTTP API, the agent crew (S3-triggered) and scheduled jobs | `agents/rosetta_agents/handlers.py` |
 | **Amazon API Gateway** (HTTP API) | One API for the Fire TV app and both phone pages | `infra/lib/rosetta-stack.ts` |
-| **Amazon S3** | Presigned uploads straight from the phone (photos and voice notes); **S3 event notifications** start the agent Lambda; lifecycle rules delete photos after 1 day and keep memories 90 days; cached voice clips | `store.py`, `voice.py`, `rosetta-stack.ts` |
+| **Amazon S3** | Presigned uploads straight from the phone (photos and voice notes); **S3 event notifications** start the agent Lambda; lifecycle rules delete photos and transcripts after 1 day and keep memories 90 days; cached Polly clips | `store.py`, `voice.py`, `rosetta-stack.ts` |
 | **Amazon DynamoDB** | One household document per family: kids, quests, habits, rewards, pocket money, wish list, TV time, memories, history | `agents/rosetta_agents/store.py` |
 | **Amazon EventBridge** | Daily habit quests, the evening streak nudge and the weekly family digest | `rosetta-stack.ts`, `handlers.scheduled` |
 | **Amazon SES** · **Amazon SNS** | Parent alerts by email and SMS (alongside Web Push) | `agents/rosetta_agents/notify.py` |
 | **Amazon CloudFront** | HTTPS phone pages (API URL injected at deploy time), the TV install page and the APK downloads | `rosetta-stack.ts` |
 | **AWS CDK** (TypeScript) | The whole stack in one command: pay-per-use, scales to zero | `infra/` |
-| **AWS IAM** | Each Lambda role gets only the bucket, table, Bedrock and email/SMS actions it needs | `rosetta-stack.ts` |
+| **AWS IAM** | Each Lambda role gets only the bucket, table, Bedrock, Polly, Transcribe and email/SMS actions it needs | `rosetta-stack.ts` |
 
 **Why this architecture.** A photo upload is the trigger, so the agent run is a plain **S3 event → Lambda**: no queue to manage and no servers idling between homework sessions. DynamoDB holds one document per family, which is what the TV polls once a second. The phones never touch AWS credentials: they upload with presigned URLs and talk to the HTTP API.
 
@@ -82,17 +85,19 @@ Kids never see agent names: on screen it's a plain "✦ What Rosetta did" step l
 | **Quest Master** (`crew.py`, Strands agent) | Decides which specialists to call for each photo or voice note, and when to ask a parent instead |
 | **AI Tutor** (`tutor.py`) | Marks homework on the child's own handwriting; traces code for coding class; writes practice and Quiz Night questions |
 | **Scout** / **Judge** (`vision.py`) | Finds what's out of place in a room photo, with boxes; compares before and after |
-| **Listener** (`vision.listen`) | Transcribes and summarises a voice note, and says whether it's really about the task |
+| **Listener** (`speech.transcribe` + `vision.listen`) | Amazon Transcribe hears the voice note; Nova summarises it and says whether it's really about the task |
 | **Proof check** (`vision.check_proof`) | Says honestly whether a photo shows the task done, and what it actually shows |
 | **Router** | Sends low-confidence verdicts to a parent instead of deciding |
 | **Coach** (`vision.digest`) | Writes the Coach's notes from real history only |
-| **Keeper** (`voice.py`) | The friendly voice that speaks to the child on the TV |
+| **Keeper** (`voice.py`, `speech.py`) | The friendly voice that speaks to the child on the TV (Amazon Polly) |
 
-Every specialist is one multimodal call with a forced JSON schema that must also say **what it actually saw or heard**, which is what makes Rosetta's honest replies possible.
+Every specialist is one Bedrock call with a forced JSON schema that must also say **what it actually saw or heard**, which is what makes Rosetta's honest replies possible.
 
 **Trust layer.** `mathcheck.py` computes exact answers with Python fractions and overrides the model's verdict on arithmetic ("the model reads, the code decides"). It also recognises classic slips ("you added the bottom numbers too") for precise hints. On our test sheets the model alone agreed with the true marking on 10 of 11 answers; with the check, 11 of 11.
 
-**Model adapter.** All model calls go through one function (`vision._converse`), so the crew isn't tied to a single model. `npx cdk deploy -c aiProvider=bedrock` runs it on Amazon Bedrock. The adapter also supports an external provider for speech (voice-note transcription and the Keeper's spoken voice) through keyless Workload Identity Federation; see [docs/MODEL_PROVIDERS.md](docs/MODEL_PROVIDERS.md).
+**One model call.** Every Bedrock call goes through one function (`vision._converse`): forced tool choice, optional reasoning, and a retry without reasoning if a long think ends without an answer. The model is one setting (`ROSETTA_MODEL_ID`, or `npx cdk deploy -c modelId=…`), so moving to a larger Bedrock model is a redeploy, not a rewrite.
+
+**Measured on our sample sheets** (`assets/homework/*.jpg`, `assets/demo/coding_homework.jpg`) with Nova 2 Lite: fractions 6/6, Grade 1 numbers 5/5 and the coding class 6/6 marked the same as the answer key, in 12–18 s per page.
 
 ---
 
@@ -148,11 +153,11 @@ cd tv-app && ./gradlew installDebug
 The TV runs its on-device household engine (badge **AI offline**). **MENU** sends the bundled photo for the open quest (the marking replayed is real model output recorded on that photo).
 
 ### Deploy your own AWS backend
-Prerequisites: an AWS account (us-east-1) with Amazon Bedrock access to **Amazon Nova Pro**, Node 20+, Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+Prerequisites: an AWS account (us-east-1) with Amazon Bedrock access to **Amazon Nova 2 Lite** (Amazon Polly and Amazon Transcribe need no setup), Node 20+, Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 python assets/build_assets.py              # copies art into the TV app and web/
 python agents/build_lambda.py              # Linux bundle for Lambda (uv resolves wheels for the Lambda platform)
-cd infra && npm install && npx cdk deploy -c aiProvider=bedrock
+cd infra && npm install && npx cdk deploy
 curl -X POST <ApiUrl>/household/DEMO/reset
 ```
 The stack prints `ApiUrl` and `WebUrl`; pass them to the TV build with `-ProsettaApiUrl` / `-ProsettaWebUrl`. Put APKs in `dist/downloads/` before deploying to publish them on the install page.
@@ -194,7 +199,7 @@ python -m unittest discover -s agents/tests     # 45 offline tests: API, habits,
 | `infra/` | The AWS CDK stack (TypeScript) |
 | `web/` | Kid and parent phone pages, the TV install page and the friction log page |
 | `assets/` | Art, worksheets, the intro, and the demo-video tooling (`assets/demo/`) |
-| `docs/` | Screenshots, the model-provider guide |
+| `docs/` | Screenshots |
 | `SUBMISSION.md` · `FEEDBACK.md` · `FRICTION_LOG.md` · `CREDITS.md` | Devpost text, developer feedback, friction log, asset credits |
 
 ## License

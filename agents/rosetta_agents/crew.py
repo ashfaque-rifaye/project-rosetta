@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import time
 
-from . import config, family, notify, store, tutor, vision, voice
+from . import config, family, notify, speech, store, tutor, vision, voice
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class _Ctx:
         self.code = code
         self.quest_id = quest_id
         self.h = store.load(code)
+        self.spoken = False  # the Keeper speaks once per run
 
     @property
     def q(self) -> dict:
@@ -154,6 +155,9 @@ def complete_quest() -> str:
 def keeper_says(situation: str) -> str:
     """Keeper: write and show the single warm sentence the TV speaks next. `situation` describes what just
     happened (what was found, what is still lost, or that the photo needs retaking)."""
+    if _ctx.spoken:
+        return "ALREADY_SPOKEN: the Keeper has already spoken for this photo. Stop now."
+    _ctx.spoken = True
     line = vision.keeper(_ctx.kid["name"], _ctx.kid["age"], situation)
     _ctx.q["keeperLine"] = line
     _log("Keeper", "Spoke to " + _ctx.kid["name"], tool_name="keeper_says")
@@ -287,13 +291,7 @@ def record_finish(h: dict, q: dict) -> dict:
 
 
 def _master_model():
-    if config.AI_PROVIDER == "vertex":
-        from strands.models.gemini import GeminiModel
-
-        from . import gemini
-        return GeminiModel(client_args=gemini.client_args(), model_id=config.GEMINI_MODEL,
-                           params={"temperature": 0.1, "labels": gemini.labels("quest-master"), "thinking_config": gemini.thinking()})
-    return BedrockModel(model_id=config.MODEL_ID, region_name=config.REGION, temperature=0.1)
+    return BedrockModel(model_id=config.MASTER_MODEL_ID, region_name=config.REGION, temperature=0.1)
 
 
 def run(code: str, quest_id: str, phase: str) -> None:
@@ -317,14 +315,13 @@ def run(code: str, quest_id: str, phase: str) -> None:
 
 
 def _voice(line: str) -> None:
-    """The Keeper's line as Gemini audio, made as soon as the line is (the text is already on the TV). It's written to
+    """The Keeper's line as Amazon Polly audio, made as soon as the line is (the text is already on the TV). It's written to
     a freshly loaded household, so answers given in the few seconds it takes are never overwritten."""
-    if config.AI_PROVIDER != "vertex" or not line:
+    if not line:
         return
     try:
-        from . import gemini
         key = f"voice/{_ctx.code}/{_ctx.quest_id}-{int(time.time())}.wav"
-        store.put_voice(key, gemini.speak(line))
+        store.put_voice(key, speech.speak(line))
         _ctx.h = store.load(_ctx.code)
         if _ctx.q.get("keeperLine") == line:
             voice.set_line(_ctx.q, line, key)

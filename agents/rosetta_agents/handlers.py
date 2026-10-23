@@ -13,7 +13,7 @@ import re
 import time
 import urllib.parse
 
-from . import config, crew, family, learning, notify, store, vision, voice
+from . import crew, family, learning, notify, speech, store, vision, voice
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -28,13 +28,12 @@ AUDIO_EXT = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audi
 
 
 def _message_voice(code: str, sender: str, text: str) -> str | None:
-    """A parent's message in the Keeper's voice (Gemini TTS), stored next to the household's other audio."""
-    if config.AI_PROVIDER != "vertex" or not text:
+    """A parent's message in the Keeper's voice (Amazon Polly), stored next to the household's other audio."""
+    if not text:
         return None
     try:
-        from . import gemini
         key = f"voice/{code}/msg-{int(time.time() * 1000)}.wav"
-        store.put_voice(key, gemini.speak(f"A message from {sender}. {text}", purpose="message-voice"))
+        store.put_voice(key, speech.speak(f"A message from {sender}. {text}"))
         return key
     except Exception:  # the TV reads it with its own voice instead
         log.exception("message voice failed")
@@ -397,11 +396,9 @@ def _habit_proof(code: str, h: dict, q: dict, phase: str, key: str, ext: str) ->
     voice.set_line(q, "Listening to your voice note…" if phase == "voice" else "Looking at your photo…")
     store.save(h)
     kept = store.keep(key, f"memories/{code}/{q['id']}-{int(time.time())}.{ext}")
-    data = store.photo_bytes(key)
     if phase == "voice":
-        mime = next((t for t, e in AUDIO_EXT.items() if e == ext), "audio/webm")
-        try:
-            heard = vision.listen(data, mime, q["title"], k["age"], k["name"])
+        try:  # Amazon Transcribe hears the words, Nova writes the parents' summary
+            heard = vision.listen(speech.transcribe(key, ext), q["title"], k["age"], k["name"])
         except Exception:  # noqa: BLE001 - keep the note for the parents even if the model can't hear it
             log.exception("listen failed")
             heard = {"transcript": "", "summary": "", "about": False, "mood": ""}
@@ -411,7 +408,7 @@ def _habit_proof(code: str, h: dict, q: dict, phase: str, key: str, ext: str) ->
         line = (f"I heard you, {k['name']}. {heard['summary']}" if r["stage"] != "Ready"
                 else f"I couldn't hear anything about {q['title'].lower()} in that note. Try again?")
     else:
-        verdict = vision.check_proof(data, q["title"])
+        verdict = vision.check_proof(store.photo_bytes(key), q["title"])
         h = store.load(code)
         q = store.quest(h, q["id"])
         r = family.photo_proof(h, q, verdict, kept)

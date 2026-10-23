@@ -28,6 +28,8 @@ Also published at https://dr8w3l96syzm7.cloudfront.net/friction-log.html
 | F-18 | Strands Agents SDK | pip --platform silently installs an old Strands for Lambda when building on Windows | Major |
 | F-19 | Amazon API Gateway · AWS CDK | HTTP API catch-all route swallows the CORS preflight | Minor |
 | F-20 | Amazon Polly | No neural voices for Tamil or Malayalam, though Transcribe understands both | Major |
+| F-21 | Amazon Bedrock · Nova 2 Lite | A new account gets 20 requests a minute, so one busy minute throttles an agent crew | Major |
+| F-22 | Amazon Bedrock · Nova 2 Lite | Reasoning settings have hidden rules that only show up as errors | Minor |
 
 ---
 
@@ -236,3 +238,23 @@ Also published at https://dr8w3l96syzm7.cloudfront.net/friction-log.html
 - **Severity:** Major for families in South India.
 - **Workaround:** Tamil and Malayalam as on-screen text; Hindi and English get a voice.
 - **Suggestion:** Neural voices for Tamil, Malayalam, Telugu and Bengali: hundreds of millions of speakers, many of them Fire TV customers in India.
+
+### F-21: Amazon Nova 2 Lite starts at 20 requests a minute
+- **Tool:** Amazon Bedrock, Amazon Nova 2 Lite (`us.` cross-region inference profile), called from AWS Lambda and the Strands Agents SDK
+- **Task:** Move the whole agent crew to a small, low-cost model and run a family's homework, room check and voice note back to back.
+- **Steps:** Deployed with `us.amazon.nova-2-lite-v1:0`; ran our live end-to-end test (about six model calls per photo: the Quest Master's turns plus the specialists).
+- **Expected:** A quota in line with Nova Lite (200 cross-region requests a minute on the same account).
+- **Actual:** `ThrottlingException` on the fourth flow. Service Quotas shows 20 requests a minute for Nova 2 Lite on both the `us.` and `global.` profiles, against 8,000,000 tokens a minute, so requests run out long before tokens do. A voice note was transcribed but couldn't be summarised.
+- **Severity:** Major for any agent product (one user action fans out into several calls).
+- **Workaround:** The Quest Master uses the `global.` profile (its own quota), specialists use `us.`, retries go up to six, and a throttled call overflows to Amazon Nova Lite.
+- **Suggestion:** Raise the default request quota for Nova 2 Lite to match Nova Lite, or name the quota in the `ThrottlingException` message so developers know which one to request.
+
+### F-22: Nova 2 Lite reasoning settings have rules that only errors reveal
+- **Tool:** Amazon Bedrock Converse, Amazon Nova 2 Lite `reasoningConfig`
+- **Task:** Turn on a little extended reasoning for marking homework and tracing code, with a forced tool choice for strict JSON.
+- **Steps:** Tried `maxReasoningEffort` low, medium and high, each with `toolChoice: {tool}` and our usual `temperature` and `maxTokens`.
+- **Expected:** One documented table of which inference settings go with which effort.
+- **Actual:** `high` fails with "`maxTokens` must be unset"; `medium` sometimes spends the whole budget thinking and returns no tool call; Nova Pro rejects `reasoningConfig` outright. `low` with forced tool choice works well (our sample sheets marked exactly like the answer key).
+- **Severity:** Minor
+- **Workaround:** `low` effort only for marking, no `temperature` when reasoning, and a retry without reasoning if the model refuses it or ends without an answer.
+- **Suggestion:** A compatibility table on the Nova 2 reasoning page (effort × maxTokens × temperature × toolChoice), and a validation error that names the model when reasoning isn't supported.

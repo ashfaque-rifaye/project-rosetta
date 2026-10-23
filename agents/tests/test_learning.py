@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rosetta_agents import gemini, mathcheck, store, tutor  # noqa: E402
+from rosetta_agents import mathcheck, store, tutor, vision  # noqa: E402
 from test_flow import DB, PHOTOS, SENT, VOICES, _install_fakes, call, upload  # noqa: E402
 
 ITEMS = [
@@ -107,7 +107,7 @@ class ParentPage(unittest.TestCase):
 
 
 class KeeperVoice(unittest.TestCase):
-    """Gemini voice for the Keeper's line and for parents' messages (TTS stubbed)."""
+    """Amazon Polly voice for the Keeper's line and for parents' messages (stubbed)."""
 
     def setUp(self):
         _install_fakes()
@@ -139,14 +139,22 @@ class KeeperVoice(unittest.TestCase):
         self.assertIn("audioUrl", feed[-1]["data"])
 
 
-class GeminiAdapter(unittest.TestCase):
-    def test_boxes_are_asked_in_gemini_order_and_returned_as_x1_y1_x2_y2(self):
-        schema = gemini._gemini_schema(tutor.TUTOR_TOOL["toolSpec"]["inputSchema"]["json"])
-        box = schema["properties"]["items"]["items"]["properties"]["box"]
-        self.assertTrue(box["description"].startswith("[ymin, xmin, ymax, xmax]"))
-        self.assertTrue(box["description"].endswith("around the child's handwritten answer only"))
-        out = gemini._boxes_back({"items": [{"box": [100, 200, 300, 400], "n": 1}]})
-        self.assertEqual(out["items"][0]["box"], [200, 100, 400, 300])
+class BedrockAdapter(unittest.TestCase):
+    def test_marking_reasons_and_must_answer_through_the_tool(self):
+        sent = {}
+
+        class Rt:
+            def converse(self, **kw):
+                sent.update(kw)
+                return {"output": {"message": {"content": [{"toolUse": {"input": {"items": []}}}]}}}
+        real, vision._rt = vision._rt, Rt()
+        try:
+            vision._converse([{"text": "hi"}], tutor.TUTOR_TOOL, "sys", max_tokens=100, think=True)
+        finally:
+            vision._rt = real
+        self.assertEqual(sent["toolConfig"]["toolChoice"], {"tool": {"name": tutor.TUTOR_TOOL["toolSpec"]["name"]}})
+        self.assertIn("reasoningConfig", sent["additionalModelRequestFields"])
+        self.assertNotIn("temperature", sent["inferenceConfig"])  # Nova picks its own when reasoning
 
 
 class QuizBattle(unittest.TestCase):
