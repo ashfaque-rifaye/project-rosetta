@@ -41,14 +41,15 @@ VO = {
     '07_practice': 'Then practice that makes them think, not just add.',
     '08_honest': "And it's honest. Send the wrong photo, and Rosetta says what it actually sees.",
     '08b_room': "Tidy-ups too. Rosetta spots what's out of place, and checks the room again when it's done.",
-    '09_voice': 'Daily habits check in with a tick, a note, or a voice note. Gemini listens, sums it up, and saves it as a memory for Mom and Dad.',
-    '10_rewards': 'Every task pays off: XP, coins, real pocket money for the wish list, and a star toward Movie Night.',
+    '09_voice': 'Daily tasks check in with a tick, a note, or a voice note. Rosetta listens, sums it up, and saves it as a memory for Mom and Dad.',
+    '10_rewards': 'Every finished task pays off: XP, coins, and a star for the Family Goal.',
+    '10b_money': 'And real pocket money for every task. Meera asks for her colour pencils, Mom taps yes, and the TV updates.',
     '11_parents': 'Parents get a ping, approve in one tap, and can even unlock TV time from their phone. The portal opens.',
     '11b_mom': "Mom sets the day from her phone: daily tasks, each child's class and next test, pocket money, and TV time.",
     '12_quiz': "Then it's Family Quiz Night: a 3D game with reasoning questions written for each child's class, from fractions to code.",
     '13_progress': "And Coach's notes turn real activity into a clear picture of each child.",
-    '14_tech': 'Built natively for Fire TV, with an agent crew on AWS, and Gemini on Vertex AI for vision and voice.',
-    '14b_more': "And there's more. A squad of Lost Things to collect, streaks and stamps, a treasure shop with real wish lists, and a Family Goal that unlocks Movie Night.",
+    '14_tech': 'Under the hood: serverless AWS, end to end.',
+    '14b_more': "And there's more: Lost Things to collect, streaks and stamps, and a Family Goal that unlocks Movie Night.",
     '15_outro': 'Rosetta. The TV that works for the family, not against it.',
 }
 
@@ -90,6 +91,18 @@ VEO = {
                    "hopeful, peaceful ending. Leaves calm dark space in the upper middle. No text, no logos, no people."),
 }
 VEO_NEGATIVE = "text, letters, words, captions, logo, watermark, scary, horror, distorted faces, people"
+# Wide, whole-scene versions of the two intro questions (cut 3): the family is in the shot, nothing cut off.
+VEO_WIDE = {
+    "intro_q1w": ("Cinematic animated film shot, Pixar style, wide shot, evening: a cosy kid's bedroom at dusk. An 8-year-old "
+                  "boy sits at his desk by the window, chin in hand, staring at an unfinished maths worksheet under a warm desk "
+                  "lamp. His mother leans in the doorway on the left, smiling, holding a mug. A wall clock reads seven. The whole "
+                  "room and both characters fully in frame, gentle slow push-in, warm golden lamp light and blue dusk light."),
+    "intro_q2w": ("Cinematic animated film shot, Pixar style, wide shot, evening living room: a 6-year-old girl kneels on a big "
+                  "sofa holding a TV remote with both hands, looking hopefully over her shoulder toward the kitchen. A large dark "
+                  "TV on the wall in front of her. The whole sofa, the girl and the TV fully in frame, warm lamp light, cool blue "
+                  "window light, gentle slow push-in, playful and suspenseful."),
+}
+VEO_WIDE_NEGATIVE = "text, letters, words, captions, logo, watermark, scary, horror, distorted faces, extra fingers, cropped heads"
 
 
 _clients: dict = {}
@@ -180,12 +193,13 @@ def veo() -> None:
     out = HERE / "veo"
     out.mkdir(parents=True, exist_ok=True)
     c = client("us-central1")
-    pending = [k for k in VEO if not (out / f"{k}.mp4").exists()]
+    shots = {k: (p, VEO_NEGATIVE) for k, p in VEO.items()} | {k: (p, VEO_WIDE_NEGATIVE) for k, p in VEO_WIDE.items()}
+    pending = [k for k in shots if not (out / f"{k}.mp4").exists()]
     ops = {k: c.models.generate_videos(
         model="veo-3.1-generate-001", prompt=p,
         config=types.GenerateVideosConfig(aspect_ratio="16:9", duration_seconds=8, number_of_videos=1, generate_audio=True,
-                                          negative_prompt=VEO_NEGATIVE, resolution="1080p", labels=LABELS))
-        for k, p in VEO.items() if k in pending}
+                                          negative_prompt=neg, resolution="1080p", labels=LABELS))
+        for k, (p, neg) in shots.items() if k in pending}
     for k, op in ops.items():
         while not op.done:
             time.sleep(15)

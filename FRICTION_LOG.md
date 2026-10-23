@@ -207,3 +207,13 @@ The dev laptop had <1 GB of free commit with a browser open. Gradle (2 GB heap) 
 - **Workaround:** Fall back across image models and wait between attempts (`assets/intro/make_intro.py`).
 - **Suggestion:** Show the per-minute image quota in the console next to the model, and include a retry-after hint in the 429.
 
+
+### F-024: adb screenrecord on the TV emulator captures only 2-5 frames a second
+- **Tool:** Android TV emulator (API 36, Fire OS 16 stand-in), `adb shell screenrecord`
+- **Task:** Record a smooth demo video of the app.
+- **Steps:** `adb shell screenrecord --bit-rate 20000000` while driving the app with the remote.
+- **Expected:** 30 fps footage.
+- **Actual:** the recorder encodes inside the emulator and competes with the app; footage had 2-5 distinct frames a second and the demo stuttered. The default AVD (4 cores, 2 GB) also drew the app at about 10 fps.
+- **Severity:** Major for demo videos.
+- **Workaround:** the emulator's own host-side recorder, `adb emu screenrecord start --fps 30 <file>.webm`, with the AVD raised to 8 cores and 6 GB: steady 30 fps.
+- **Suggestion:** recommend the host-side recorder and a TV-sized AVD profile in the Fire TV emulator docs.

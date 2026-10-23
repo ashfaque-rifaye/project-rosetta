@@ -135,7 +135,7 @@ The APK targets ARM64 (Fire TV hardware) and x86_64 (emulators). BACK returns ho
 
 ### 5. Tests
 ```bash
-python -m unittest discover -s agents/tests     # 43 offline tests: API, habits, voice notes, TV time, wish list, marking, quiz (models stubbed)
+python -m unittest discover -s agents/tests     # 45 offline tests: API, habits, voice notes, TV time, wish list, marking, quiz (models stubbed)
 ```
 
 ## AWS integrations
