@@ -19,6 +19,10 @@ class Base(unittest.TestCase):
         _install_fakes()
         DB.clear(); PHOTOS.clear(); SENT.clear()
         store.seed("R4KX")
+        h = store.load("R4KX")  # each test adds the daily tasks it needs
+        h["habits"] = []
+        h["quests"] = [q for q in h["quests"] if q.get("kind") != "habit"]
+        store.save(h)
         call("POST", "/household/R4KX/parents/mom", {"subscription": {"endpoint": "https://push.example/mom", "keys": {}}}, pin=PIN)
 
     def h(self):
@@ -44,6 +48,14 @@ class FreshFamily(Base):
         self.assertEqual(v["kids"][0]["grade"], "Grade 3")
         self.assertEqual(v["today"], family.today())
 
+    def test_a_new_family_starts_with_real_tasks_and_no_progress(self):
+        store.seed("R4KX")
+        h = self.h()
+        self.assertEqual(len([q for q in h["quests"] if q["kind"] != "habit"]), 6)
+        self.assertEqual(len([q for q in h["quests"] if q["kind"] == "habit"]), 6)  # 3 daily tasks for each child
+        self.assertTrue(all(q["stage"] == "Ready" for q in h["quests"]))
+        self.assertEqual((h["history"], h["stars"], h["memories"]), ([], [], []))
+
     def test_reset_needs_the_parent_pin(self):
         self.assertEqual(call("POST", "/household/R4KX/reset")[0], 403)
         self.assertEqual(call("POST", "/household/R4KX/reset", pin=PIN)[0], 200)
@@ -52,7 +64,7 @@ class FreshFamily(Base):
         self.habit()
         call("POST", "/household/R4KX/reset", pin=PIN)
         h = self.h()
-        self.assertEqual(h["habits"], [])
+        self.assertEqual([hb["id"] for hb in h["habits"]], ["hb_bed", "hb_read", "hb_prayer"])
         mom = next(p for p in h["parents"] if p["id"] == "mom")
         self.assertTrue(mom.get("push"))
 

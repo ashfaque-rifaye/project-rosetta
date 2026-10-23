@@ -4,6 +4,8 @@
   python assets/intro/make_intro.py lyria            intro sting + home theme (Lyria)      -> assets/intro/music/
   python assets/intro/make_intro.py avatars          Mom and Dad in the kids' avatar style -> assets/flow/avatars/
   python assets/intro/make_intro.py mix <take.mp4>   final intro.mp4 + music_home.ogg into the TV app (ffmpeg)
+  python assets/intro/make_intro.py world [takes]   the Home dollhouse brought to life (Veo, image to video)
+  python assets/intro/make_intro.py loop <take.mp4>  seamless home_world.mp4 loop into the TV app (ffmpeg)
 
 Vertex AI only (project tesselle-demandfoundry, Application Default Credentials), never an API key.
 The video has no text: the TV app draws the ROSETTA wordmark over its last seconds.
@@ -145,6 +147,59 @@ def _image(c: genai.Client, contents: list):
     raise last
 
 
+WORLD_PROMPT = (
+    "The camera is completely still: a locked-off shot, no zoom, no pan, no dolly. This handcrafted miniature dollhouse "
+    "at night comes gently alive: warm lamps glow and softly flicker, curtains sway slightly, a few fireflies drift "
+    "outside, stars twinkle in the night sky, the television in the living room glows with soft changing colours, "
+    "tiny dust motes float in the lamplight. Nothing else moves, no people, no new objects. Stop-motion miniature look, "
+    "cosy and magical. No text."
+)
+WORLD_NEGATIVE = "camera movement, zoom, pan, people, hands, text, letters, watermark, new objects, morphing"
+
+
+def world(takes: int = 2) -> None:
+    """Image-to-video from the Home art, so every room stays exactly where the TV's clickable rooms expect it."""
+    from PIL import Image
+    import io
+    out = HERE / "takes"
+    out.mkdir(parents=True, exist_ok=True)
+    src = Image.open(ROOT / "tv-app/app/src/main/assets/rosetta/home_base.webp").convert("RGB")
+    w, h = src.size
+    canvas = Image.new("RGB", (w, round(w * 9 / 16)), (8, 12, 26))  # pad to exact 16:9; the TV crops it back
+    canvas.paste(src, (0, (canvas.height - h) // 2))
+    buf = io.BytesIO()
+    canvas.save(buf, "PNG")
+    c = client("us-central1")
+    ops = [c.models.generate_videos(
+        model="veo-3.1-generate-001", prompt=WORLD_PROMPT, image=types.Image(image_bytes=buf.getvalue(), mime_type="image/png"),
+        config=types.GenerateVideosConfig(aspect_ratio="16:9", duration_seconds=8, number_of_videos=1, generate_audio=False,
+                                          negative_prompt=WORLD_NEGATIVE, resolution="1080p", labels=LABELS))
+           for _ in range(takes)]
+    for i, op in enumerate(ops, 1):
+        while not op.done:
+            time.sleep(15)
+            op = c.operations.get(op)
+        if op.error:
+            print(f"world take {i} failed: {op.error}", flush=True)
+            continue
+        for j, v in enumerate(op.response.generated_videos):
+            path = out / f"world_{int(time.time())}_{i}{j}.mp4"
+            path.write_bytes(v.video.video_bytes)
+            print("saved", path, path.stat().st_size // 1024, "KB", flush=True)
+
+
+def loop(take: str) -> None:
+    """A seamless loop: the clip forward then backward (Veo drifts the camera slightly), scaled for the TV, no sound."""
+    raw = ROOT / "tv-app/app/src/main/res/raw"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error", "-i", take,
+        "-filter_complex",
+        "[0:v]scale=1280:-2,fps=24,split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1:a=0,format=yuv420p[v]",
+        "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "26", "-movflags", "+faststart",
+        str(raw / "home_world.mp4")], check=True)
+    print("home_world.mp4", (raw / "home_world.mp4").stat().st_size // 1024, "KB")
+
+
 def mix(take: str, sting: str | None = None, home: str | None = None) -> None:
     """intro.mp4: the Veo clip with its own sound under the Lyria sting; music_home.ogg: a quiet seamless loop."""
     raw = ROOT / "tv-app/app/src/main/res/raw"
@@ -176,3 +231,7 @@ if __name__ == "__main__":
         avatars()
     elif cmd == "mix":
         mix(*sys.argv[2:])
+    elif cmd == "world":
+        world(int(sys.argv[2]) if len(sys.argv) > 2 else 2)
+    elif cmd == "loop":
+        loop(sys.argv[2])

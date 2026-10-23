@@ -143,6 +143,8 @@ fun StoneScreen(
             )
             Spacer(Modifier.height(18.dp))
             GlyphLegend(household)
+            // The star in real-time 3D: it spins faster when one was just earned.
+            app.rosetta.tv.ui.kit.Model3D("models/star.glb", Modifier.padding(top = 12.dp).size(190.dp), spinDegPerSec = if (carved != null) 140f else 45f)
         }
 
         AnimatedVisibility(

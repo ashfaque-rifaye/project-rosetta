@@ -13,7 +13,7 @@ namespace Rosetta.Arena.Editor
     /// <summary>
     /// Headless project setup + Fire OS APK build:
     ///   Unity.exe -batchmode -quit -projectPath RosettaArena -executeMethod Rosetta.Arena.Editor.ArenaBuild.Apk
-    /// Creates the URP asset, the one-object scene, imports art settings, and builds ARM64 + x86_64.
+    /// Creates the URP asset, the one-object scene, imports art settings, and builds ARMv7 + ARM64 + x86_64.
     /// </summary>
     public static class ArenaBuild
     {
@@ -90,7 +90,7 @@ namespace Rosetta.Arena.Editor
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
             PlayerSettings.Android.androidTVCompatibility = true;
-            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.X86_64;
+            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARMv7 | AndroidArchitecture.ARM64 | AndroidArchitecture.X86_64; // ARMv7: 32-bit Fire TV sticks and Android TVs
             PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);

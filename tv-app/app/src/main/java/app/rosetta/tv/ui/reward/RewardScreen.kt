@@ -127,7 +127,9 @@ fun RewardScreen(household: Household, reward: QuestReward, onCarve: () -> Unit)
                         LootTile(visible = step >= 3, title = money(household.currency, reward.money), label = "POCKET MONEY", accent = Rosetta.Lime) { Text("💰", fontSize = 34.sp) }
                     }
                     reward.glyph?.let {
-                        LootTile(visible = step >= 3, title = "+1", label = "STAR", accent = Rosetta.Ember) { Text("★", fontSize = 44.sp, color = Rosetta.Gold) }
+                        LootTile(visible = step >= 3, title = "+1", label = "STAR", accent = Rosetta.Ember) {
+                            if (step >= 3) app.rosetta.tv.ui.kit.Model3D("models/star.glb", Modifier.size(70.dp), units = 1.9f, spinDegPerSec = 120f)
+                        }
                     }
                     if (reward.streak > 1) {
                         LootTile(visible = step >= 3, title = "${reward.streak} days", label = "STREAK", accent = Rosetta.Ember) { Text("🔥", fontSize = 34.sp) }

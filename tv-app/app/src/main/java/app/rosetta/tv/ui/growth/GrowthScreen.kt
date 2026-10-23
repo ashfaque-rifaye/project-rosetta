@@ -56,8 +56,8 @@ private const val DAYS = 14
  * calendar, homework accuracy, pocket money, and ✦ Coach's notes the AI writes once there is something real to say.
  */
 @Composable
-fun GrowthScreen(household: Household) {
-    var kidIdx by remember { mutableIntStateOf(0) }
+fun GrowthScreen(household: Household, kidId: String? = null) {
+    var kidIdx by remember { mutableIntStateOf(household.kids.indexOfFirst { it.id == kidId }.coerceAtLeast(0)) }
     val kid = household.kids[kidIdx.coerceIn(0, household.kids.lastIndex)]
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
@@ -76,7 +76,7 @@ fun GrowthScreen(household: Household) {
                 }
                 household.kids.forEachIndexed { i, k ->
                     RosettaButton(
-                        k.name, { kidIdx = i }, Modifier.padding(start = 10.dp).then(if (i == 0) Modifier.focusRequester(first) else Modifier),
+                        k.name, { kidIdx = i }, Modifier.padding(start = 10.dp).then(if (i == kidIdx) Modifier.focusRequester(first) else Modifier),
                         icon = if (i == kidIdx) "★" else "☆", tone = if (i == kidIdx) ButtonTone.Lime else ButtonTone.Glass,
                     )
                 }

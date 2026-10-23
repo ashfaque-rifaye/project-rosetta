@@ -241,7 +241,7 @@ fun ShopScreen(household: Household, onBuy: (kidId: String, itemId: String) -> B
     var toast by remember { mutableStateOf<String?>(null) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    ScreenFrame("REWARDS", "Spend what you earned", "Coins buy outfits and decor. Pocket money is real money from Mom and Dad, saved for your wish list.") {
+    ScreenFrame("TREASURE", "Spend what you earned", "Coins buy outfits and decor. Pocket money is real money from Mom and Dad, saved for your wish list.") {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             household.kids.forEachIndexed { i, k ->
                 RosettaButton(
@@ -293,7 +293,7 @@ fun ShopScreen(household: Household, onBuy: (kidId: String, itemId: String) -> B
                     }
                     Spacer(Modifier.height(10.dp))
                     toast?.let { Text(it, color = Rosetta.Lime, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2) }
-                    Spacer(Modifier.height(8.dp))
+                    app.rosetta.tv.ui.kit.Model3D("models/chest.glb", Modifier.fillMaxWidth().height(150.dp), units = 2.1f, spinDegPerSec = 35f, tilt = 22f)
                     RailHeader("Pocket money")
                     Text(app.rosetta.tv.ui.reward.money(household.currency, kid.money), style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold), color = Rosetta.Lime)
                     Text("Real money from Mom and Dad, earned with daily tasks.", fontSize = 12.sp, color = Rosetta.Mist)

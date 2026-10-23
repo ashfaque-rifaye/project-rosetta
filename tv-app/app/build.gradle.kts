@@ -12,6 +12,8 @@ android {
         applicationId = "app.rosetta.tv"
         // Fire OS 6 (API 25) and up; Fire OS 7 = API 28, Fire OS 8 = API 30.
         minSdk = 25
+        // Fire TV sticks (32- and 64-bit ARM) and the x86_64 TV emulator; skips 32-bit x86 to keep the APK small.
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
@@ -65,4 +67,6 @@ dependencies {
     implementation(project(":vision-overlay"))
     implementation(libs.zxing.core)
     implementation(libs.okhttp)
+    // Real-time 3D moments (Google Filament via SceneView): runs on 32-bit Fire TV sticks too.
+    implementation("io.github.sceneview:sceneview:2.2.1")
 }

@@ -126,6 +126,18 @@ def seed(code: str = "R4KX") -> dict:
             {"id": "q_arjun_homework", "kind": "study", "kidId": "arjun", "roomId": "arjun_room", "title": "Fractions homework", "mustDo": True},
             {"id": "q_meera_homework", "kind": "study", "kidId": "meera", "roomId": "meera_room", "title": "Adding and taking away", "mustDo": True},
             {"id": "q_arjun_room", "kind": "tidy", "kidId": "arjun", "roomId": "arjun_room", "title": "Tidy your room", "mustDo": False},
+            {"id": "q_meera_room", "kind": "tidy", "kidId": "meera", "roomId": "meera_room", "title": "Tidy your room", "mustDo": False},
+            {"id": "q_kitchen", "kind": "tidy", "kidId": "arjun", "roomId": "kitchen", "title": "Kitchen crew: clear the table", "mustDo": False},
+            {"id": "q_balcony", "kind": "tidy", "kidId": "meera", "roomId": "balcony", "title": "Water the balcony garden", "mustDo": False},
+        ],
+        # Everyday tasks a family starts with; parents edit or remove them from their phone. Progress still starts at zero.
+        "habits": [
+            {"id": "hb_bed", "title": "Make your bed", "icon": "🛏️", "kidIds": ["arjun", "meera"], "days": "daily", "proof": "photo",
+             "coins": 10, "money": 2, "needsParent": False, "mustDo": True, "streaks": {}},
+            {"id": "hb_read", "title": "Read 10 pages", "icon": "📖", "kidIds": ["arjun", "meera"], "days": "daily", "proof": "voice",
+             "coins": 15, "money": 5, "needsParent": False, "mustDo": True, "streaks": {}},
+            {"id": "hb_prayer", "title": "Prayer time", "icon": "🙏", "kidIds": ["arjun", "meera"], "days": "daily", "proof": "none",
+             "coins": 5, "money": 0, "needsParent": False, "mustDo": False, "streaks": {}},
         ],
         # Parent PIN gates approvals, settings and parent messages; change it from Mission Control in a real home.
         "parentPin": os.environ.get("ROSETTA_PARENT_PIN", "2468"),

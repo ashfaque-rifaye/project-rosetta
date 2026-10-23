@@ -45,6 +45,7 @@ import app.rosetta.tv.ui.growth.GrowthScreen
 import app.rosetta.tv.ui.habit.HabitScreen
 import app.rosetta.tv.ui.home.WatchApp
 import app.rosetta.tv.ui.intro.IntroScreen
+import app.rosetta.tv.ui.parents.ParentsScreen
 import android.content.Intent
 import android.widget.Toast
 import android.view.KeyEvent as AndroidKeyEvent
@@ -69,7 +70,8 @@ sealed interface Screen {
     data object Shop : Screen
     data object Raid : Screen
     data object Quiz : Screen
-    data object Growth : Screen
+    data class Growth(val kidId: String? = null) : Screen
+    data object Parents : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -152,13 +154,15 @@ class MainActivity : ComponentActivity() {
                             onOpenQuest = { q -> repo.openQuest(q.id); screen = Screen.Quest(q.id) },
                             onRequestTv = repo::requestTvTime,
                             onWatch = ::watch,
+                            onKid = { screen = Screen.Growth(it) },
+                            onParents = { screen = Screen.Parents },
                             onTab = { tab ->
                                 screen = when (tab) {
                                     HomeTab.Codex -> Screen.Codex
                                     HomeTab.Passport -> Screen.Passport
                                     HomeTab.Shop -> Screen.Shop
                                     HomeTab.Stone -> Screen.Stone()
-                                    HomeTab.Growth -> Screen.Growth
+                                    HomeTab.Growth -> Screen.Growth()
                                     // Family Quiz Night runs in the Unity arena when it's installed, natively otherwise.
                                     HomeTab.Quiz -> {
                                         if (household.quiz == null || household.quiz?.done == true) repo.startQuiz()
@@ -221,7 +225,8 @@ class MainActivity : ComponentActivity() {
                         Screen.Passport -> PassportScreen(household)
                         Screen.Shop -> ShopScreen(household, onBuy = repo::buy, onEquip = repo::equip)
                         Screen.Raid -> RaidScreen(household, onDevHit = repo::devRaidHit, onDone = { screen = Screen.Home })
-                        Screen.Growth -> GrowthScreen(household)
+                        is Screen.Growth -> GrowthScreen(household, s.kidId)
+                        Screen.Parents -> ParentsScreen(household, RosettaConfig.parentUrl(household.pairingCode), onProgress = { screen = Screen.Growth() })
                         Screen.Quiz -> QuizScreen(household, onAnswer = repo::answerQuiz, onDone = { screen = Screen.Home })
                     }
                 }

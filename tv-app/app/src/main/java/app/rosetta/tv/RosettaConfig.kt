@@ -19,4 +19,7 @@ object RosettaConfig {
 
     fun joinUrl(code: String): String =
         if (webUrl.isBlank()) "https://rosetta.family/join?code=$code" else "${webUrl.trimEnd('/')}/kid.html?code=$code"
+
+    /** The parent page for this household, or null when the TV runs offline (there is no cloud for it to talk to). */
+    fun parentUrl(code: String): String? = webUrl.takeIf { it.isNotBlank() }?.let { "${it.trimEnd('/')}/parent.html?code=$code" }
 }

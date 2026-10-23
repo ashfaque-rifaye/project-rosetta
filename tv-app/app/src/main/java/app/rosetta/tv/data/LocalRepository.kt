@@ -420,6 +420,18 @@ object Household0 {
         Room("living", "Living room", NormRect(0.509f, 0.540f, 0.723f, 0.820f)),
         Room("balcony", "Balcony", NormRect(0.736f, 0.378f, 0.807f, 0.540f)),
     )
+    /** Where each Lost Thing lives in the house once a child has put it back (spots on the Home art). */
+    val residence = mapOf(
+        "sock" to NormRect(0.300f, 0.455f, 0.335f, 0.515f),
+        "dino" to NormRect(0.445f, 0.455f, 0.480f, 0.515f),
+        "bricks" to NormRect(0.540f, 0.455f, 0.575f, 0.515f),
+        "books" to NormRect(0.395f, 0.455f, 0.430f, 0.515f),
+        "sneakers" to NormRect(0.655f, 0.455f, 0.690f, 0.515f),
+        "teddy" to NormRect(0.600f, 0.755f, 0.640f, 0.815f),
+        "jacket" to NormRect(0.680f, 0.755f, 0.715f, 0.815f),
+        "mug" to NormRect(0.330f, 0.755f, 0.365f, 0.815f),
+    )
+
     fun room(id: String) = rooms.firstOrNull { it.id == id } ?: Room(id, "", NormRect(0.4f, 0.4f, 0.6f, 0.6f))
 
     fun initial() = Household(
@@ -430,6 +442,9 @@ object Household0 {
             Quest("q_arjun_homework", "arjun", "arjun_room", "Fractions homework", "", xpReward = 80, coinReward = 35, kind = QuestKind.Study, mustDo = true),
             Quest("q_meera_homework", "meera", "meera_room", "Adding and taking away", "", xpReward = 80, coinReward = 35, kind = QuestKind.Study, mustDo = true),
             Quest("q_arjun_room", "arjun", "arjun_room", "Tidy your room", "", xpReward = 75, coinReward = 30),
+            Quest("q_meera_room", "meera", "meera_room", "Tidy your room", "", xpReward = 75, coinReward = 30),
+            Quest("q_kitchen", "arjun", "kitchen", "Kitchen crew: clear the table", "", xpReward = 75, coinReward = 30),
+            Quest("q_balcony", "meera", "balcony", "Water the balcony garden", "", xpReward = 75, coinReward = 30),
         ),
         glyphs = emptyStars(),
         codex = squadCatalog,
