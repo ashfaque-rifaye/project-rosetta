@@ -27,32 +27,28 @@ HERE = Path(__file__).resolve().parent
 LABELS = {"app": "rosetta", "purpose": "demo-video"}
 
 NARRATOR = "Algieba"  # smooth
-NARRATOR_STYLE = ("Read this like the narrator of an Apple product film: calm, warm, confident and unhurried, "
-                  "with a quiet smile and natural pauses. Clear, premium, never salesy")
+NARRATOR_STYLE = "Say in a calm, warm, confident voice, like a premium product film narrator"
 
-# The narration, beat by beat (ids match the edit in edit.py).
+# The narration, beat by beat (ids match the edit in edit.py). Every clip is checked by transcription (see verified()).
 VO = {
     "01_hook": "Every evening, in millions of homes, the same two questions.",
     "02_q": "Did you finish your homework? ... Can I watch TV now?",
-    "03_what_if": "What if the TV itself could help answer both?",
+    "03_what_if": "What if the TV itself could help?",
     "04_title": "This is Rosetta. The Fire TV app where the whole family levels up.",
-    "05_home": ("Tonight's quests live in a living dollhouse: homework, chores, and the daily habits Mom and Dad set. "
-                "Make your bed. Read ten pages. Prayer time. And TV time stays locked until the must-dos are done."),
-    "06_homework": ("Arjun snaps his worksheet with any phone. In seconds, the AI Tutor marks every answer, right on his "
-                    "handwriting. Every sum is double-checked in code, and each mistake gets a hint, never the answer."),
-    "07_practice": "Then a quick practice round, on exactly the skills that slipped.",
-    "08_honest": "And it's honest. Send the wrong photo, and Rosetta tells you exactly what it sees.",
-    "09_voice": ("Daily tasks check in with a tick, a note, or a voice note. Gemini listens, sums it up, and keeps it "
-                 "as a memory Mom and Dad can play back."),
-    "10_rewards": ("Every finished task pays off. XP, coins, real pocket money toward a wish list, and a star for the "
-                   "Family Goal. Nine stars unlock Movie Night."),
-    "11_parents": ("Mom and Dad get a ping on their phone, approve with one tap, and can even unlock TV time themselves. "
-                   "When the must-dos are done, the portal opens."),
-    "12_quiz": ("Then it's Family Quiz Night: a 3D game, with questions written for each child's class and next test. "
-                "Played together. Never a ranking."),
+    "05_home": ("Tonight's quests live in a living dollhouse. Homework, chores, and the daily habits parents set. "
+                "And TV time stays locked until the must-dos are done."),
+    "06_homework": ("Arjun snaps his worksheet with any phone. Seconds later, the AI Tutor marks every answer on his own "
+                    "handwriting. The maths is double-checked in code, and every mistake gets a hint, never the answer."),
+    "07_practice": "Then, a practice round on exactly what slipped.",
+    "08_honest": "And it's honest. Send the wrong photo, and Rosetta says what it actually sees.",
+    "09_voice": ("Daily habits check in with a tick, a note, or a voice note. Gemini listens, sums it up, and saves it "
+                 "as a memory for Mom and Dad."),
+    "10_rewards": "Every task pays off: XP, coins, real pocket money for the wish list, and a star toward Movie Night.",
+    "11_parents": "Parents get a ping, approve in one tap, and can even unlock TV time from their phone. The portal opens.",
+    "12_quiz": "Then it's Family Quiz Night: a 3D game, with questions written for each child's class and next test.",
     "13_progress": "And Coach's notes turn real activity into a clear picture for parents.",
     "14_tech": ("Rosetta runs natively on Fire TV, with an agent crew on AWS: Strands Agents, Lambda, S3, DynamoDB and "
-                "CloudFront, and Gemini on Vertex AI for vision and voice."),
+                "CloudFront. Gemini on Vertex AI powers vision and voice."),
     "15_outro": "Rosetta. The TV that works for the family, not against it.",
 }
 
@@ -114,16 +110,35 @@ def tts(text: str, voice: str, style: str, model: str) -> bytes:
     return buf.getvalue()
 
 
+def words(t: str) -> list:
+    import re
+    return re.findall(r"[a-z0-9]+", t.lower().replace("ai", "a i"))
+
+
+def verified(wav: bytes, text: str) -> bool:
+    """Transcribe the clip and accept it only if it says the script and nothing else (TTS can read its style cue aloud)."""
+    import difflib
+    heard = client().models.generate_content(model="gemini-2.5-flash", contents=[
+        types.Part.from_bytes(data=wav, mime_type="audio/wav"), "Transcribe this speech exactly, word for word. Output only the words."]).text
+    a, b = words(text), words(heard)
+    ratio = difflib.SequenceMatcher(None, a, b).ratio()
+    ok = ratio >= 0.86 and len(b) <= len(a) + 3
+    print(f"  heard ({ratio:.2f}): {heard.strip()[:110]}", flush=True)
+    return ok
+
+
 def speak(text: str, voice: str, style: str, out: Path) -> None:
-    for attempt in range(8):  # TTS has a small per-minute quota: wait it out; prefer the Pro voice
-        for model in ("gemini-2.5-pro-tts", "gemini-2.5-flash-tts"):
-            try:
-                out.write_bytes(tts(text, voice, style, model))
+    for attempt in range(10):  # small per-minute TTS quota: wait it out; prefer the Pro voice, then Flash
+        model = "gemini-2.5-pro-tts" if attempt < 6 else "gemini-2.5-flash-tts"
+        try:
+            wav = tts(text, voice, style, model)
+            if verified(wav, text):
+                out.write_bytes(wav)
                 print("ok", out.name, model, flush=True)
                 return
-            except Exception as e:  # noqa: BLE001
-                print("  retry", out.name, model, str(e)[:90], flush=True)
-        time.sleep(20)
+        except Exception as e:  # noqa: BLE001
+            print("  retry", out.name, model, str(e)[:90], flush=True)
+            time.sleep(15)
     print("FAIL", out.name)
 
 

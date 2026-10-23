@@ -5,6 +5,7 @@ no Google). Everything stays on this machine.
 """
 import importlib.util
 import json
+import os
 import sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -23,6 +24,11 @@ from rosetta_agents import handlers, store  # noqa: E402
 
 store.presign_get = lambda key: f"/dev-media/{key}"
 store.seed("R4KX")
+# ROSETTA_DEV_SEED=household.json loads a real household (e.g. the public DEMO family's GET) to preview its pages.
+if os.environ.get("ROSETTA_DEV_SEED"):
+    seeded = json.loads(Path(os.environ["ROSETTA_DEV_SEED"]).read_text(encoding="utf-8"))
+    seeded["parentPin"] = "2468"
+    fakes.DB[seeded["code"]] = json.dumps(seeded)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -44,7 +50,10 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith("/config.js"):
-            body = b'window.ROSETTA_CONFIG = { apiUrl: "" };'
+            # ?devParent=mom signs in as a demo parent on this local preview only (the PIN never leaves localhost).
+            body = (b'window.ROSETTA_CONFIG = { apiUrl: "" };'
+                    b'if (/^(localhost|127[.]0[.]0[.]1)$/.test(location.hostname) && new URLSearchParams(location.search).get("devParent"))'
+                    b' localStorage.setItem("rosetta.parent", JSON.stringify({id: "mom", name: "Mom", pin: "2468"}));')
             self.send_response(200); self.send_header("content-type", "text/javascript"); self.end_headers(); self.wfile.write(body)
         elif self.path.startswith(("/household/", "/vapid-public-key")):
             self._api("GET")

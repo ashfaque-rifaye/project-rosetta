@@ -75,8 +75,10 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const KID_KEY = "rosetta.kid";
-let me = localStorage.getItem(KID_KEY);
-let household = null, openId = null, userPicked = false, busy = false;
+// ?kid=arjun opens straight to that child's tasks (a per-child link); ?open=<task id> opens one task.
+let me = params.get("kid") || localStorage.getItem(KID_KEY);
+if (params.get("kid")) localStorage.setItem(KID_KEY, me);
+let household = null, openId = params.get("open"), userPicked = !!params.get("open"), busy = false;
 const recorder = voiceRecorder();
 
 // ---------------------------------------------------------------- who are you?

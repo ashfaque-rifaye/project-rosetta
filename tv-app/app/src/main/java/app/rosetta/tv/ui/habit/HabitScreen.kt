@@ -161,6 +161,9 @@ private fun Status(q: Quest, name: String) {
         q.stage == QuestStage.Done -> Banner("✓", "Done!", R.Lime) {
             if (q.checkin.isNotBlank()) Quote(q.checkin, ai = q.checkinKind == "voice" || q.checkinKind == "photo", label = "From $name's $what")
         }
+        q.stage == QuestStage.Checking && !q.needsParent -> Banner("✦", if (q.proof == "photo") "Rosetta is looking at the photo…" else "Rosetta is listening…", R.Gold) {
+            Text("This takes a few seconds.", fontSize = 15.sp, color = R.Mist)
+        }
         q.stage == QuestStage.Checking -> Banner("⏳", "Waiting for Mom or Dad to check", R.Sky) {
             if (q.checkin.isNotBlank()) Quote(q.checkin, ai = q.checkinKind == "voice" || q.checkinKind == "photo", label = "From $name's $what")
         }
