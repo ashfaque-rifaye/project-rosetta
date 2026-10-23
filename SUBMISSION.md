@@ -91,7 +91,7 @@ We asked a different question: **what if the TV itself could help?** What if it 
 
 ## Built with (up to 25 tags)
 ```
-kotlin, jetpack-compose, compose-for-tv, fire-tv, fire-os, android, unity, c-sharp, filament, strands-agents, amazon-bedrock, amazon-nova, aws-lambda, amazon-api-gateway, amazon-dynamodb, amazon-s3, amazon-cloudfront, amazon-eventbridge, amazon-ses, amazon-sns, aws-cdk, python, typescript, javascript, media3
+kotlin, jetpack-compose, compose-for-tv, fire-tv, fire-os, android, unity, filament, strands-agents, amazon-bedrock, amazon-nova, amazon-polly, amazon-transcribe, aws-lambda, amazon-api-gateway, amazon-dynamodb, amazon-s3, amazon-cloudfront, amazon-eventbridge, amazon-ses, amazon-sns, aws-cdk, python, typescript, media3
 ```
 
 ## "Try it out" links
