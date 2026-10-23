@@ -296,7 +296,7 @@ private fun stepsFor(q: Quest, name: String): List<Step> {
 @Composable
 internal fun AiSteps(quest: Quest, name: String, modifier: Modifier) {
     Glass(modifier.fillMaxWidth(), radius = 20.dp) {
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("✦", fontSize = 16.sp, color = Rosetta.Gold)
                 Spacer(Modifier.width(8.dp))
@@ -316,33 +316,45 @@ internal fun AiSteps(quest: Quest, name: String, modifier: Modifier) {
                     }
                 }
             }
-            stepsFor(quest, name).forEach { StepRow(it) }
+            val all = stepsFor(quest, name)
+            Column { all.forEachIndexed { i, st -> StepRow(st, last = i == all.lastIndex) } }
         }
     }
 }
 
 @Composable
-private fun StepRow(step: Step) {
+private fun StepRow(step: Step, last: Boolean = false) {
     val pulse by rememberInfiniteTransition(label = "step").animateFloat(0.35f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "p")
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
-            when (step.state) {
-                StepState.Done -> Box(Modifier.size(20.dp).clip(CircleShape).background(Rosetta.Lime), contentAlignment = Alignment.Center) {
-                    Text("✓", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Rosetta.Night)
+    val color = when (step.state) { StepState.Done -> Rosetta.Lime; StepState.Now -> Rosetta.Sky; StepState.Later -> Color.White.copy(alpha = 0.25f) }
+    Row(verticalAlignment = Alignment.Top) {
+        // A timeline: a node per step, joined by a line that lights up as the work moves on.
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(26.dp)) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                when (step.state) {
+                    StepState.Done -> Box(
+                        Modifier.size(22.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFFE6FF8A), Rosetta.Lime))).border(1.5.dp, Color.White.copy(alpha = 0.7f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("✓", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Rosetta.Night) }
+                    StepState.Now -> {
+                        Box(Modifier.size(24.dp).clip(CircleShape).background(Rosetta.Sky.copy(alpha = 0.25f * pulse)))
+                        Box(Modifier.size(12.dp).clip(CircleShape).background(Rosetta.Sky))
+                    }
+                    StepState.Later -> Box(Modifier.size(14.dp).clip(CircleShape).border(2.dp, color, CircleShape))
                 }
-                StepState.Now -> Box(Modifier.size(14.dp).clip(CircleShape).background(Rosetta.Sky.copy(alpha = pulse)))
-                StepState.Later -> Box(Modifier.size(14.dp).clip(CircleShape).border(2.dp, Color.White.copy(alpha = 0.25f), CircleShape))
             }
+            if (!last) Box(Modifier.width(2.dp).height(14.dp).background(if (step.state == StepState.Done) Rosetta.Lime.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.15f)))
         }
         Spacer(Modifier.width(12.dp))
-        if (step.ai) Text("✦ ", fontSize = 15.sp, color = Rosetta.Gold)
-        Text(
-            step.text + if (step.state == StepState.Now && step.ai) "…" else "",
-            fontSize = 16.sp,
-            fontWeight = if (step.state == StepState.Now) FontWeight.Bold else FontWeight.Normal,
-            color = when (step.state) { StepState.Done -> Rosetta.Cream; StepState.Now -> Rosetta.Sky; StepState.Later -> Rosetta.Mist.copy(alpha = 0.7f) },
-            maxLines = 1,
-        )
+        Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (step.ai) Text("✦ ", fontSize = 15.sp, color = Rosetta.Gold)
+            Text(
+                step.text + if (step.state == StepState.Now && step.ai) "…" else "",
+                fontSize = 16.sp,
+                fontWeight = if (step.state == StepState.Now) FontWeight.Bold else FontWeight.Normal,
+                color = when (step.state) { StepState.Done -> Rosetta.Cream; StepState.Now -> Rosetta.Sky; StepState.Later -> Rosetta.Mist.copy(alpha = 0.7f) },
+                maxLines = 1,
+            )
+        }
     }
 }
 

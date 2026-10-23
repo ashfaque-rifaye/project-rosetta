@@ -51,7 +51,7 @@ class FreshFamily(Base):
     def test_a_new_family_starts_with_real_tasks_and_no_progress(self):
         store.seed("R4KX")
         h = self.h()
-        self.assertEqual(len([q for q in h["quests"] if q["kind"] != "habit"]), 6)
+        self.assertEqual(len([q for q in h["quests"] if q["kind"] != "habit"]), 7)  # incl. the coding class
         self.assertEqual(len([q for q in h["quests"] if q["kind"] == "habit"]), 6)  # 3 daily tasks for each child
         self.assertTrue(all(q["stage"] == "Ready" for q in h["quests"]))
         self.assertEqual((h["history"], h["stars"], h["memories"]), ([], [], []))

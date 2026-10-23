@@ -155,7 +155,7 @@ fun StudyScreen(
                     when {
                         quest.stage == QuestStage.Practising -> PracticeCard(quest, onAnswer, Modifier.weight(1f))
                         quest.homework != null -> {
-                            AiSteps(quest, kid.name, Modifier.height(236.dp))
+                            AiSteps(quest, kid.name, Modifier.height(222.dp))
                             Spacer(Modifier.height(10.dp))
                             MarkingList(quest.homework.items, Modifier.weight(1f))
                         }
@@ -219,25 +219,80 @@ private fun Marks(items: List<HomeworkItem>) {
 
 @Composable
 private fun MarkingList(items: List<HomeworkItem>, modifier: Modifier) {
-    Glass(modifier.fillMaxWidth(), radius = 20.dp) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    val right = items.count { it.correct }
+    Glass(modifier.fillMaxWidth(), radius = 24.dp) {
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("✦ AI TUTOR'S MARKING", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Cream)
-                Spacer(Modifier.weight(1f))
-                Text("${items.count { it.correct }}/${items.size} right", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Rosetta.Gold)
-            }
-            items.forEach { it ->
-                Row(verticalAlignment = Alignment.Top) {
-                    Text(if (it.correct) "✓" else "✗", fontSize = 16.sp, fontWeight = FontWeight.Black, color = if (it.correct) Rosetta.Lime else Rosetta.Rose, modifier = Modifier.width(22.dp))
-                    Column(Modifier.weight(1f)) {
-                        Row {
-                            Text("${it.n}. ${it.question}", fontSize = 14.sp, color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            Text("  ${it.kidAnswer}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (it.correct) Rosetta.Lime else Rosetta.Rose)
-                        }
-                        if (!it.correct && it.hint.isNotBlank()) Text("Hint: ${it.hint}", fontSize = 12.sp, color = Rosetta.Mist, maxLines = 2)
-                    }
-                    if (it.checkedBy == "math") Text("double-checked", fontSize = 10.sp, color = Rosetta.Moss, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("✦ AI TUTOR'S MARKING", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 2.sp), color = Rosetta.Gold)
+                    Text("Checked on the handwriting · maths double-checked in code", fontSize = 12.sp, color = Rosetta.Mist)
                 }
+                ScoreRing(right, items.size)
+            }
+            Spacer(Modifier.height(10.dp))
+            val compact = items.size > 6  // a full workbook page: two columns, hints on the TV's hint card
+            val rows = if (compact) items.chunked(2) else items.map { listOf(it) }
+            Column(verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)) {
+                rows.forEachIndexed { i, pair ->
+                    var shown by remember(pair.first().id) { mutableStateOf(false) }
+                    LaunchedEffect(pair.first().id) { kotlinx.coroutines.delay(140L * i); shown = true }
+                    androidx.compose.animation.AnimatedVisibility(shown, enter = fadeIn(tween(300)) + androidx.compose.animation.slideInHorizontally(tween(300)) { w -> w / 6 }) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { pair.forEach { MarkRow(it, compact, Modifier.weight(1f)) } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The score as a ring: green when it's all right, gold otherwise. */
+@Composable
+private fun ScoreRing(right: Int, total: Int) {
+    val p by androidx.compose.animation.core.animateFloatAsState(if (total == 0) 0f else right.toFloat() / total, tween(900), label = "score")
+    val color = if (right == total) Rosetta.Lime else Rosetta.Gold
+    Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val st = 6.dp.toPx()
+            val sz = androidx.compose.ui.geometry.Size(size.width - st, size.height - st)
+            val tl = androidx.compose.ui.geometry.Offset(st / 2, st / 2)
+            drawArc(Color.White.copy(alpha = 0.12f), 0f, 360f, false, topLeft = tl, size = sz, style = androidx.compose.ui.graphics.drawscope.Stroke(st))
+            drawArc(color, -90f, 360f * p, false, topLeft = tl, size = sz, style = androidx.compose.ui.graphics.drawscope.Stroke(st, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        }
+        Text("$right/$total", fontSize = 18.sp, fontWeight = FontWeight.Black, color = color)
+    }
+}
+
+/** One marked answer: number badge, the question, the child's answer as a chip, a ✓/✗ medallion, and the hint. */
+@Composable
+private fun MarkRow(it: HomeworkItem, compact: Boolean = false, modifier: Modifier = Modifier) {
+    val accent = if (it.correct) Rosetta.Lime else Rosetta.Rose
+    Column(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.10f), Color.White.copy(alpha = 0.03f))))
+            .border(1.dp, Brush.horizontalGradient(listOf(accent.copy(alpha = 0.45f), Color.White.copy(alpha = 0.06f))), RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 7.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(24.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
+                Text("${it.n}", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Rosetta.Cream)
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(it.question, fontSize = 15.sp, color = Rosetta.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                it.kidAnswer.ifBlank { "—" }, fontSize = 15.sp, fontWeight = FontWeight.Black, color = Rosetta.Night,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(accent).padding(horizontal = 10.dp, vertical = 2.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.size(26.dp).clip(CircleShape).background(Brush.radialGradient(listOf(accent, accent.copy(alpha = 0.6f)))).border(1.5.dp, Color.White.copy(alpha = 0.7f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Text(if (it.correct) "✓" else "✗", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Rosetta.Night) }
+        }
+        if (!compact && !it.correct && it.hint.isNotBlank()) {
+            Row(Modifier.padding(start = 34.dp, top = 4.dp), verticalAlignment = Alignment.Top) {
+                Text("✦ Hint ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Rosetta.Gold)
+                Text(it.hint, fontSize = 12.sp, color = Rosetta.Mist, maxLines = 2)
             }
         }
     }

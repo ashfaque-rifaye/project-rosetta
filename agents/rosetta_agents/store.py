@@ -113,8 +113,8 @@ def seed(code: str = "R4KX") -> dict:
     h = {
         "code": code,
         "name": "The Rao family",
-        "kids": [{"id": "arjun", "name": "Arjun", "age": 8, "grade": "Grade 3"},
-                 {"id": "meera", "name": "Meera", "age": 6, "grade": "Grade 1"}],
+        "kids": [{"id": "arjun", "name": "Arjun", "age": 8, "grade": "Grade 3", "subjects": ["Maths", "English", "Science", "Coding"]},
+                 {"id": "meera", "name": "Meera", "age": 6, "grade": "Grade 1", "subjects": ["Maths", "English"]}],
         "rooms": [
             {"id": "arjun_room", "name": "Arjun's room", "rect": [0.282, 0.280, 0.500, 0.521], "ownerId": "arjun"},
             {"id": "meera_room", "name": "Meera's room", "rect": [0.509, 0.280, 0.723, 0.521], "ownerId": "meera"},
@@ -125,6 +125,7 @@ def seed(code: str = "R4KX") -> dict:
         "quests": [
             {"id": "q_arjun_homework", "kind": "study", "kidId": "arjun", "roomId": "arjun_room", "title": "Fractions homework", "mustDo": True},
             {"id": "q_meera_homework", "kind": "study", "kidId": "meera", "roomId": "meera_room", "title": "Adding and taking away", "mustDo": True},
+            {"id": "q_arjun_coding", "kind": "study", "kidId": "arjun", "roomId": "arjun_room", "title": "Coding: loops and variables", "mustDo": False},
             {"id": "q_arjun_room", "kind": "tidy", "kidId": "arjun", "roomId": "arjun_room", "title": "Tidy your room", "mustDo": False},
             {"id": "q_meera_room", "kind": "tidy", "kidId": "meera", "roomId": "meera_room", "title": "Tidy your room", "mustDo": False},
             {"id": "q_kitchen", "kind": "tidy", "kidId": "arjun", "roomId": "kitchen", "title": "Kitchen crew: clear the table", "mustDo": False},

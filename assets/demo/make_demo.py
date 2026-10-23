@@ -31,25 +31,25 @@ NARRATOR_STYLE = "Say in a calm, warm, confident voice, like a premium product f
 
 # The narration, beat by beat (ids match the edit in edit.py). Every clip is checked by transcription (see verified()).
 VO = {
-    "01_hook": "Every evening, in millions of homes, the same two questions.",
-    "02_q": "Did you finish your homework? ... Can I watch TV now?",
-    "03_what_if": "What if the TV itself could help?",
-    "04_title": "This is Rosetta. The Fire TV app where the whole family levels up.",
-    "05_home": ("Tonight's quests live in a living dollhouse. Homework, chores, and the daily habits parents set. "
-                "And TV time stays locked until the must-dos are done."),
-    "06_homework": ("Arjun snaps his worksheet with any phone. Seconds later, the AI Tutor marks every answer on his own "
-                    "handwriting. The maths is double-checked in code, and every mistake gets a hint, never the answer."),
-    "07_practice": "Then, a practice round on exactly what slipped.",
-    "08_honest": "And it's honest. Send the wrong photo, and Rosetta says what it actually sees.",
-    "09_voice": ("Daily habits check in with a tick, a note, or a voice note. Gemini listens, sums it up, and saves it "
-                 "as a memory for Mom and Dad."),
-    "10_rewards": "Every task pays off: XP, coins, real pocket money for the wish list, and a star toward Movie Night.",
-    "11_parents": "Parents get a ping, approve in one tap, and can even unlock TV time from their phone. The portal opens.",
-    "12_quiz": "Then it's Family Quiz Night: a 3D game, with questions written for each child's class and next test.",
-    "13_progress": "And Coach's notes turn real activity into a clear picture for parents.",
-    "14_tech": ("Rosetta runs natively on Fire TV, with an agent crew on AWS: Strands Agents, Lambda, S3, DynamoDB and "
-                "CloudFront. Gemini on Vertex AI powers vision and voice."),
-    "15_outro": "Rosetta. The TV that works for the family, not against it.",
+    '01_hook': 'Every evening, in millions of homes, the same two questions.',
+    '02_q': 'Did you finish your homework? ... Can I watch TV now?',
+    '03_what_if': 'What if the TV itself could help?',
+    '04_title': 'This is Rosetta. The Fire TV app where the whole family levels up.',
+    '05_home': "Tonight's quests live in a living dollhouse. Homework, chores, and the daily habits parents set. And TV time stays locked until the must-dos are done.",
+    '06_homework': 'Meera snaps her workbook with any phone. Seconds later, the AI Tutor marks every answer on her own handwriting, double-checks the maths in code, and gives a hint, never the answer.',
+    '06b_coding': "Arjun's coding class works the same way. The Tutor traces each little program, line by line.",
+    '07_practice': 'Then practice that makes them think, not just add.',
+    '08_honest': "And it's honest. Send the wrong photo, and Rosetta says what it actually sees.",
+    '08b_room': "Tidy-ups too. Rosetta spots what's out of place, and checks the room again when it's done.",
+    '09_voice': 'Daily habits check in with a tick, a note, or a voice note. Gemini listens, sums it up, and saves it as a memory for Mom and Dad.',
+    '10_rewards': 'Every task pays off: XP, coins, real pocket money for the wish list, and a star toward Movie Night.',
+    '11_parents': 'Parents get a ping, approve in one tap, and can even unlock TV time from their phone. The portal opens.',
+    '11b_mom': "Mom sets the day from her phone: daily tasks, each child's class and next test, pocket money, and TV time.",
+    '12_quiz': "Then it's Family Quiz Night: a 3D game with reasoning questions written for each child's class, from fractions to code.",
+    '13_progress': "And Coach's notes turn real activity into a clear picture of each child.",
+    '14_tech': 'Built natively for Fire TV, with an agent crew on AWS, and Gemini on Vertex AI for vision and voice.',
+    '14b_more': "And there's more. A squad of Lost Things to collect, streaks and stamps, a treasure shop with real wish lists, and a Family Goal that unlocks Movie Night.",
+    '15_outro': 'Rosetta. The TV that works for the family, not against it.',
 }
 
 KID_LINE = ("I read eleven pages of Matilda! My favourite part was when Matilda made the chalk write on the board "
@@ -78,6 +78,13 @@ VEO = {
                  "dark screen fills with swirling golden starlight that bursts outward into the room, illuminating "
                  "toys and books, magical particles drifting, slow push-in, warm and wondrous. No text, no logos, "
                  "no people."),
+    "intro_q1": ("Cinematic animated film shot, Pixar style, evening: a child's desk by a window at dusk, an unfinished "
+                 "maths worksheet under a warm desk lamp, a pencil slowly rolls across it, a wall clock ticks toward seven, "
+                 "slow dramatic push-in, moody golden and blue light, dust motes in the lamp beam, shallow depth of field. "
+                 "No text on screen, no letters, no people."),
+    "intro_q2": ("Cinematic animated film shot, Pixar style, evening living room: a small child's hand slowly reaches for a "
+                 "TV remote on a sofa cushion, the big dark TV ahead reflects the room, suspenseful, shallow depth of field, "
+                 "warm lamp light and cool blue shadows, slow push-in. No text, no faces, no logos."),
     "outro_home": ("Warm cinematic animated shot, Pixar style: a tiny glowing miniature dollhouse on a table at night, "
                    "camera slowly pulls back as golden stars rise gently from its windows into a starry sky, cosy, "
                    "hopeful, peaceful ending. Leaves calm dark space in the upper middle. No text, no logos, no people."),
@@ -190,5 +197,30 @@ def veo() -> None:
         print("ok", k, flush=True)
 
 
+def room() -> None:
+    """A photoreal living room with a big wall TV seen straight on: the demo plays inside its screen."""
+    import io as _io
+    from PIL import Image
+    prompt = ("Photorealistic, cinematic photo of a cosy modern family living room at night. A large wall-mounted 75-inch "
+              "flat TV seen perfectly straight-on and level, centred, filling about 72 percent of the image width, its screen "
+              "completely black and switched off with a clean thin bezel. Warm lamp light, a plant, shelves with books and "
+              "toys, the soft edge of a sofa blurred in the foreground at the bottom. Rich detail, shallow depth of field, "
+              "16:9, no text, no logos, no people.")
+    for model in ("gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-2.5-flash-image"):
+        for size in ("4K", "2K", None):
+            try:
+                cfg = types.ImageConfig(aspect_ratio="16:9", **({"image_size": size} if size else {}))
+                r = client().models.generate_content(model=model, contents=[prompt], config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"], image_config=cfg, labels=LABELS))
+                for part in r.candidates[0].content.parts:
+                    if part.inline_data:
+                        im = Image.open(_io.BytesIO(part.inline_data.data)).convert("RGB")
+                        im.save(HERE / "tv_room.png")
+                        print("ok room", model, size, im.size, flush=True)
+                        return
+            except Exception as e:  # noqa: BLE001
+                print("  room", model, size, str(e)[:100], flush=True)
+
+
 if __name__ == "__main__":
-    {"voice": voice, "kid": kid, "music": music, "veo": veo}[sys.argv[1]]()
+    {"voice": voice, "kid": kid, "music": music, "veo": veo, "room": lambda: room()}[sys.argv[1]]()

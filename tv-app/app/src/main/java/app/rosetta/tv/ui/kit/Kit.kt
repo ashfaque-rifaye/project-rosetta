@@ -179,30 +179,47 @@ fun RosettaButton(
     }
 }
 
-/** A game panel: deep gradient, a bright bevel along the top, and a double frame (dark outer, light inner). */
+/**
+ * Frosted glass, iOS style: a translucent tinted fill so the world behind shows through, a soft white sheen from the
+ * top, and a specular rim that is brightest at the top-left and fades away (Android 11 TVs have no backdrop blur, so
+ * the glass is drawn by hand).
+ */
+internal fun Modifier.glassSurface(radius: Dp, tint: Color = Color(0xFF16204A), strength: Float = 1f): Modifier = this
+    .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.62f), tint.copy(alpha = 0.78f)), start = Offset.Zero, end = Offset(0f, Float.POSITIVE_INFINITY)))
+    .drawBehind {
+        val r = CornerRadius(radius.toPx())
+        // Frost: a milky veil, stronger at the top.
+        drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f * strength), Color.White.copy(alpha = 0.04f * strength), Color.White.copy(alpha = 0.02f))), cornerRadius = r)
+        // Sheen: a soft diagonal light across the upper-left.
+        drawRoundRect(
+            Brush.linearGradient(listOf(Color.White.copy(alpha = 0.14f * strength), Color.Transparent), start = Offset.Zero, end = Offset(size.width * 0.55f, size.height * 0.6f)),
+            cornerRadius = r,
+        )
+        // Specular rim: bright top-left, nearly gone bottom-right.
+        drawRoundRect(
+            Brush.linearGradient(
+                listOf(Color.White.copy(alpha = 0.75f * strength), Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.22f)),
+                start = Offset.Zero, end = Offset(size.width, size.height),
+            ),
+            topLeft = Offset(0.75.dp.toPx(), 0.75.dp.toPx()), size = Size(size.width - 1.5.dp.toPx(), size.height - 1.5.dp.toPx()),
+            cornerRadius = r, style = Stroke(1.5.dp.toPx()),
+        )
+    }
+
+/** A frosted-glass panel for every card-like surface. */
 @Composable
 fun Glass(modifier: Modifier = Modifier, radius: Dp = 22.dp, glow: Color? = null, content: @Composable BoxScope.() -> Unit) {
     val shape = RoundedCornerShape(radius)
     Box(
         modifier
-            .then(if (glow != null) Modifier.shadow(26.dp, shape, ambientColor = glow, spotColor = glow) else Modifier)
+            .then(if (glow != null) Modifier.shadow(26.dp, shape, ambientColor = glow, spotColor = glow) else Modifier.shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black))
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color(0xF2223064), Color(0xF2121B3E), Color(0xF20C1330))))
-            .drawBehind {
-                drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.Transparent), endY = 46.dp.toPx()))
-                val r = CornerRadius(radius.toPx())
-                drawRoundRect(Color(0xFF050914), cornerRadius = r, style = Stroke(3.dp.toPx()))
-                drawRoundRect(
-                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.05f))),
-                    topLeft = Offset(3.dp.toPx(), 3.dp.toPx()), size = Size(size.width - 6.dp.toPx(), size.height - 6.dp.toPx()),
-                    cornerRadius = CornerRadius((radius - 3.dp).toPx()), style = Stroke(1.2.dp.toPx()),
-                )
-            },
+            .glassSurface(radius),
         content = content,
     )
 }
 
-/** Focusable game card: framed and bevelled like [Glass]; focused, it lifts with an accent frame and glow. */
+/** Focusable glass card: frosted like [Glass]; focused, it lifts, brightens and gets an accent frame and glow. */
 @Composable
 fun FocusCard(
     onClick: () -> Unit,
@@ -227,20 +244,12 @@ fun FocusCard(
             focusedGlow = androidx.tv.material3.Glow(elevationColor = accent.copy(alpha = 0.7f), elevation = 20.dp),
         ),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(2.dp, Color(0xFF050914)), shape = shape),
+            border = Border(BorderStroke(0.dp, Color.Transparent), shape = shape),
             focusedBorder = Border(BorderStroke(3.dp, accent), shape = shape),
         ),
     ) {
         Box(
-            Modifier.background(Brush.verticalGradient(listOf(Color(0xF5243368), Color(0xF5141D44), Color(0xF50C1330))))
-                .drawBehind {
-                    drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (focused) 0.16f else 0.09f), Color.Transparent), endY = size.height * 0.45f))
-                    drawRoundRect(
-                        Color.White.copy(alpha = if (focused) 0.0f else 0.14f),
-                        topLeft = Offset(2.dp.toPx(), 2.dp.toPx()), size = Size(size.width - 4.dp.toPx(), size.height - 4.dp.toPx()),
-                        cornerRadius = CornerRadius((radius - 2.dp).toPx()), style = Stroke(1.dp.toPx()),
-                    )
-                },
+            Modifier.glassSurface(radius, strength = if (focused) 1.5f else 1f),
             content = content,
         )
     }

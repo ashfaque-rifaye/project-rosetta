@@ -53,8 +53,10 @@ TUTOR_TOOL = {
 }
 
 TUTOR_SYSTEM = (
-    "You are Tutor, part of Rosetta, a family app on the TV. You look at a photo of a {age}-year-old's homework. "
-    "Transcribe every numbered question (not the name, date or class fields) and exactly what the child wrote. Then, for each question, write your own working "
+    "You are Tutor, part of Rosetta, a family app on the TV. You look at a photo of a {age}-year-old's homework: maths, "
+    "English, science or coding (for code, trace the program line by line, keeping track of each variable). "
+    "Transcribe the questions the child answered (numbered or not, up to 12, in reading order; skip the name, date and "
+    "class fields and blanks the child left empty) and exactly what the child wrote. Then, for each question, write your own working "
     "step by step and the expected answer BEFORE you compare it with the child's answer. "
     "An answer that is right but not in the form the question asks for (for example not "
     "simplified when asked to simplify) is not correct. For each wrong answer give ONE short hint (max 20 words) that "
@@ -131,8 +133,10 @@ QUESTIONS_TOOL = {
 PRACTICE_SYSTEM = (
     "You are Practice, part of Rosetta. Write {count} multiple-choice questions for a {age}-year-old that practise "
     "exactly the skills they got wrong, starting easy and getting a little harder. Use new numbers, never the same "
-    "questions as the homework. Wrong options should be the mistakes a child really makes (e.g. adding denominators). "
-    "Keep wording short and friendly."
+    "questions as the homework, and never bare drills like 3 + 4: wrap the skill in a tiny real situation, a pattern or "
+    "a comparison so the child has to think one step further. For coding, use short code a child can trace (variables, "
+    "a loop that repeats, an if). Wrong options should be the mistakes a child really makes (e.g. adding denominators, "
+    "an off-by-one loop). Keep wording short and friendly."
 )
 
 QUIZ_SYSTEM = (
@@ -142,8 +146,12 @@ QUIZ_SYSTEM = (
     "subjects. When a child has subjects, every one of their questions must come from those subjects (for a Grade 1 "
     "child doing Maths and English: e.g. a two-step adding word problem, a missing number, a rhyming or spelling "
     "choice), never colours or trivia. "
-    "Aim for MODERATE difficulty: about half should need two steps of thinking (a short word problem, comparing, "
-    "a pattern, reading a small table), never trick questions, never too easy for the grade. Wrong options are the "
+    "Write them like very easy GRE/GMAT-style reasoning made for children of that grade, NOT bare sums like 1 + 1 or "
+    "3 + 4: a two-step word problem, comparing two quantities (which is bigger, or are they equal?), a number or shape "
+    "pattern, a 'what must be true' logic puzzle, reading a tiny table, estimating, and for children learning Coding, "
+    "tracing a 3-line program (x = 2; repeat 3 times: x = x + 1; what is x?), spotting the bug or the order of steps. "
+    "Moderate and fair: every question solvable in under a minute by a child of that grade, never trick questions, "
+    "never too easy. Wrong options are the "
     "mistakes a child really makes. Give each question a short 'reason' for the parents. If nothing is known about a "
     "child, use grade-appropriate maths and general knowledge that works for a family anywhere: nature, space, animals, "
     "shapes, words. No country-specific history or politics."
@@ -153,7 +161,7 @@ QUIZ_SYSTEM = (
 def _questions(out: dict, prefix: str) -> list[dict]:
     qs = []
     for q in out.get("questions", [])[:12]:
-        prompt = str(q.get("prompt", ""))[:160]
+        prompt = str(q.get("prompt", ""))[:220]  # room for a 3-line program
         choices = [str(c)[:24] for c in q.get("choices", [])][:4]
         ans = int(q.get("answer", 0))
         if len(choices) != 4 or not 0 <= ans < 4 or len(set(choices)) != 4:

@@ -112,7 +112,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             RosettaTheme {
                 val household by repo.household.collectAsState()
-                var screen by remember { mutableStateOf<Screen>(if (introDone) Screen.Home else Screen.Intro) }
+                // Debug builds only: `--es screen <name>` opens a screen directly (for filming the demo).
+                val direct = intent.getStringExtra("screen")?.takeIf { BuildConfig.DEBUG }?.let { name ->
+                    when (name) {
+                        "home" -> Screen.Home; "goal" -> Screen.Stone(); "treasure" -> Screen.Shop; "squad" -> Screen.Codex
+                        "streaks" -> Screen.Passport; "parents" -> Screen.Parents; "movie" -> Screen.MovieNight
+                        "arjun" -> Screen.Growth("arjun"); "meera" -> Screen.Growth("meera"); else -> null
+                    }
+                }
+                if (direct != null && !introDone) { introDone = true; Sfx.musicOn() }
+                var screen by remember { mutableStateOf<Screen>(direct ?: if (introDone) Screen.Home else Screen.Intro) }
                 var pendingReward by remember { mutableStateOf<QuestReward?>(null) }
 
                 var arenaQuizPending by remember { mutableStateOf(false) }
