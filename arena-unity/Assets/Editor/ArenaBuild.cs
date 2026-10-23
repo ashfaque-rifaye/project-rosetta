@@ -96,7 +96,8 @@ namespace Rosetta.Arena.Editor
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
             PlayerSettings.colorSpace = ColorSpace.Linear;
             PlayerSettings.stripEngineCode = false; // colliders, particles and post FX are only created from code
-            PlayerSettings.SplashScreen.showUnityLogo = true;
+            PlayerSettings.SplashScreen.show = false; // Unity 6: no splash needed; the TV app's loading screen leads in
+            PlayerSettings.SplashScreen.showUnityLogo = false;
             PlayerSettings.SplashScreen.backgroundColor = new Color(0.04f, 0.06f, 0.13f);
             var banner = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Art/arena.png");
             if (banner != null) PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, new[] { banner });

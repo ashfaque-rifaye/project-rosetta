@@ -4,6 +4,9 @@
 
 star.glb  : a chunky five-point star, bevelled faces, warm gold (the Family Goal star that flies in)
 chest.glb : a treasure chest, wood body, gold bands and a domed lid (the wish list / rewards)
+coin.glb  : a gold coin with a star on each face (coins earned)
+padlock.glb / tv.glb : TV time, locked and unlocked
+trophy.glb: Movie Night
 Materials glow a little (emissive) so they read well on TV without an environment map.
 """
 import json
@@ -75,11 +78,91 @@ def chest() -> list:
     return [("wood", *flat(wood)), ("gold", *flat(gold))]
 
 
+def smooth(rings: list) -> tuple[np.ndarray, np.ndarray]:
+    """A surface from rings of points (each ring the same length, closed around): smooth shading for round things."""
+    n, m = len(rings), len(rings[0])
+    pos = np.array([v for r in rings for v in r], dtype=np.float32)
+    idx = []
+    for i in range(n - 1):
+        for j in range(m):
+            a, b, c, d = i * m + j, i * m + (j + 1) % m, (i + 1) * m + (j + 1) % m, (i + 1) * m + j
+            idx += [a, b, c, a, c, d]
+    return pos, np.array(idx, dtype=np.uint32)
+
+
+def lathe(profile: list, segs: int = 40) -> tuple[np.ndarray, np.ndarray]:
+    """Revolve a (radius, y) profile around the y axis: cups, coins, bases."""
+    return smooth([[(r * math.cos(2 * math.pi * k / segs), y, r * math.sin(2 * math.pi * k / segs)) for k in range(segs)] for r, y in profile])
+
+
+def tube(path: list, radius: float, segs: int = 16) -> tuple[np.ndarray, np.ndarray]:
+    """A round tube along a path of points: padlock shackles, trophy handles."""
+    rings = []
+    for i, p in enumerate(path):
+        q = path[min(i + 1, len(path) - 1)] if i < len(path) - 1 else p
+        o = path[max(i - 1, 0)]
+        t = np.array(q) - np.array(o)
+        t = t / max(np.linalg.norm(t), 1e-9)
+        up = np.array([0.0, 0.0, 1.0]) if abs(t[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+        u = np.cross(t, up); u /= np.linalg.norm(u)
+        v = np.cross(t, u)
+        rings.append([tuple(np.array(p) + radius * (math.cos(2 * math.pi * k / segs) * u + math.sin(2 * math.pi * k / segs) * v)) for k in range(segs)])
+    return smooth(rings)
+
+
+def coin() -> list:
+    face = [(0.0, 0.12), (0.82, 0.12), (0.9, 0.1), (1.0, 0.06), (1.0, -0.06), (0.9, -0.1), (0.82, -0.12), (0.0, -0.12)]
+    body = lathe(face, 48)
+    body = (np.stack([body[0][:, 0], body[0][:, 2], body[0][:, 1]], 1), body[1])  # stand it up, facing the camera
+    emblem = []
+    pts = [(0.55 * math.cos(math.pi / 2 + i * math.pi / 5) * (1 if i % 2 == 0 else 0.45), 0.55 * math.sin(math.pi / 2 + i * math.pi / 5) * (1 if i % 2 == 0 else 0.45)) for i in range(10)]
+    for z, sgn in ((0.12, 1), (-0.12, -1)):
+        tip = (0.0, 0.0, z + 0.06 * sgn)
+        for i in range(10):
+            a, b = pts[i], pts[(i + 1) % 10]
+            emblem.append((tip, (a[0], a[1], z), (b[0], b[1], z)) if sgn > 0 else (tip, (b[0], b[1], z), (a[0], a[1], z)))
+    return [("gold", *body), ("goldbright", *flat(emblem))]
+
+
+def padlock() -> list:
+    body = box(-0.62, -0.75, -0.25, 0.62, 0.15, 0.25)
+    keyhole = box(-0.09, -0.45, 0.24, 0.09, -0.15, 0.27)
+    arc = [(0.42 * math.cos(math.pi * k / 24), 0.15 + 0.12 + 0.48 * math.sin(math.pi * k / 24), 0.0) for k in range(25)]
+    shackle = tube([(0.42, 0.1, 0.0)] + arc + [(-0.42, 0.1, 0.0)], 0.11)
+    return [("gold", *flat(body)), ("steel", *shackle), ("ink", *flat(keyhole))]
+
+
+def tv() -> list:
+    frame = box(-1.0, -0.45, -0.12, 1.0, 0.75, 0.12)
+    screen = box(-0.88, -0.35, 0.11, 0.88, 0.65, 0.14)
+    stand = box(-0.08, -0.75, -0.06, 0.08, -0.45, 0.06) + box(-0.45, -0.8, -0.22, 0.45, -0.74, 0.22)
+    return [("ink", *flat(frame + stand)), ("screen", *flat(screen))]
+
+
+def trophy() -> list:
+    cup = lathe([(0.0, 1.0), (0.62, 1.0), (0.6, 0.75), (0.5, 0.45), (0.3, 0.2), (0.12, 0.05), (0.1, -0.3), (0.3, -0.42), (0.32, -0.5), (0.0, -0.5)], 40)
+    handles = []
+    for sgn in (1, -1):
+        arc = [(sgn * (0.55 + 0.25 * math.sin(math.pi * k / 16)), 0.85 - 0.5 * k / 16, 0.0) for k in range(17)]
+        handles.append(tube(arc, 0.06))
+    base = box(-0.55, -0.75, -0.4, 0.55, -0.5, 0.4)
+    hp = np.concatenate([handles[0][0], handles[1][0]])
+    hi = np.concatenate([handles[0][1], handles[1][1] + len(handles[0][0])])
+    return [("gold", *cup), ("gold", hp, hi), ("wood", *flat(base))]
+
+
 MATERIALS = {  # glTF colours are linear: these read as warm gold and dark polished wood on screen
     "gold": {"pbrMetallicRoughness": {"baseColorFactor": [1.0, 0.56, 0.1, 1.0], "metallicFactor": 1.0, "roughnessFactor": 0.22},
              "emissiveFactor": [0.32, 0.17, 0.02]},
     "wood": {"pbrMetallicRoughness": {"baseColorFactor": [0.2, 0.065, 0.02, 1.0], "metallicFactor": 0.0, "roughnessFactor": 0.55},
              "emissiveFactor": [0.03, 0.01, 0.0]},
+    "goldbright": {"pbrMetallicRoughness": {"baseColorFactor": [1.0, 0.75, 0.25, 1.0], "metallicFactor": 1.0, "roughnessFactor": 0.15},
+                   "emissiveFactor": [0.55, 0.36, 0.06]},
+    "steel": {"pbrMetallicRoughness": {"baseColorFactor": [0.75, 0.78, 0.85, 1.0], "metallicFactor": 1.0, "roughnessFactor": 0.25},
+              "emissiveFactor": [0.12, 0.13, 0.16]},
+    "ink": {"pbrMetallicRoughness": {"baseColorFactor": [0.02, 0.025, 0.05, 1.0], "metallicFactor": 0.3, "roughnessFactor": 0.4}},
+    "screen": {"pbrMetallicRoughness": {"baseColorFactor": [0.2, 0.35, 1.0, 1.0], "metallicFactor": 0.0, "roughnessFactor": 0.2},
+               "emissiveFactor": [0.25, 0.55, 1.0]},
 }
 
 
@@ -97,7 +180,7 @@ def write_glb(path: Path, parts: list) -> None:
             accessors.append(acc)
             blob += data + b"\0" * ((4 - len(data) % 4) % 4)
         if name not in [m["name"] for m in mats]:
-            mats.append({"name": name, **MATERIALS[name]})
+            mats.append({"name": name, "doubleSided": True, **MATERIALS[name]})  # generated meshes: never lose a face to culling
         mi = [m["name"] for m in mats].index(name)
         a = len(accessors) - 3
         prims.append({"attributes": {"POSITION": a, "NORMAL": a + 1}, "indices": a + 2, "material": mi})
@@ -116,3 +199,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     write_glb(OUT / "star.glb", star())
     write_glb(OUT / "chest.glb", chest())
+    write_glb(OUT / "coin.glb", coin())
+    write_glb(OUT / "padlock.glb", padlock())
+    write_glb(OUT / "tv.glb", tv())
+    write_glb(OUT / "trophy.glb", trophy())

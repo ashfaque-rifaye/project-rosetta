@@ -37,6 +37,7 @@ import app.rosetta.tv.ui.theme.RosettaTheme
 import app.rosetta.tv.ui.raid.RaidScreen
 import app.rosetta.tv.ui.raid.EmoteLayer
 import app.rosetta.tv.ui.common.MessageBanner
+import app.rosetta.tv.ui.study.QuizLoadingScreen
 import app.rosetta.tv.ui.study.QuizScreen
 import app.rosetta.tv.ui.study.StudyScreen
 import app.rosetta.tv.ui.raid.ArenaLauncher
@@ -70,6 +71,7 @@ sealed interface Screen {
     data object Shop : Screen
     data object Raid : Screen
     data object Quiz : Screen
+    data object QuizLoading : Screen
     data class Growth(val kidId: String? = null) : Screen
     data object Parents : Screen
 }
@@ -122,6 +124,8 @@ class MainActivity : ComponentActivity() {
                     if (arenaQuizPending && quiz != null && !quiz.done && quiz.questions.isNotEmpty()) {
                         arenaQuizPending = false
                         ArenaLauncher.quizIntent(this@MainActivity, household)?.let(arena::launch)
+                        // The game covers the TV; when it hands back the answers, the family lands on Home.
+                        screen = Screen.Home
                     }
                 }
 
@@ -169,7 +173,7 @@ class MainActivity : ComponentActivity() {
                                         // On-device the quiz is ready at once; live, the AI takes a few seconds to write it,
                                         // so the arena opens (above) as soon as its questions land.
                                         arenaQuizPending = ArenaLauncher.isInstalled(this@MainActivity)
-                                        Screen.Quiz
+                                        if (arenaQuizPending) Screen.QuizLoading else Screen.Quiz
                                     }
                                     HomeTab.Raid -> ArenaLauncher.intent(this@MainActivity, household)
                                         ?.takeIf { ArenaLauncher.isInstalled(this@MainActivity) }
@@ -227,6 +231,7 @@ class MainActivity : ComponentActivity() {
                         Screen.Raid -> RaidScreen(household, onDevHit = repo::devRaidHit, onDone = { screen = Screen.Home })
                         is Screen.Growth -> GrowthScreen(household, s.kidId)
                         Screen.Parents -> ParentsScreen(household, RosettaConfig.parentUrl(household.pairingCode), onProgress = { screen = Screen.Growth() })
+                        Screen.QuizLoading -> QuizLoadingScreen(household)
                         Screen.Quiz -> QuizScreen(household, onAnswer = repo::answerQuiz, onDone = { screen = Screen.Home })
                     }
                 }

@@ -231,3 +231,30 @@ private fun StoneTrial(quiz: Quiz, modifier: Modifier) {
         }
     }
 }
+
+/** While the AI writes tonight's questions, before the 3D game opens: the family, a spinning star, and what's coming. */
+@Composable
+fun QuizLoadingScreen(household: Household) {
+    val a by rememberInfiniteTransition(label = "ql").animateFloat(0.45f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "a")
+    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF2A2350), Rosetta.Night), radius = 1400f)), contentAlignment = Alignment.Center) {
+        AssetImage(Household0.STONE_ART, Modifier.fillMaxSize().graphicsLayer { alpha = 0.12f }, contentScale = ContentScale.Crop)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("TONIGHT", fontSize = 16.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp, color = Rosetta.Violet)
+            Text("Family Quiz Night", fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, fontSize = 64.sp, color = Rosetta.Cream)
+            app.rosetta.tv.ui.kit.Model3D("models/star.glb", Modifier.size(260.dp), units = 1.9f, spinDegPerSec = 110f)
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                household.kids.forEach { k ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        AvatarRing(Household0.avatar(k.avatar), k.levelProgress, 96.dp, level = k.level)
+                        Text(k.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Rosetta.Cream, modifier = Modifier.padding(top = 6.dp))
+                        Text(k.grade, fontSize = 14.sp, color = Rosetta.Mist)
+                    }
+                }
+            }
+            Spacer(Modifier.height(26.dp))
+            Text("✦ Rosetta is writing 8 questions, just right for each of you…", fontSize = 24.sp, color = Rosetta.Gold.copy(alpha = a))
+            Text("Take turns. Every right answer lights a star for the whole family.", fontSize = 17.sp, color = Rosetta.Mist, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+

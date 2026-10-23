@@ -43,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -67,23 +68,22 @@ import app.rosetta.tv.ui.theme.Rosetta
 
 enum class ButtonTone { Gold, Lime, Ember, Glass }
 
-private fun toneBrush(tone: ButtonTone) = when (tone) {
-    ButtonTone.Gold -> Brush.verticalGradient(listOf(Color(0xFFFFE29A), Color(0xFFF4C56A), Color(0xFFE09A3A)))
-    ButtonTone.Lime -> Brush.verticalGradient(listOf(Color(0xFFE6FF8A), Color(0xFFC6F432), Color(0xFF8CC21A)))
-    ButtonTone.Ember -> Brush.verticalGradient(listOf(Color(0xFFFFB27A), Color(0xFFFF8A4D), Color(0xFFE0582A)))
-    ButtonTone.Glass -> Brush.verticalGradient(listOf(Color(0x33FFFFFF), Color(0x14FFFFFF)))
+/** A game button's colours: the face gradient (top to bottom), the darker lip under it, its outline, and text. */
+private class Skin(val face: List<Color>, val lip: Color, val rim: Color, val text: Color, val glow: Color)
+
+private fun skin(tone: ButtonTone) = when (tone) {
+    ButtonTone.Gold -> Skin(listOf(Color(0xFFFFF4C2), Color(0xFFFFD45A), Color(0xFFF2A12C)), Color(0xFFA85B12), Color(0xFF4A2504), Color(0xFF3A1D02), Rosetta.Gold)
+    ButtonTone.Lime -> Skin(listOf(Color(0xFFF2FFB8), Color(0xFFC6F432), Color(0xFF7FB914)), Color(0xFF4A7008), Color(0xFF223604), Color(0xFF1C2C02), Color(0xFFC6F432))
+    ButtonTone.Ember -> Skin(listOf(Color(0xFFFFD2A8), Color(0xFFFF8F4F), Color(0xFFE2522A)), Color(0xFF94300F), Color(0xFF3E1205), Color(0xFF2E0B02), Rosetta.Ember)
+    ButtonTone.Glass -> Skin(listOf(Color(0xFF6A7FE0), Color(0xFF3B4DA8), Color(0xFF26357A)), Color(0xFF141C48), Color(0xFF070B1E), Color.White, Color(0xFF8FA6FF))
 }
 
-private fun toneGlow(tone: ButtonTone) = when (tone) {
-    ButtonTone.Gold -> Rosetta.Gold
-    ButtonTone.Lime -> Color(0xFFC6F432)
-    ButtonTone.Ember -> Rosetta.Ember
-    ButtonTone.Glass -> Rosetta.Cream
-}
+private val TextOutline = Shadow(Color(0xAA000000), Offset(0f, 2.5f), 3f)
 
 /**
- * Primary call-to-action: glossy gradient pill with a top highlight, an icon chip, an outer glow when
- * focused, and a springy press. [sub] adds a small second line (e.g. "+12 XP").
+ * The game button: a chunky raised tile with a darker lip underneath (it presses down into it), a bevelled face with a
+ * bright top band, a dark rim, a gem-like icon badge and bold outlined text. Focused, it lifts, glows and a sheen sweeps
+ * across it. [sub] adds a small second line (e.g. "+12 XP").
  */
 @Composable
 fun RosettaButton(
@@ -97,99 +97,112 @@ fun RosettaButton(
     big: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val glow by animateFloatAsState(if (focused && enabled) 1f else 0f, tween(220), label = "glow")
+    val glow by animateFloatAsState(if (focused && enabled) 1f else 0f, tween(200), label = "glow")
     val shimmer by rememberInfiniteTransition(label = "shimmer").animateFloat(
-        -0.3f, 1.3f, infiniteRepeatable(tween(2400), RepeatMode.Restart), label = "x",
+        -0.4f, 1.4f, infiniteRepeatable(tween(1900), RepeatMode.Restart), label = "x",
     )
-    val glowColor = toneGlow(tone)
-    val dark = tone != ButtonTone.Glass
-    val content = if (dark) Rosetta.Night else Rosetta.Cream
+    val sk = skin(tone)
+    val corner = if (big) 22.dp else 18.dp
+    val lip = if (big) 6.dp else 5.dp
+    val shape = RoundedCornerShape(corner)
     Surface(
         onClick = { if (enabled) { Sfx.play(Sfx.Select); onClick() } },
         modifier = modifier
             .onFocusChanged { if (it.isFocused && !focused) Sfx.play(Sfx.Move); focused = it.isFocused }
             .drawBehind {
                 if (glow > 0f) {
-                    val spread = 18.dp.toPx() * glow
+                    val spread = 20.dp.toPx() * glow
                     drawRoundRect(
-                        brush = Brush.radialGradient(
-                            listOf(glowColor.copy(alpha = 0.55f * glow), Color.Transparent),
-                            center = center, radius = size.maxDimension * 0.75f,
-                        ),
-                        topLeft = Offset(-spread, -spread),
-                        size = Size(size.width + spread * 2, size.height + spread * 2),
-                        cornerRadius = CornerRadius(size.height),
+                        brush = Brush.radialGradient(listOf(sk.glow.copy(alpha = 0.6f * glow), Color.Transparent), center = center, radius = size.maxDimension * 0.8f),
+                        topLeft = Offset(-spread, -spread), size = Size(size.width + spread * 2, size.height + spread * 2),
+                        cornerRadius = CornerRadius(corner.toPx() + spread),
                     )
                 }
             }
-            .graphicsLayer { alpha = if (enabled) 1f else 0.45f },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+            .graphicsLayer { alpha = if (enabled) 1f else 0.45f; translationY = -3.dp.toPx() * glow },
+        shape = ClickableSurfaceDefaults.shape(shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent, focusedContainerColor = Color.Transparent,
-            pressedContainerColor = Color.Transparent, contentColor = content, focusedContentColor = content,
+            pressedContainerColor = Color.Transparent, contentColor = sk.text, focusedContentColor = sk.text,
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f, pressedScale = 0.96f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f, pressedScale = 0.95f),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = if (dark) 0.35f else 0.18f)), shape = RoundedCornerShape(50)),
-            focusedBorder = Border(BorderStroke(2.dp, Color.White.copy(alpha = 0.9f)), shape = RoundedCornerShape(50)),
+            border = Border(BorderStroke(0.dp, Color.Transparent), shape = shape),
+            focusedBorder = Border(BorderStroke(0.dp, Color.Transparent), shape = shape),
         ),
     ) {
         Box(
-            Modifier
-                .background(toneBrush(tone), RoundedCornerShape(50))
-                .drawBehind {
-                    // Glossy top highlight + a moving sheen while focused.
-                    drawRoundRect(
-                        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.Transparent), endY = size.height * 0.55f),
-                        cornerRadius = CornerRadius(size.height),
-                    )
-                    if (focused) {
-                        val x = size.width * shimmer
-                        drawRect(
-                            Brush.linearGradient(
-                                listOf(Color.Transparent, Color.White.copy(alpha = 0.28f), Color.Transparent),
-                                start = Offset(x - 80f, 0f), end = Offset(x + 80f, size.height),
-                            ),
-                        )
-                    }
-                },
+            Modifier.drawBehind {
+                val r = CornerRadius(corner.toPx())
+                val lipPx = lip.toPx()
+                val faceH = size.height - lipPx
+                // The lip (depth), then the bevelled face on top, then the rim.
+                drawRoundRect(sk.lip, cornerRadius = r)
+                drawRoundRect(Brush.verticalGradient(sk.face, endY = faceH), size = Size(size.width, faceH), cornerRadius = r)
+                drawRoundRect(
+                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.0f)), startY = 0f, endY = faceH * 0.5f),
+                    topLeft = Offset(3.dp.toPx(), 2.dp.toPx()), size = Size(size.width - 6.dp.toPx(), faceH * 0.46f), cornerRadius = CornerRadius(corner.toPx() * 0.8f),
+                )
+                drawRoundRect(Color.Black.copy(alpha = 0.18f), topLeft = Offset(0f, faceH - 3.dp.toPx()), size = Size(size.width, 3.dp.toPx()), cornerRadius = r)
+                drawRoundRect(if (glow > 0f) Color.White.copy(alpha = 0.95f * glow + 0.05f) else sk.rim, cornerRadius = r, style = Stroke(if (glow > 0f) 3.dp.toPx() else 2.dp.toPx()))
+                if (focused) {
+                    val x = size.width * shimmer
+                    drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent), start = Offset(x - 90f, 0f), end = Offset(x + 30f, faceH)))
+                }
+            },
         ) {
             Row(
-                Modifier.padding(start = if (icon != null) 8.dp else 26.dp, end = 26.dp, top = if (big) 12.dp else 8.dp, bottom = if (big) 12.dp else 8.dp),
+                Modifier.padding(start = if (icon != null) 8.dp else 26.dp, end = 24.dp, top = if (big) 10.dp else 7.dp, bottom = (if (big) 10.dp else 7.dp) + lip),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (icon != null) {
                     Box(
-                        Modifier.size(if (big) 44.dp else 36.dp).clip(CircleShape)
-                            .background(if (dark) Rosetta.Night.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.12f)),
+                        Modifier.size(if (big) 46.dp else 38.dp).clip(CircleShape)
+                            .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.55f), sk.lip.copy(alpha = 0.55f)), radius = 60f))
+                            .border(2.dp, sk.rim.copy(alpha = 0.7f), CircleShape),
                         contentAlignment = Alignment.Center,
-                    ) { Text(icon, fontSize = if (big) 22.sp else 18.sp) }
+                    ) { Text(icon, fontSize = if (big) 23.sp else 19.sp) }
                     Spacer(Modifier.width(12.dp))
                 }
                 Column {
-                    Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = if (big) 21.sp else 17.sp), color = content, maxLines = 1)
-                    if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium, color = content.copy(alpha = 0.75f), maxLines = 1)
+                    Text(
+                        label, maxLines = 1, color = sk.text,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Black, fontSize = if (big) 22.sp else 18.sp, letterSpacing = 0.3.sp,
+                            shadow = if (sk.text == Color.White) TextOutline else Shadow(Color.White.copy(alpha = 0.55f), Offset(0f, 1.5f), 0f),
+                        ),
+                    )
+                    if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = sk.text.copy(alpha = 0.78f), maxLines = 1)
                 }
             }
         }
     }
 }
 
-/** Frosted panel used for every card-like surface. */
+/** A game panel: deep gradient, a bright bevel along the top, and a double frame (dark outer, light inner). */
 @Composable
 fun Glass(modifier: Modifier = Modifier, radius: Dp = 22.dp, glow: Color? = null, content: @Composable BoxScope.() -> Unit) {
     val shape = RoundedCornerShape(radius)
     Box(
         modifier
-            .then(if (glow != null) Modifier.shadow(24.dp, shape, ambientColor = glow, spotColor = glow) else Modifier)
+            .then(if (glow != null) Modifier.shadow(26.dp, shape, ambientColor = glow, spotColor = glow) else Modifier)
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color(0xE61A2547), Color(0xE60E162E))))
-            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.04f))), shape),
+            .background(Brush.verticalGradient(listOf(Color(0xF2223064), Color(0xF2121B3E), Color(0xF20C1330))))
+            .drawBehind {
+                drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.Transparent), endY = 46.dp.toPx()))
+                val r = CornerRadius(radius.toPx())
+                drawRoundRect(Color(0xFF050914), cornerRadius = r, style = Stroke(3.dp.toPx()))
+                drawRoundRect(
+                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.05f))),
+                    topLeft = Offset(3.dp.toPx(), 3.dp.toPx()), size = Size(size.width - 6.dp.toPx(), size.height - 6.dp.toPx()),
+                    cornerRadius = CornerRadius((radius - 3.dp).toPx()), style = Stroke(1.2.dp.toPx()),
+                )
+            },
         content = content,
     )
 }
 
-/** Focusable card with lift + gold edge glow (quests, codex cards, shop items). */
+/** Focusable game card: framed and bevelled like [Glass]; focused, it lifts with an accent frame and glow. */
 @Composable
 fun FocusCard(
     onClick: () -> Unit,
@@ -211,14 +224,25 @@ fun FocusCard(
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
         glow = androidx.tv.material3.ClickableSurfaceDefaults.glow(
-            focusedGlow = androidx.tv.material3.Glow(elevationColor = accent.copy(alpha = 0.6f), elevation = 18.dp),
+            focusedGlow = androidx.tv.material3.Glow(elevationColor = accent.copy(alpha = 0.7f), elevation = 20.dp),
         ),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)), shape = shape),
+            border = Border(BorderStroke(2.dp, Color(0xFF050914)), shape = shape),
             focusedBorder = Border(BorderStroke(3.dp, accent), shape = shape),
         ),
     ) {
-        Box(Modifier.background(Brush.verticalGradient(listOf(Color(0xF01A2547), Color(0xF00C1328)))), content = content)
+        Box(
+            Modifier.background(Brush.verticalGradient(listOf(Color(0xF5243368), Color(0xF5141D44), Color(0xF50C1330))))
+                .drawBehind {
+                    drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (focused) 0.16f else 0.09f), Color.Transparent), endY = size.height * 0.45f))
+                    drawRoundRect(
+                        Color.White.copy(alpha = if (focused) 0.0f else 0.14f),
+                        topLeft = Offset(2.dp.toPx(), 2.dp.toPx()), size = Size(size.width - 4.dp.toPx(), size.height - 4.dp.toPx()),
+                        cornerRadius = CornerRadius((radius - 2.dp).toPx()), style = Stroke(1.dp.toPx()),
+                    )
+                },
+            content = content,
+        )
     }
 }
 

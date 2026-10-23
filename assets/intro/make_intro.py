@@ -194,8 +194,8 @@ def loop(take: str) -> None:
     subprocess.run([
         "ffmpeg", "-y", "-loglevel", "error", "-i", take,
         "-filter_complex",
-        "[0:v]scale=1280:-2,fps=24,split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1:a=0,format=yuv420p[v]",
-        "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "26", "-movflags", "+faststart",
+        "[0:v]scale=1920:-2:flags=lanczos,fps=24,split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1:a=0,format=yuv420p[v]",
+        "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-movflags", "+faststart",
         str(raw / "home_world.mp4")], check=True)
     print("home_world.mp4", (raw / "home_world.mp4").stat().st_size // 1024, "KB")
 

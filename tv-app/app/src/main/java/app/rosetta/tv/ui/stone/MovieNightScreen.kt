@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ fun MovieNightScreen(household: Household, onBack: () -> Unit) {
     Box(Modifier.fillMaxSize()) {
         AssetImage(Household0.MOVIE_ART, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Rosetta.Night.copy(alpha = 0.92f), Rosetta.Night.copy(alpha = 0.1f)))))
+        app.rosetta.tv.ui.kit.Model3D("models/trophy.glb", Modifier.align(Alignment.CenterEnd).padding(end = 90.dp).size(380.dp), units = 1.9f, spinDegPerSec = 40f)
         Column(Modifier.align(Alignment.CenterStart).padding(start = 56.dp).width(440.dp)) {
             Eyebrow("THE FAMILY GOAL IS DONE")
             Text("Movie Night is unlocked", style = MaterialTheme.typography.displayMedium, color = Rosetta.Cream, modifier = Modifier.padding(top = 8.dp))

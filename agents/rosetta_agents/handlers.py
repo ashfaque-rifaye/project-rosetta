@@ -335,15 +335,19 @@ def api(event, _context):
             store.save(h)
             return _resp(200, r)
 
-        m = re.fullmatch(r"/household/(\w+)/tvtime(?:/(request|approve|use))?", path)
+        m = re.fullmatch(r"/household/(\w+)/tvtime(?:/(request|approve|use|grant|lock))?", path)
         if m:  # TV time: earned when today's must-do tasks are done
             h = store.load(m[1])
             family.daily(h)
             action = m[2]
             if method == "GET" or action is None:
                 return _resp(200, family.tv_status(h))
-            if action == "approve" and not _is_parent(event, h):
+            if action in ("approve", "grant", "lock") and not _is_parent(event, h):
                 return _resp(403, {"error": "parent PIN required"})
+            if action in ("grant", "lock"):
+                r = family.tv_grant(h, action == "grant")
+                store.save(h)
+                return _resp(200, r)
             r = {"request": family.tv_request, "approve": family.tv_approve}.get(action, None)
             r = r(h) if r else family.tv_use(h, int(body.get("minutes", 0)))
             store.save(h)

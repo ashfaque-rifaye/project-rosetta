@@ -31,7 +31,7 @@ class CloudRepository(
 ) : RosettaRepository {
 
     private val local = LocalRepository(scope).also { it.setLive(code) }
-    private val http = OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS).build()
+    private val http = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build() // the AI writes a quiz in ~20 s
     private val photoDir = File(context.cacheDir, "photos").apply { mkdirs() }
     private val voiceDir = File(context.cacheDir, "voice").apply { mkdirs() }
     override val household: StateFlow<Household> = local.household
@@ -202,7 +202,7 @@ class CloudRepository(
 
     private fun parseTv(t: JSONObject, json: JSONObject) = TvTime(
         mustDo = t.optInt("mustDo"), done = t.optInt("done"), allDone = t.optBoolean("allDone"), unlocked = t.optBoolean("unlocked"),
-        needsApproval = t.optBoolean("needsApproval"), requested = t.optBoolean("requested"),
+        needsApproval = t.optBoolean("needsApproval"), requested = t.optBoolean("requested"), granted = t.optBoolean("granted"),
         tvMinutes = t.optInt("tvMinutes", 45), minutesLeft = t.optInt("minutesLeft", 45),
         waitingOn = t.optJSONArray("waitingOn")?.objects()?.map { w ->
             val name = json.optJSONArray("kids")?.objects()?.firstOrNull { it.optString("id") == w.optString("kidId") }?.optString("name")

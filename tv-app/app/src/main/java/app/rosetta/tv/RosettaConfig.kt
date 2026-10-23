@@ -15,7 +15,7 @@ object RosettaConfig {
     val webUrl: String = BuildConfig.ROSETTA_WEB_URL
 
     fun repository(context: Context, scope: CoroutineScope): RosettaRepository =
-        if (apiUrl.isBlank()) LocalRepository(scope) else CloudRepository(context, apiUrl, scope)
+        if (apiUrl.isBlank()) LocalRepository(scope) else CloudRepository(context, apiUrl, scope, BuildConfig.ROSETTA_CODE)
 
     fun joinUrl(code: String): String =
         if (webUrl.isBlank()) "https://rosetta.family/join?code=$code" else "${webUrl.trimEnd('/')}/kid.html?code=$code"

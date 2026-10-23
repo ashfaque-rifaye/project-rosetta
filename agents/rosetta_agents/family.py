@@ -227,11 +227,12 @@ def tv_status(h: dict) -> dict:
     s, t = h["settings"], h.get("tvTime") or {}
     all_done = len(done) == len(must)
     approved = bool(t.get("approved")) or not s["tvNeedsApproval"]
-    unlocked = all_done and approved
+    granted = bool(t.get("granted"))  # a parent unlocked today's TV time themselves
+    unlocked = (all_done and approved) or granted
     used = int(t.get("minutesUsed", 0))
     return {"date": d, "mustDo": len(must), "done": len(done), "allDone": all_done, "unlocked": unlocked,
             "needsApproval": bool(s["tvNeedsApproval"]), "approved": bool(t.get("approved")),
-            "requested": bool(t.get("requested")), "tvMinutes": int(s["tvMinutes"]),
+            "requested": bool(t.get("requested")), "granted": granted, "tvMinutes": int(s["tvMinutes"]),
             "minutesLeft": max(0, int(s["tvMinutes"]) - used) if unlocked else int(s["tvMinutes"]),
             "waitingOn": [{"questId": q["id"], "kidId": q["kidId"], "title": q["title"]} for q in must if q["stage"] != "Done"]}
 
@@ -250,6 +251,14 @@ def tv_request(h: dict) -> dict:
 def tv_approve(h: dict) -> dict:
     h["tvTime"].update(approved=True, requested=False)
     notify.emit(h, "tv_unlocked", "TV time unlocked 📺", f"{h['settings']['tvMinutes']} minutes, earned today.", by="parent", notify=False)
+    return tv_status(h)
+
+
+def tv_grant(h: dict, on: bool = True) -> dict:
+    """A parent unlocks today's TV time from their phone (or locks it again), whatever the tasks say."""
+    h["tvTime"].update(granted=on, requested=False)
+    if on:
+        notify.emit(h, "tv_unlocked", "TV time unlocked 📺", f"{h['settings']['tvMinutes']} minutes, from a grown-up.", by="parent", notify=False)
     return tv_status(h)
 
 

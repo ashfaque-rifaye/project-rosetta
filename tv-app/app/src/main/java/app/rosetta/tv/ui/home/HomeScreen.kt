@@ -2,7 +2,11 @@ package app.rosetta.tv.ui.home
 
 import android.net.Uri
 import android.view.TextureView
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.key
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -427,8 +431,18 @@ private fun TvPortal(h: Household, onRequest: () -> Unit, onWatch: (WatchApp) ->
     val spin by rememberInfiniteTransition(label = "portal").animateFloat(0f, 360f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "s")
     val glow by rememberInfiniteTransition(label = "pg").animateFloat(0.5f, 1f, infiniteRepeatable(tween(1300), RepeatMode.Reverse), label = "g")
     val accent = if (tv.unlocked) Rosetta.Moss else Rosetta.Gold
+    // The portal bursts open when TV time unlocks: a pop and the reward sound.
+    val pop = remember { Animatable(1f) }
+    var wasUnlocked by remember { mutableStateOf(tv.unlocked) }
+    LaunchedEffect(tv.unlocked) {
+        if (tv.unlocked && !wasUnlocked) {
+            app.rosetta.tv.ui.kit.Sfx.play(app.rosetta.tv.ui.kit.Sfx.Reward)
+            pop.snapTo(1.12f); pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+        }
+        wasUnlocked = tv.unlocked
+    }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
+        Modifier.fillMaxWidth().graphicsLayer { scaleX = pop.value; scaleY = pop.value }.clip(RoundedCornerShape(26.dp))
             .background(Brush.verticalGradient(listOf(Color(0xE81A2547), Color(0xF00C1328))))
             .border(2.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.8f * glow), Color.White.copy(alpha = 0.05f))), RoundedCornerShape(26.dp))
             .padding(18.dp),
@@ -447,8 +461,14 @@ private fun TvPortal(h: Household, onRequest: () -> Unit, onWatch: (WatchApp) ->
                     drawArc(accent, -90f, 360f * progress, false, style = Stroke(s, cap = StrokeCap.Round), topLeft = Offset(s / 2, s / 2), size = sz)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (tv.unlocked) "🔓" else "🔒", fontSize = 30.sp)
-                    Text(if (tv.mustDo == 0) "free" else "${tv.done}/${tv.mustDo}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Rosetta.Cream)
+                    // Real-time 3D: a gold padlock while TV time is locked, a glowing TV once it's earned.
+                    key(tv.unlocked) {
+                        app.rosetta.tv.ui.kit.Model3D(
+                            if (tv.unlocked) "models/tv.glb" else "models/padlock.glb", Modifier.size(62.dp),
+                            units = 1.8f, spinDegPerSec = if (tv.unlocked) 90f else 35f, tilt = 6f,
+                        )
+                    }
+                    if (!tv.unlocked) Text(if (tv.mustDo == 0) "free" else "${tv.done}/${tv.mustDo}", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Rosetta.Cream)
                 }
             }
             Spacer(Modifier.width(16.dp))
@@ -465,6 +485,7 @@ private fun TvPortal(h: Household, onRequest: () -> Unit, onWatch: (WatchApp) ->
                 )
                 Text(
                     when {
+                        tv.unlocked && tv.granted && !tv.allDone -> "Mom & Dad unlocked it. Pick a show!"
                         tv.unlocked -> "Pick something to watch."
                         tv.allDone && tv.requested -> "Waiting for a yes on their phone."
                         tv.allDone -> "Ask a grown-up to say OK."

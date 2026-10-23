@@ -121,7 +121,7 @@ fun RewardScreen(household: Household, reward: QuestReward, onCarve: () -> Unit)
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     LootTile(visible = step >= 1, title = "+$xpShown", label = "EXPERIENCE", accent = Rosetta.Lime) { Text("⚡", fontSize = 34.sp) }
                     LootTile(visible = step >= 3, title = "+$coinsShown", label = "COINS", accent = Rosetta.Gold) {
-                        AssetImage(Household0.COIN, Modifier.size(52.dp), contentScale = ContentScale.Fit)
+                        if (step >= 3) app.rosetta.tv.ui.kit.Model3D("models/coin.glb", Modifier.size(66.dp), units = 1.9f, spinDegPerSec = 160f, tilt = 0f)
                     }
                     if (reward.money > 0) {
                         LootTile(visible = step >= 3, title = money(household.currency, reward.money), label = "POCKET MONEY", accent = Rosetta.Lime) { Text("💰", fontSize = 34.sp) }

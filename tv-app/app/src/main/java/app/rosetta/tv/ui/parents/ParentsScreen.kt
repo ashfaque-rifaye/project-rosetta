@@ -46,7 +46,7 @@ import app.rosetta.tv.ui.theme.Rosetta
  * For Mom and Dad (and anyone trying Rosetta): the parent page is on the phone, so the TV shows how to get there —
  * a QR code, the link, the demo PIN — plus what's waiting for a grown-up right now.
  */
-private const val DEMO_CODE = "R4KX"
+private val DEMO_CODES = setOf("R4KX", "DEMO") // public demo families: their PIN is in the README
 
 @Composable
 fun ParentsScreen(household: Household, parentUrl: String?, onProgress: () -> Unit) {
@@ -110,7 +110,7 @@ fun ParentsScreen(household: Household, parentUrl: String?, onProgress: () -> Un
                                 Text(household.pairingCode, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp, color = Rosetta.Gold)
                             }
                             // Only the public demo family shows its PIN; a real family's PIN stays off the TV kids watch.
-                            if (household.pairingCode == DEMO_CODE) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (household.pairingCode in DEMO_CODES) Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("DEMO PIN", fontSize = 12.sp, letterSpacing = 2.sp, color = Rosetta.Mist)
                                 Text("2468", fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp, color = Rosetta.Gold)
                             }

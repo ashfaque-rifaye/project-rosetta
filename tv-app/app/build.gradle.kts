@@ -21,6 +21,7 @@ android {
         // Empty = bundled demo household. Set after `cdk deploy` (see infra/README.md).
         buildConfigField("String", "ROSETTA_API_URL", "\"${project.findProperty("rosettaApiUrl") ?: ""}\"")
         buildConfigField("String", "ROSETTA_WEB_URL", "\"${project.findProperty("rosettaWebUrl") ?: ""}\"")
+        buildConfigField("String", "ROSETTA_CODE", "\"${project.findProperty("rosettaCode") ?: "R4KX"}\"")
     }
 
     buildTypes {

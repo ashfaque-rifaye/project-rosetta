@@ -116,6 +116,7 @@
     <h2>TV time</h2>
     <div class="card">
       <div id="tvState"></div>
+      <div class="row"><button id="tvGrant">📺 Unlock TV time now</button><button id="tvLock" class="ghost">Lock it again</button></div>
       <label class="field">Minutes earned each day<input id="sMinutes" type="number" min="0" max="240" step="5" value="45"></label>
       <label class="toggle"><input type="checkbox" id="sApprove"> Ask me before TV time unlocks</label>
       <button id="sSave" class="ghost">Save TV and pocket money settings</button>
@@ -355,7 +356,7 @@ async function refresh() {
   setHtml("wishCard", wishCardHtml(h));
   setHtml("feed", feedHtml(h));
   const t = h.tvTime || {};
-  setHtml("tvState", `<p>${t.unlocked ? `🔓 Unlocked today · ${t.minutesLeft} minutes left` : t.allDone ? (t.requested ? "📺 They're asking for TV time" : "✓ Must-do tasks done") : `🔒 ${t.done} of ${t.mustDo} must-do tasks done`}</p>`);
+  setHtml("tvState", `<p>${t.unlocked ? `🔓 Unlocked today${t.granted && !t.allDone ? " by a grown-up" : ""} · ${t.minutesLeft} minutes left` : t.allDone ? (t.requested ? "📺 They're asking for TV time" : "✓ Must-do tasks done") : `🔒 ${t.done} of ${t.mustDo} must-do tasks done`}</p>`);
   const stars = (h.stars || []).length, goal = h.starsGoal || 9;
   setHtml("goal", `<div class="stars">${"★".repeat(Math.min(stars, goal))}<span>${"☆".repeat(Math.max(0, goal - stars))}</span></div>
     <div class="muted small">${stars} of ${goal} stars · Movie Night ${stars >= goal ? "is unlocked 🍿" : "when all are in"}</div>`);
@@ -411,6 +412,8 @@ $("wAdd").onclick = async () => {
   if (r) { $("wTitle").value = ""; $("wPrice").value = ""; $("wLink").value = ""; }
 };
 
+$("tvGrant").onclick = () => act(`/household/${CODE}/tvtime/grant`, null, "TV time unlocked. Look at the TV 📺");
+$("tvLock").onclick = () => act(`/household/${CODE}/tvtime/lock`, null, "TV time locked again 🔒");
 $("sSave").onclick = () => act(`/household/${CODE}/settings`, { tvMinutes: +$("sMinutes").value, tvNeedsApproval: $("sApprove").checked, moneyPerCoin: +$("sPerCoin").value || 0 }, "Saved");
 
 $("quick").querySelectorAll(".chip").forEach((b) => b.onclick = () => { $("msg").value = b.dataset.t; });

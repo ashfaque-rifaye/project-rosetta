@@ -152,6 +152,15 @@ class Habits(Base):
 
 
 class TvTime(Base):
+    def test_a_parent_can_unlock_tv_time_now_and_lock_it_again(self):
+        self.assertEqual(call("POST", "/household/R4KX/tvtime/grant")[0], 403)
+        st, tv = call("POST", "/household/R4KX/tvtime/grant", pin=PIN)
+        self.assertEqual(st, 200)
+        self.assertTrue(tv["unlocked"] and tv["granted"])
+        self.assertFalse(tv["allDone"])  # the tasks are still honest about what's left
+        st, tv = call("POST", "/household/R4KX/tvtime/lock", pin=PIN)
+        self.assertFalse(tv["unlocked"])
+
     def test_unlocks_only_after_must_do_tasks(self):
         st = call("GET", "/household/R4KX")[1]["tvTime"]
         self.assertEqual((st["mustDo"], st["done"], st["unlocked"]), (2, 0, False))  # two homework quests

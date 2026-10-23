@@ -59,6 +59,8 @@ data class TvTime(
     val unlocked: Boolean = false,
     val needsApproval: Boolean = false,
     val requested: Boolean = false,
+    /** A parent unlocked today's TV time from their phone. */
+    val granted: Boolean = false,
     val tvMinutes: Int = 45,
     val minutesLeft: Int = 45,
     val waitingOn: List<String> = emptyList(),
